@@ -39,8 +39,12 @@ export function SettingsSubscriptionsContent() {
   const { currentUser } = useDashboardContext();
   const [settings, setSettings] = React.useState<SubscriptionSettings | null>(null);
   const [draftDefaultFee, setDraftDefaultFee] = React.useState("");
+  const [defaultFeeError, setDefaultFeeError] = React.useState("");
+  const [savingDefaultFee, setSavingDefaultFee] = React.useState(false);
   const [editingHospitalId, setEditingHospitalId] = React.useState<string | null>(null);
   const [editingFee, setEditingFee] = React.useState("");
+  const [customFeeError, setCustomFeeError] = React.useState("");
+  const [savingCustomFeeId, setSavingCustomFeeId] = React.useState<string | null>(null);
   const [hospitals, setHospitals] = React.useState<MockUser[]>([]);
   const [hospitalSubscription, setHospitalSubscription] = React.useState<{
     amount: number;
@@ -98,21 +102,42 @@ export function SettingsSubscriptionsContent() {
 
   async function saveDefaultFee() {
     if (!settings) return;
-    const nextSettings = await updateDefaultFee(draftDefaultFee);
-    setSettings(nextSettings);
-    setDraftDefaultFee(nextSettings.defaultFee);
+    setDefaultFeeError("");
+    setSavingDefaultFee(true);
+
+    try {
+      const nextSettings = await updateDefaultFee(draftDefaultFee);
+      setSettings(nextSettings);
+      setDraftDefaultFee(nextSettings.defaultFee);
+    } catch (error) {
+      setDefaultFeeError(
+        error instanceof Error ? error.message : "Unable to save default fee."
+      );
+    } finally {
+      setSavingDefaultFee(false);
+    }
   }
 
   async function saveCustomFee(hospitalId: string) {
     if (!editingFee.trim()) {
       setEditingHospitalId(null);
       setEditingFee("");
+      setCustomFeeError("");
       return;
     }
-    const nextSettings = await updateCustomHospitalFee(hospitalId, editingFee);
-    setSettings(nextSettings);
-    setEditingHospitalId(null);
-    setEditingFee("");
+    setCustomFeeError("");
+    setSavingCustomFeeId(hospitalId);
+
+    try {
+      const nextSettings = await updateCustomHospitalFee(hospitalId, editingFee);
+      setSettings(nextSettings);
+      setEditingHospitalId(null);
+      setEditingFee("");
+    } catch (error) {
+      setCustomFeeError(error instanceof Error ? error.message : "Unable to save custom fee.");
+    } finally {
+      setSavingCustomFeeId(null);
+    }
   }
 
   if (currentUser.role !== "admin") {
@@ -145,8 +170,8 @@ export function SettingsSubscriptionsContent() {
                   <CreditCard className="size-5" />
                 </div>
                 <div>
-                  <p className="text-base font-medium text-[#0F172A]">Current Plan</p>
-                  <p className="mt-1 text-xs text-[#64748B]">
+                  <p className="ui-section-title">Current Plan</p>
+                  <p className="mt-1 ui-meta">
                     {hospitalSubscription?.source === "hospital_override" ? "Custom fee" : "Using default"}
                   </p>
                 </div>
@@ -154,7 +179,7 @@ export function SettingsSubscriptionsContent() {
             </div>
 
             <div className="mt-4 border-t border-[#E2E8F0] pt-4">
-              <p className="text-[32px] font-medium leading-none text-[#0F172A]">
+              <p className="ui-page-title leading-none">
                 {formatFee(displayFee)}
               </p>
             </div>
@@ -166,13 +191,13 @@ export function SettingsSubscriptionsContent() {
                 <IndianRupee className="size-5" />
               </div>
               <div>
-                <p className="text-base font-medium text-[#0F172A]">Default Fee</p>
-                <p className="mt-1 text-xs text-[#64748B]">Contact admin for custom pricing</p>
+                <p className="ui-section-title">Default Fee</p>
+                <p className="mt-1 ui-meta">Contact admin for custom pricing</p>
               </div>
             </div>
 
             <div className="mt-4 border-t border-[#E2E8F0] pt-4">
-              <p className="text-[32px] font-medium leading-none text-[#0F172A]">
+              <p className="ui-page-title leading-none">
                 {formatFee(defaultFee)}
               </p>
             </div>
@@ -207,7 +232,7 @@ export function SettingsSubscriptionsContent() {
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_144px] md:items-end">
           <label className="min-w-0 flex-1 space-y-2">
-            <span className="inline-flex items-center gap-2 text-sm font-medium text-[#0F172A]">
+            <span className="inline-flex items-center gap-2 ui-body">
               <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <CreditCard className="size-4" />
               </span>
@@ -215,15 +240,27 @@ export function SettingsSubscriptionsContent() {
             </span>
             <Input
               value={draftDefaultFee}
-              onChange={(event) => setDraftDefaultFee(event.target.value)}
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              onChange={(event) => {
+                setDraftDefaultFee(event.target.value);
+                setDefaultFeeError("");
+              }}
               placeholder="Enter default fee"
             />
           </label>
 
-          <Button className="h-11 w-full px-4" onClick={() => void saveDefaultFee()}>
+          <Button
+            className="h-11 w-full px-4"
+            onClick={() => void saveDefaultFee()}
+            loading={savingDefaultFee}
+          >
             Save Fee
           </Button>
         </div>
+        {defaultFeeError ? <p className="mt-3 text-sm text-[#EF4444]">{defaultFeeError}</p> : null}
       </Card>
 
       <section className="space-y-4">
@@ -233,7 +270,7 @@ export function SettingsSubscriptionsContent() {
               <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <Sparkles className="size-4" />
               </span>
-              <h2 className="text-base font-medium text-[#0F172A]">Hospital Overrides</h2>
+              <h2 className="ui-section-title">Hospital Overrides</h2>
             </div>
             <p className="text-sm text-[#64748B]">Custom pricing per hospital</p>
           </div>
@@ -259,10 +296,10 @@ export function SettingsSubscriptionsContent() {
                       <Building2 className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-medium text-[#0F172A]">
+                      <h3 className="truncate ui-section-title">
                         {row.displayName}
                       </h3>
-                      <p className="mt-1 text-xs text-[#64748B]">
+                      <p className="mt-1 ui-meta">
                         {row.customFee ? "Custom fee" : "Using default"}
                       </p>
                     </div>
@@ -286,7 +323,7 @@ export function SettingsSubscriptionsContent() {
                 </div>
 
                 <div className="mt-4 space-y-3 border-t border-[#E2E8F0] pt-4">
-                  <p className="text-[32px] font-medium leading-none text-[#0F172A]">
+                  <p className="ui-page-title leading-none">
                     {formatFee(row.amount)}
                   </p>
                   <div className="inline-flex items-center gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-sm text-[#64748B]">
@@ -299,15 +336,24 @@ export function SettingsSubscriptionsContent() {
                   <div className="mt-4 space-y-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                     <Input
                       value={editingFee}
-                      onChange={(event) => setEditingFee(event.target.value)}
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="numeric"
+                      onChange={(event) => {
+                        setEditingFee(event.target.value);
+                        setCustomFeeError("");
+                      }}
                       placeholder={`Leave blank to use ${formatFee(settings.defaultFee)}`}
                     />
+                    {customFeeError ? <p className="text-sm text-[#EF4444]">{customFeeError}</p> : null}
 
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         className="h-10"
                         leftIcon={<Check className="size-4" />}
+                        loading={savingCustomFeeId === row.id}
                         onClick={() => void saveCustomFee(row.id)}
                       >
                         Save
@@ -320,6 +366,7 @@ export function SettingsSubscriptionsContent() {
                         onClick={() => {
                           setEditingHospitalId(null);
                           setEditingFee("");
+                          setCustomFeeError("");
                         }}
                       >
                         Cancel

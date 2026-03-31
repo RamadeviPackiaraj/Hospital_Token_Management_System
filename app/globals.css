@@ -58,3 +58,33 @@ body {
 .shadow-panel {
   box-shadow: var(--shadow-panel);
 }
+
+@layer components {
+  .ui-page-title {
+    @apply text-[20px] font-medium text-[#0F172A];
+  }
+
+  .ui-section-title {
+    @apply text-base font-medium text-[#0F172A];
+  }
+
+  .ui-body {
+    @apply text-sm font-normal text-[#0F172A];
+  }
+
+  .ui-body-secondary {
+    @apply text-sm font-normal text-[#64748B];
+  }
+
+  .ui-label {
+    @apply text-xs font-medium text-[#64748B];
+  }
+
+  .ui-meta {
+    @apply text-xs font-normal text-[#64748B];
+  }
+
+  .ui-card {
+    @apply rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)];
+  }
+}

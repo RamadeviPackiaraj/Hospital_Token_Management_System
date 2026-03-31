@@ -24,9 +24,11 @@ export interface MockUser {
   mobileNumber?: string;
   email: string;
   hospitalName?: string;
+  gender?: string;
   specialization?: string;
   department?: string;
   medicalRegistrationId?: string;
+  bloodGroup?: string;
   adminAccessCode?: string;
   country?: string;
   state?: string;
@@ -260,8 +262,12 @@ export type AdminEntityItem = {
   role: string;
   status: string;
   phone?: string | null;
+  gender?: string | null;
   department?: string | null;
   location?: string | null;
+  specialization?: string | null;
+  medicalRegistrationId?: string | null;
+  bloodGroup?: string | null;
   createdAt?: string;
 };
 
@@ -275,7 +281,11 @@ export function mapAdminEntityToMockUser(entity: AdminEntityItem): MockUser {
     mobileNumber: entity.phone || "",
     email: entity.email,
     hospitalName: role === "hospital" ? entity.name : undefined,
+    gender: entity.gender || undefined,
+    specialization: entity.specialization || undefined,
     department: entity.department || undefined,
+    medicalRegistrationId: entity.medicalRegistrationId || undefined,
+    bloodGroup: entity.bloodGroup || undefined,
     country: locationParts.country,
     state: locationParts.state,
     city: locationParts.city,
@@ -364,6 +374,29 @@ export function getPendingAuthChallenge() {
 
 export function clearPendingAuthChallenge() {
   setStoredJson(PENDING_AUTH_KEY, null);
+}
+
+export async function resendMockOtp() {
+  const challenge = getPendingAuthChallenge();
+
+  if (!challenge) {
+    throw new Error("Resend is unavailable. Please restart the authentication flow.");
+  }
+
+  const path =
+    challenge.mode === "signin" ? "/auth/resend-login-otp" : "/auth/resend-register-otp";
+
+  await apiRequest(
+    path,
+    {
+      method: "POST",
+      body: JSON.stringify({ email: challenge.email }),
+    },
+    { auth: false }
+  );
+
+  setStoredJson(PENDING_AUTH_KEY, challenge);
+  return challenge;
 }
 
 export async function verifyMockOtp(payload: VerifyOtpPayload): Promise<{

@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/+$/, "");
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "");
 
 const AUTH_TOKEN_KEY = "hospital_token_auth_token";
 
@@ -21,6 +21,10 @@ type ApiResponse<T> = {
   success?: boolean;
   message?: string;
   data?: T;
+  errors?: Array<{
+    field?: string;
+    message?: string;
+  }>;
 };
 
 export async function apiRequest<T>(
@@ -43,10 +47,22 @@ export async function apiRequest<T>(
     }
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Unable to connect to the backend service.";
+    throw new Error(
+      `Unable to reach the API at ${API_BASE_URL}. Check that the backend server is running and the frontend API URL is correct. Original error: ${message}`
+    );
+  }
 
   const raw = await response.text();
   let parsed: ApiResponse<T> | null = null;
@@ -59,7 +75,11 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    const message = parsed?.message || response.statusText || "Request failed";
+    const message =
+      parsed?.errors?.[0]?.message ||
+      parsed?.message ||
+      response.statusText ||
+      "Request failed";
     throw new Error(message);
   }
 

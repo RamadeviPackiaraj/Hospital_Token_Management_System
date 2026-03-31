@@ -55,7 +55,7 @@ export async function deleteDepartment(id: string) {
 export async function getSubscriptionSettings() {
   const defaultSubscription = await apiRequest<{ amount: number }>("/admin/subscription/default");
   const hospitalsResponse = await apiRequest<{ items: Array<Record<string, unknown>> }>(
-    `/admin/hospitals${buildQuery({ limit: 200 })}`
+    `/admin/hospitals${buildQuery({ limit: 100 })}`
   );
 
   const customFees = (hospitalsResponse.items || [])
@@ -73,9 +73,14 @@ export async function getSubscriptionSettings() {
 }
 
 export async function updateDefaultFee(defaultFee: string) {
-  const amount = Number(defaultFee);
-  if (Number.isNaN(amount)) {
-    throw new Error("Default fee must be a number");
+  const trimmed = defaultFee.trim();
+  if (!trimmed) {
+    throw new Error("Default fee is required");
+  }
+
+  const amount = Number(trimmed);
+  if (Number.isNaN(amount) || amount < 0) {
+    throw new Error("Default fee must be a non-negative number");
   }
   await apiRequest("/admin/subscription/default", {
     method: "POST",
@@ -85,9 +90,14 @@ export async function updateDefaultFee(defaultFee: string) {
 }
 
 export async function updateCustomHospitalFee(hospitalId: string, fee: string) {
-  const amount = Number(fee);
-  if (Number.isNaN(amount)) {
-    throw new Error("Fee must be a number");
+  const trimmed = fee.trim();
+  if (!trimmed) {
+    throw new Error("Fee is required");
+  }
+
+  const amount = Number(trimmed);
+  if (Number.isNaN(amount) || amount < 0) {
+    throw new Error("Fee must be a non-negative number");
   }
   await apiRequest("/admin/subscription/hospital", {
     method: "POST",
@@ -97,7 +107,11 @@ export async function updateCustomHospitalFee(hospitalId: string, fee: string) {
 }
 
 export async function getSelectionsForDoctor(doctorId: string) {
-  const doctor = await apiRequest<{ selected_hospitals: any[]; approved_hospitals: any[] }>(
+  const doctor = await apiRequest<{
+    selected_hospitals: any[];
+    approved_hospitals: any[];
+    rejected_hospitals: any[];
+  }>(
     `/doctors/${doctorId}`
   );
 
@@ -118,7 +132,15 @@ export async function getSelectionsForDoctor(doctorId: string) {
     requestedAt: now,
   }));
 
-  return [...pending, ...approved];
+  const rejected = (doctor.rejected_hospitals || []).map((hospital) => ({
+    id: `${doctorId}:${hospital.id}:rejected`,
+    doctorId,
+    hospitalId: hospital.id,
+    status: "rejected" as const,
+    requestedAt: now,
+  }));
+
+  return [...pending, ...approved, ...rejected];
 }
 
 export async function getSelectionsForHospital(hospitalId: string) {
@@ -127,6 +149,9 @@ export async function getSelectionsForHospital(hospitalId: string) {
   );
   const approvedData = await apiRequest<{ doctors: any[] }>(
     `/hospitals/${hospitalId}/approved-doctors`
+  );
+  const rejectedData = await apiRequest<{ doctors: any[] }>(
+    `/hospitals/${hospitalId}/rejected-doctors`
   );
 
   const now = new Date().toISOString().slice(0, 10);
@@ -146,7 +171,15 @@ export async function getSelectionsForHospital(hospitalId: string) {
     requestedAt: now,
   }));
 
-  return [...pending, ...approved];
+  const rejected = (rejectedData.doctors || []).map((doctor) => ({
+    id: `${doctor.userId}:${hospitalId}:rejected`,
+    doctorId: doctor.userId,
+    hospitalId,
+    status: "rejected" as const,
+    requestedAt: now,
+  }));
+
+  return [...pending, ...approved, ...rejected];
 }
 
 export async function getApprovedDoctorsForHospital(hospitalId: string) {
@@ -210,14 +243,14 @@ export async function getDoctorNameById(doctorId: string) {
 
 export async function getAdminHospitals() {
   const response = await apiRequest<{ items: any[] }>(
-    `/admin/hospitals${buildQuery({ limit: 200 })}`
+    `/admin/hospitals${buildQuery({ limit: 100 })}`
   );
   return (response.items || []).map(mapAdminEntityToMockUser);
 }
 
 export async function getAdminDoctors() {
   const response = await apiRequest<{ items: any[] }>(
-    `/admin/doctors${buildQuery({ limit: 200 })}`
+    `/admin/doctors${buildQuery({ limit: 100 })}`
   );
   return (response.items || []).map(mapAdminEntityToMockUser);
 }

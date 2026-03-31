@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SelectOption {
@@ -43,7 +44,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
         className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[#64748B]"
         aria-hidden="true"
       >
-        ▼
+        <ChevronDown className="size-4" />
       </span>
     </div>
   );

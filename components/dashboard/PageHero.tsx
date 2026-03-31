@@ -34,8 +34,8 @@ export function PageHero({
               {icon}
             </div>
             <div>
-              <h2 className="text-xl font-medium text-[#0F172A]">{title}</h2>
-              {description ? <p className="mt-1 text-sm text-[#64748B]">{description}</p> : null}
+              <h2 className="ui-page-title">{title}</h2>
+              {description ? <p className="mt-1 ui-body-secondary">{description}</p> : null}
             </div>
           </div>
 
@@ -43,8 +43,8 @@ export function PageHero({
             <div className="flex flex-wrap gap-3">
               {stats.map((stat) => (
                 <Badge key={stat.label} variant="neutral" className="rounded-xl px-3 py-2 text-xs font-medium">
-                  <span className="text-[#64748B]">{stat.label}</span>
-                  <span className="ml-2 text-[#0F172A]">{stat.value}</span>
+                  <span className="ui-label">{stat.label}</span>
+                  <span className="ml-2 ui-body">{stat.value}</span>
                 </Badge>
               ))}
             </div>

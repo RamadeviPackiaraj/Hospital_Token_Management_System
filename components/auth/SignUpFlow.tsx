@@ -1,68 +1,34 @@
 "use client";
 
 import * as React from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { Controller, useForm } from "react-hook-form";
 import { GetCity, GetCountries, GetState } from "react-country-state-city";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { AuthCard } from "@/components/auth/AuthCard";
-import { InputField } from "@/components/auth/InputField";
 import { RoleSelector } from "@/components/auth/RoleSelector";
-import { SelectField } from "@/components/auth/SelectField";
+import { FormWrapper } from "@/components/FormWrapper";
+import { Input } from "@/components/Input";
+import { PasswordInput } from "@/components/PasswordInput";
+import { Select } from "@/components/Select";
 import { useAuthRole } from "@/components/auth/AuthRoleContext";
 import {
   AuthRole,
   beginMockSignup,
   formatRoleLabel,
   isAuthRole,
-  type SignupPayload
+  type SignupPayload,
 } from "@/lib/auth-flow";
 import { getDepartments, type DepartmentRecord } from "@/lib/dashboard-data";
-
-type SignupFieldKey =
-  | "fullName"
-  | "mobileNumber"
-  | "email"
-  | "password"
-  | "confirmPassword"
-  | "medicalRegistrationId"
-  | "specialization"
-  | "hospitalName"
-  | "department"
-  | "gender"
-  | "dob"
-  | "bloodGroup"
-  | "country"
-  | "state"
-  | "city"
-  | "adminAccessCode";
-
-type SignupFormState = Record<SignupFieldKey, string>;
+import { defaultSignupValues, signupSchema, type SignupFormValues } from "@/utils/validationSchemas";
 
 type CountryOption = { id: number; name: string };
 type StateOption = { id: number; name: string };
 type CityOption = { id: number; name: string };
 
-const initialState: SignupFormState = {
-  fullName: "",
-  mobileNumber: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-  medicalRegistrationId: "",
-  specialization: "",
-  hospitalName: "",
-  department: "",
-  gender: "",
-  dob: "",
-  bloodGroup: "",
-  country: "",
-  state: "",
-  city: "",
-  adminAccessCode: ""
-};
-
-function buildPayload(role: AuthRole, values: SignupFormState): SignupPayload {
+function buildPayload(role: AuthRole, values: SignupFormValues): SignupPayload {
   const common = {
     role,
     fullName: values.fullName,
@@ -72,7 +38,7 @@ function buildPayload(role: AuthRole, values: SignupFormState): SignupPayload {
     confirmPassword: values.confirmPassword,
     country: values.country,
     state: values.state,
-    city: values.city
+    city: values.city,
   } as const;
 
   if (role === "doctor") {
@@ -84,7 +50,7 @@ function buildPayload(role: AuthRole, values: SignupFormState): SignupPayload {
       department: values.department,
       gender: values.gender,
       dob: values.dob,
-      bloodGroup: values.bloodGroup
+      bloodGroup: values.bloodGroup,
     };
   }
 
@@ -93,7 +59,7 @@ function buildPayload(role: AuthRole, values: SignupFormState): SignupPayload {
       ...common,
       role: "hospital",
       hospitalName: values.hospitalName,
-      department: values.department
+      department: values.department,
     };
   }
 
@@ -101,7 +67,7 @@ function buildPayload(role: AuthRole, values: SignupFormState): SignupPayload {
     ...common,
     role: "admin",
     hospitalName: values.hospitalName,
-    adminAccessCode: values.adminAccessCode
+    adminAccessCode: values.adminAccessCode,
   };
 }
 
@@ -112,9 +78,7 @@ export function SignUpFlow() {
   const roleParam = searchParams.get("role");
   const selectedRole = isAuthRole(roleParam) ? roleParam : null;
 
-  const [values, setValues] = React.useState<SignupFormState>(initialState);
-  const [error, setError] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
+  const [serverError, setServerError] = React.useState("");
   const [countries, setCountries] = React.useState<CountryOption[]>([]);
   const [states, setStates] = React.useState<StateOption[]>([]);
   const [cities, setCities] = React.useState<CityOption[]>([]);
@@ -122,16 +86,47 @@ export function SignUpFlow() {
   const [selectedStateId, setSelectedStateId] = React.useState<number | null>(null);
   const [departments, setDepartments] = React.useState<DepartmentRecord[]>([]);
 
+  const methods = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    defaultValues: {
+      ...defaultSignupValues,
+      role: selectedRole ?? "doctor",
+    },
+  });
+
+  const {
+    control,
+    register,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, touchedFields, isSubmitting },
+  } = methods;
+
+  const values = watch();
   const countryOptions = countries.map((country) => ({ value: String(country.id), label: country.name }));
   const stateOptions = states.map((state) => ({ value: String(state.id), label: state.name }));
   const cityOptions = cities.map((city) => ({ value: String(city.id), label: city.name }));
   const departmentOptions = departments.map((department) => ({
     label: department.name,
-    value: department.name
+    value: department.name,
   }));
 
-  function updateValue(key: SignupFieldKey, value: string) {
-    setValues((current) => ({ ...current, [key]: value }));
+  const mobileNumberRegistration = register("mobileNumber", {
+    onChange: (event) => {
+      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 10);
+      setServerError("");
+    },
+  });
+
+  function isFieldValid(fieldName: keyof SignupFormValues) {
+    return Boolean(
+      (touchedFields as Partial<Record<keyof SignupFormValues, boolean>>)[fieldName] &&
+        watch(fieldName) &&
+        !errors[fieldName]
+    );
   }
 
   function handleRoleSelect(role: AuthRole) {
@@ -163,6 +158,23 @@ export function SignUpFlow() {
       active = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!selectedRole) {
+      return;
+    }
+
+    reset({
+      ...defaultSignupValues,
+      role: selectedRole,
+    });
+    setSelectedCountryId(null);
+    setSelectedStateId(null);
+    setStates([]);
+    setCities([]);
+    setServerError("");
+    setSelectedRole(selectedRole);
+  }, [reset, selectedRole, setSelectedRole]);
 
   React.useEffect(() => {
     if (!selectedCountryId) {
@@ -199,27 +211,19 @@ export function SignUpFlow() {
     };
   }, [selectedCountryId, selectedStateId]);
 
-  React.useEffect(() => {
-    if (selectedRole) {
-      setSelectedRole(selectedRole);
+  async function handleSubmit(formValues: SignupFormValues) {
+    if (!selectedRole) {
+      return;
     }
-  }, [selectedRole, setSelectedRole]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedRole) return;
-
-    setLoading(true);
-    setError("");
+    setServerError("");
 
     try {
-      const challenge = await beginMockSignup(buildPayload(selectedRole, values));
+      const challenge = await beginMockSignup(buildPayload(selectedRole, formValues));
       setSelectedRole(challenge.role);
       router.push(`/verify-otp?mode=${challenge.mode}&role=${challenge.role}`);
     } catch (signupError) {
-      setError(signupError instanceof Error ? signupError.message : "Unable to start sign up.");
-    } finally {
-      setLoading(false);
+      setServerError(signupError instanceof Error ? signupError.message : "Unable to start sign up.");
     }
   }
 
@@ -239,11 +243,13 @@ export function SignUpFlow() {
 
   return (
     <AuthCard>
-      <form className="space-y-5" onSubmit={handleSubmit}>
+      <FormWrapper methods={methods} onSubmit={handleSubmit}>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="text-[20px] font-medium text-[#0F172A]">Hospital Token Management System</h2>
-            <p className="text-sm text-[#64748B]">Create your {formatRoleLabel(selectedRole).toLowerCase()} account.</p>
+            <p className="text-sm text-[#64748B]">
+              Create your {formatRoleLabel(selectedRole).toLowerCase()} account.
+            </p>
           </div>
           <button
             type="button"
@@ -256,179 +262,268 @@ export function SignUpFlow() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <InputField
+          <Input
             label="Full Name"
-            value={values.fullName}
-            onChange={(event) => updateValue("fullName", event.target.value)}
             placeholder="Enter full name"
+            error={errors.fullName?.message}
+            success={isFieldValid("fullName")}
+            {...register("fullName", {
+              onChange: () => setServerError(""),
+            })}
           />
-          <InputField
+
+          <Input
             label="Mobile Number"
-            value={values.mobileNumber}
-            onChange={(event) => updateValue("mobileNumber", event.target.value)}
             placeholder="Enter mobile number"
             inputMode="numeric"
+            maxLength={10}
+            error={errors.mobileNumber?.message}
+            success={isFieldValid("mobileNumber")}
+            {...mobileNumberRegistration}
           />
-          <InputField
+
+          <Input
             label="Email"
             type="email"
-            value={values.email}
-            onChange={(event) => updateValue("email", event.target.value)}
             placeholder="Enter email"
+            autoComplete="email"
+            error={errors.email?.message}
+            success={isFieldValid("email")}
+            {...register("email", {
+              onChange: () => setServerError(""),
+            })}
           />
-          <InputField
+
+          <PasswordInput
             label="Password"
-            type="password"
-            value={values.password}
-            onChange={(event) => updateValue("password", event.target.value)}
             placeholder="Create password"
+            autoComplete="new-password"
+            error={errors.password?.message}
+            success={isFieldValid("password")}
+            {...register("password", {
+              onChange: () => setServerError(""),
+            })}
           />
-          <InputField
+
+          <PasswordInput
             label="Confirm Password"
-            type="password"
-            value={values.confirmPassword}
-            onChange={(event) => updateValue("confirmPassword", event.target.value)}
             placeholder="Confirm password"
+            autoComplete="new-password"
+            error={errors.confirmPassword?.message}
+            success={isFieldValid("confirmPassword")}
+            {...register("confirmPassword", {
+              onChange: () => setServerError(""),
+            })}
           />
 
           {selectedRole === "doctor" ? (
-            <InputField
+            <Input
               label="Medical Registration ID"
-              value={values.medicalRegistrationId}
-              onChange={(event) => updateValue("medicalRegistrationId", event.target.value)}
               placeholder="Enter registration ID"
+              error={errors.medicalRegistrationId?.message}
+              success={isFieldValid("medicalRegistrationId")}
+              {...register("medicalRegistrationId", {
+                onChange: () => setServerError(""),
+              })}
             />
           ) : null}
 
-          {selectedRole === "hospital" ? (
-            <InputField
+          {selectedRole === "hospital" || selectedRole === "admin" ? (
+            <Input
               label="Hospital Name"
-              value={values.hospitalName}
-              onChange={(event) => updateValue("hospitalName", event.target.value)}
               placeholder="Enter hospital name"
+              error={errors.hospitalName?.message}
+              success={isFieldValid("hospitalName")}
+              {...register("hospitalName", {
+                onChange: () => setServerError(""),
+              })}
             />
           ) : null}
 
           {selectedRole === "admin" ? (
-            <>
-              <InputField
-                label="Hospital Name"
-                value={values.hospitalName}
-                onChange={(event) => updateValue("hospitalName", event.target.value)}
-                placeholder="Enter hospital name"
-              />
-              <InputField
-                label="Admin Access Code"
-                value={values.adminAccessCode}
-                onChange={(event) => updateValue("adminAccessCode", event.target.value)}
-                placeholder="Enter access code"
-              />
-            </>
+            <Input
+              label="Admin Access Code"
+              placeholder="Enter access code"
+              error={errors.adminAccessCode?.message}
+              success={isFieldValid("adminAccessCode")}
+              {...register("adminAccessCode", {
+                onChange: () => setServerError(""),
+              })}
+            />
           ) : null}
 
-          <SelectField
-            label="Country"
-            value={selectedCountryId ? String(selectedCountryId) : ""}
-            onChange={(event) => {
-              const countryId = Number(event.target.value);
-              const country = countries.find((item) => item.id === countryId);
-              setSelectedCountryId(countryId);
-              setSelectedStateId(null);
-              setStates([]);
-              setCities([]);
-              setValues((current) => ({
-                ...current,
-                country: country?.name ?? "",
-                state: "",
-                city: ""
-              }));
-            }}
-            options={countryOptions}
-            placeholder="Select country"
-          />
-          <SelectField
-            label="State"
-            value={selectedStateId ? String(selectedStateId) : ""}
-            onChange={(event) => {
-              const stateId = Number(event.target.value);
-              const state = states.find((item) => item.id === stateId);
-              setSelectedStateId(stateId);
-              setValues((current) => ({
-                ...current,
-                state: state?.name ?? "",
-                city: ""
-              }));
-            }}
-            options={stateOptions}
-            placeholder="Select state"
-            disabled={!selectedCountryId}
-          />
-          <SelectField
-            label="City"
-            value={cities.find((city) => city.name === values.city)?.id ? String(cities.find((city) => city.name === values.city)?.id) : ""}
-            onChange={(event) => {
-              const cityId = Number(event.target.value);
-              const city = cities.find((item) => item.id === cityId);
-              updateValue("city", city?.name ?? "");
-            }}
-            options={cityOptions}
-            placeholder="Select city"
-            disabled={!selectedStateId}
+          <Controller
+            name="country"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Country"
+                value={selectedCountryId ? String(selectedCountryId) : ""}
+                options={countryOptions}
+                placeholder="Select country"
+                error={errors.country?.message}
+                success={isFieldValid("country")}
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  const countryId = Number(event.target.value);
+                  const country = countries.find((item) => item.id === countryId);
+
+                  setSelectedCountryId(countryId);
+                  setSelectedStateId(null);
+                  setStates([]);
+                  setCities([]);
+                  field.onChange(country?.name ?? "");
+                  setValue("state", "", { shouldDirty: true, shouldValidate: true });
+                  setValue("city", "", { shouldDirty: true, shouldValidate: true });
+                  setServerError("");
+                }}
+              />
+            )}
           />
 
-          {(selectedRole === "doctor" || selectedRole === "hospital") ? (
-            <SelectField
-              label="Department"
-              value={values.department}
-              onChange={(event) => updateValue("department", event.target.value)}
-              options={departmentOptions}
-              placeholder="Select department"
+          <Controller
+            name="state"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="State"
+                value={selectedStateId ? String(selectedStateId) : ""}
+                options={stateOptions}
+                placeholder="Select state"
+                disabled={!selectedCountryId}
+                error={errors.state?.message}
+                success={isFieldValid("state")}
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  const stateId = Number(event.target.value);
+                  const state = states.find((item) => item.id === stateId);
+
+                  setSelectedStateId(stateId);
+                  field.onChange(state?.name ?? "");
+                  setValue("city", "", { shouldDirty: true, shouldValidate: true });
+                  setServerError("");
+                }}
+              />
+            )}
+          />
+
+          <Controller
+            name="city"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="City"
+                value={
+                  cities.find((city) => city.name === values.city)?.id
+                    ? String(cities.find((city) => city.name === values.city)?.id)
+                    : ""
+                }
+                options={cityOptions}
+                placeholder="Select city"
+                disabled={!selectedStateId}
+                error={errors.city?.message}
+                success={isFieldValid("city")}
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  const cityId = Number(event.target.value);
+                  const city = cities.find((item) => item.id === cityId);
+
+                  field.onChange(city?.name ?? "");
+                  setServerError("");
+                }}
+              />
+            )}
+          />
+
+          {selectedRole === "doctor" || selectedRole === "hospital" ? (
+            <Controller
+              name="department"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Department"
+                  value={field.value}
+                  options={departmentOptions}
+                  placeholder="Select department"
+                  error={errors.department?.message}
+                  success={isFieldValid("department")}
+                  onBlur={field.onBlur}
+                  onChange={(event) => {
+                    field.onChange(event.target.value);
+                    setServerError("");
+                  }}
+                />
+              )}
             />
           ) : null}
 
           {selectedRole === "doctor" ? (
             <>
-              <SelectField
-                label="Gender"
-                value={values.gender}
-                onChange={(event) => updateValue("gender", event.target.value)}
-                options={[
-                  { label: "Female", value: "female" },
-                  { label: "Male", value: "male" },
-                  { label: "Other", value: "other" }
-                ]}
-                placeholder="Select gender"
+              <Controller
+                name="gender"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Gender"
+                    value={field.value}
+                    options={[
+                      { label: "Female", value: "female" },
+                      { label: "Male", value: "male" },
+                      { label: "Other", value: "other" },
+                    ]}
+                    placeholder="Select gender"
+                    error={errors.gender?.message}
+                    success={isFieldValid("gender")}
+                    onBlur={field.onBlur}
+                    onChange={(event) => {
+                      field.onChange(event.target.value);
+                      setServerError("");
+                    }}
+                  />
+                )}
               />
-              <InputField
+
+              <Input
                 label="Date of Birth"
                 type="date"
-                value={values.dob}
-                onChange={(event) => updateValue("dob", event.target.value)}
                 placeholder="YYYY-MM-DD"
+                error={errors.dob?.message}
+                success={isFieldValid("dob")}
+                {...register("dob", {
+                  onChange: () => setServerError(""),
+                })}
               />
-              <InputField
+
+              <Input
                 label="Blood Group"
-                value={values.bloodGroup}
-                onChange={(event) => updateValue("bloodGroup", event.target.value)}
                 placeholder="Enter blood group"
+                error={errors.bloodGroup?.message}
+                success={isFieldValid("bloodGroup")}
+                {...register("bloodGroup", {
+                  onChange: () => setServerError(""),
+                })}
               />
-              <InputField
+
+              <Input
                 label="Specialization"
                 required={false}
-                value={values.specialization}
-                onChange={(event) => updateValue("specialization", event.target.value)}
                 placeholder="Enter specialization"
+                error={errors.specialization?.message}
+                success={isFieldValid("specialization")}
+                {...register("specialization", {
+                  onChange: () => setServerError(""),
+                })}
               />
             </>
           ) : null}
         </div>
 
-        {error ? <p className="text-sm text-[#EF4444]">{error}</p> : null}
+        {serverError ? <p className="text-sm text-[#EF4444]">{serverError}</p> : null}
 
-        <AuthButton type="submit" loading={loading} rightIcon={<ArrowRight className="size-4" />}>
+        <AuthButton type="submit" loading={isSubmitting} rightIcon={<ArrowRight className="size-4" />}>
           Continue
         </AuthButton>
-      </form>
+      </FormWrapper>
     </AuthCard>
   );
 }

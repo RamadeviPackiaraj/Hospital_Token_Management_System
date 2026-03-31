@@ -21,17 +21,17 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-800">
+      <label htmlFor={htmlFor} className="ui-label block">
         {label}
-        {required ? <span className="ml-1 text-rose-500">*</span> : null}
+        {required ? <span className="ml-1 text-[#EF4444]">*</span> : null}
       </label>
       {children}
       {error ? (
-        <p className="text-sm text-rose-600" role="alert">
+        <p className="ui-body text-[#EF4444]" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="text-sm text-slate-500">{hint}</p>
+        <p className="ui-meta">{hint}</p>
       ) : null}
     </div>
   );

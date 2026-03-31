@@ -17,15 +17,15 @@ export function SettingsNavCard({
 }) {
   return (
     <Link href={href} className="block">
-      <Card className="rounded-[10px] p-4 transition duration-200 hover:scale-[1.01] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
+      <Card className="p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex size-11 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
               {icon}
             </div>
             <div>
-              <h2 className="text-base font-medium text-[#0F172A]">{title}</h2>
-              <p className="mt-1 text-sm text-[#64748B]">{description}</p>
+              <h2 className="ui-section-title">{title}</h2>
+              <p className="mt-1 ui-body-secondary">{description}</p>
             </div>
           </div>
 

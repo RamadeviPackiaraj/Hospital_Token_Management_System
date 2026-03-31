@@ -135,9 +135,9 @@ export default function DashboardPage() {
                   {item.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-[#64748B]">{item.title}</p>
-                  <p className="mt-3 text-[24px] font-medium leading-none text-[#0F172A]">{item.value}</p>
-                  <p className="mt-1 text-xs text-[#64748B]">{item.note}</p>
+                  <p className="ui-body-secondary">{item.title}</p>
+                  <p className="mt-3 ui-page-title leading-none">{item.value}</p>
+                  <p className="mt-1 ui-meta">{item.note}</p>
                 </div>
               </div>
             </Card>
@@ -179,9 +179,9 @@ export default function DashboardPage() {
                 {item.icon}
               </div>
               <div>
-                <p className="text-sm text-[#64748B]">{item.title}</p>
-                <p className="mt-3 text-[24px] font-medium leading-none text-[#0F172A]">{item.value}</p>
-                <p className="mt-1 text-xs text-[#64748B]">{item.note}</p>
+                <p className="ui-body-secondary">{item.title}</p>
+                <p className="mt-3 ui-page-title leading-none">{item.value}</p>
+                <p className="mt-1 ui-meta">{item.note}</p>
               </div>
             </div>
           </Card>
@@ -221,9 +221,9 @@ export default function DashboardPage() {
               {item.icon}
             </div>
             <div>
-              <p className="text-sm text-[#64748B]">{item.title}</p>
-              <p className="mt-3 text-[24px] font-medium leading-none text-[#0F172A]">{item.value}</p>
-              <p className="mt-1 text-xs text-[#64748B]">{item.note}</p>
+              <p className="ui-body-secondary">{item.title}</p>
+              <p className="mt-3 ui-page-title leading-none">{item.value}</p>
+              <p className="mt-1 ui-meta">{item.note}</p>
             </div>
           </div>
         </Card>

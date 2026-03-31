@@ -1,27 +1,67 @@
 "use client";
 
 import * as React from "react";
-import { Check, Search, ShieldCheck, X } from "lucide-react";
+import { Building2, Check, Search, ShieldCheck, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { Badge, Card, Input, Select, Table } from "@/components/ui";
+import { Badge, Button, Card, Checkbox, Input, Select, Table } from "@/components/ui";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
 import { formatDisplayDate } from "@/lib/utils";
 import {
   formatApprovalStatus,
   type MockUser,
-  type UserApprovalStatus
+  type UserApprovalStatus,
 } from "@/lib/auth-flow";
-import { apiRequest } from "@/lib/api";
-import { getAdminHospitals } from "@/lib/dashboard-data";
+import { apiRequest, buildQuery } from "@/lib/api";
+import {
+  getSelectionsForDoctor,
+  submitHospitalSelections,
+  type HospitalSelection,
+  getAdminHospitals,
+} from "@/lib/dashboard-data";
 
 type HospitalRow = Record<string, unknown> & MockUser;
+type HospitalDirectoryItem = {
+  id: string;
+  userId?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  location?: string;
+  status: string;
+};
 
 function badgeVariant(status: UserApprovalStatus) {
   if (status === "approved") return "success";
   if (status === "rejected") return "error";
   return "warning";
+}
+
+function splitLocation(location?: string | null) {
+  const parts = (location || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return {
+    city: parts[0] || "",
+    state: parts[1] || "",
+    country: parts[2] || "",
+  };
+}
+
+function formatRequestStatus(status: HospitalSelection["status"]) {
+  return status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : "Pending";
+}
+
+function requestBadgeVariant(status: HospitalSelection["status"]) {
+  return status === "approved" ? "success" : status === "rejected" ? "error" : "warning";
+}
+
+function getRequestDateLabel(requestedAt: string) {
+  const formatted = formatDisplayDate(requestedAt);
+  return formatted.replace(/ \d{2}:\d{2} (AM|PM)$/, "");
 }
 
 export default function HospitalsPage() {
@@ -31,12 +71,21 @@ export default function HospitalsPage() {
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [users, setUsers] = React.useState<MockUser[]>([]);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
+  const [availableHospitals, setAvailableHospitals] = React.useState<HospitalDirectoryItem[]>([]);
+  const [requests, setRequests] = React.useState<HospitalSelection[]>([]);
+  const [selectedHospitalIds, setSelectedHospitalIds] = React.useState<string[]>([]);
+  const [doctorSearch, setDoctorSearch] = React.useState("");
+  const [loadingDoctorView, setLoadingDoctorView] = React.useState(true);
+  const [doctorError, setDoctorError] = React.useState("");
+  const [submittingSelection, setSubmittingSelection] = React.useState(false);
 
   React.useEffect(() => {
+    if (currentUser.role !== "admin") return;
+
     getAdminHospitals()
       .then((data) => setUsers(data))
       .catch(() => setUsers([]));
-  }, []);
+  }, [currentUser.role]);
 
   React.useEffect(() => {
     const nextStatus = searchParams.get("status");
@@ -47,14 +96,39 @@ export default function HospitalsPage() {
     );
   }, [searchParams]);
 
-  if (currentUser.role !== "admin") {
-    return (
-      <Card className="p-4">
-        <h2 className="text-base font-medium text-[#0F172A]">Hospital module</h2>
-        <p className="mt-1 text-sm text-[#64748B]">Admin can review hospital registrations here.</p>
-      </Card>
-    );
-  }
+  React.useEffect(() => {
+    if (currentUser.role !== "doctor") return;
+
+    let active = true;
+    setLoadingDoctorView(true);
+    setDoctorError("");
+
+    Promise.all([
+      apiRequest<{ items: HospitalDirectoryItem[] }>(
+        `/hospitals${buildQuery({ status: "approved", limit: 100 })}`
+      ),
+      getSelectionsForDoctor(currentUser.id),
+    ])
+      .then(([hospitalResponse, doctorRequests]) => {
+        if (!active) return;
+        setAvailableHospitals(hospitalResponse.items || []);
+        setRequests(doctorRequests);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setDoctorError(error instanceof Error ? error.message : "Unable to load hospitals.");
+        setAvailableHospitals([]);
+        setRequests([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoadingDoctorView(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser.id, currentUser.role]);
 
   const hospitalRows: HospitalRow[] = users
     .filter((user) => user.role === "hospital")
@@ -71,7 +145,7 @@ export default function HospitalsPage() {
   async function updateStatus(userId: string, status: UserApprovalStatus) {
     await apiRequest(`/admin/hospitals/${userId}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status }),
     });
     const updated = await getAdminHospitals();
     setUsers(updated);
@@ -79,12 +153,165 @@ export default function HospitalsPage() {
   }
 
   function confirmRejectHospital() {
-    if (!rejectTarget) {
-      return;
-    }
-
+    if (!rejectTarget) return;
     void updateStatus(rejectTarget.id, "rejected");
     setRejectTarget(null);
+  }
+
+  async function handleSubmitSelection() {
+    if (!selectedHospitalIds.length) return;
+
+    setSubmittingSelection(true);
+    setDoctorError("");
+
+    try {
+      const nextRequests = await submitHospitalSelections(currentUser.id, selectedHospitalIds);
+      setRequests(nextRequests);
+      setSelectedHospitalIds([]);
+    } catch (error) {
+      setDoctorError(error instanceof Error ? error.message : "Unable to submit hospital selection.");
+    } finally {
+      setSubmittingSelection(false);
+    }
+  }
+
+  if (currentUser.role === "doctor") {
+    const requestsByHospitalId = new Map(requests.map((request) => [request.hospitalId, request]));
+    const filteredHospitals = availableHospitals.filter((hospital) => {
+      const term = doctorSearch.toLowerCase();
+      const matchesSearch =
+        hospital.name.toLowerCase().includes(term) || hospital.email.toLowerCase().includes(term);
+      const notAlreadyRequested = !requestsByHospitalId.has(hospital.id);
+
+      return matchesSearch && notAlreadyRequested;
+    });
+
+    return (
+      <div className="space-y-6">
+        <PageHero
+          title="Hospital Selection"
+          description="Select hospitals"
+          icon={<Building2 className="size-5" />}
+          imageSrc="https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=900&q=80"
+          imageAlt="Hospital ward"
+          stats={[
+            { label: "Available", value: String(availableHospitals.length) },
+            { label: "Requests", value: String(requests.length) },
+          ]}
+        />
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-medium text-[#0F172A]">Select Hospitals</h2>
+                <p className="text-sm text-[#64748B]">Choose approved hospitals and submit your requests.</p>
+              </div>
+
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
+                <Input
+                  value={doctorSearch}
+                  onChange={(event) => setDoctorSearch(event.target.value)}
+                  placeholder="Search hospital by name or email"
+                  className="pl-10"
+                />
+              </div>
+
+              {doctorError ? <p className="text-sm text-[#EF4444]">{doctorError}</p> : null}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {filteredHospitals.map((hospital) => {
+                  const location = splitLocation(hospital.location);
+
+                  return (
+                    <label
+                      key={hospital.id}
+                      className="flex cursor-pointer gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 transition hover:border-[#0EA5A4]/40"
+                    >
+                      <Checkbox
+                        checked={selectedHospitalIds.includes(hospital.id)}
+                        disabled={submittingSelection}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setSelectedHospitalIds((current) =>
+                            checked ? [...current, hospital.id] : current.filter((id) => id !== hospital.id)
+                          );
+                        }}
+                      />
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate text-sm font-medium text-[#0F172A]">{hospital.name}</p>
+                        <p className="text-xs text-[#64748B]">{hospital.email}</p>
+                        <p className="text-sm text-[#64748B]">
+                          {[location.city, location.state].filter(Boolean).join(", ") || "Location unavailable"}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {!loadingDoctorView && filteredHospitals.length === 0 ? (
+                <p className="text-sm text-[#64748B]">No approved hospitals matched your search.</p>
+              ) : null}
+
+              <Button
+                className="h-11 px-5"
+                onClick={() => void handleSubmitSelection()}
+                loading={submittingSelection}
+                disabled={selectedHospitalIds.length === 0}
+              >
+                Submit Selection
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-medium text-[#0F172A]">Current Requests</h2>
+                <p className="text-sm text-[#64748B]">Track approved, pending, and rejected hospital selections.</p>
+              </div>
+
+              <div className="space-y-3">
+                {requests.map((request) => {
+                  const hospital = availableHospitals.find((item) => item.id === request.hospitalId) || null;
+
+                  return (
+                    <div key={request.id} className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-[#0F172A]">{hospital?.name || "Hospital request"}</p>
+                          <p className="mt-1 text-xs text-[#64748B]">
+                            Requested {getRequestDateLabel(request.requestedAt)}
+                          </p>
+                        </div>
+                        <Badge status={requestBadgeVariant(request.status)} className="font-medium">
+                          {formatRequestStatus(request.status)}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {!loadingDoctorView && requests.length === 0 ? (
+                  <p className="text-sm text-[#64748B]">No hospital requests submitted yet.</p>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== "admin") {
+    return (
+      <Card className="p-4">
+        <h2 className="text-base font-medium text-[#0F172A]">Hospital module</h2>
+        <p className="mt-1 text-sm text-[#64748B]">Admin can review hospital registrations here.</p>
+      </Card>
+    );
   }
 
   return (
@@ -98,7 +325,7 @@ export default function HospitalsPage() {
         stats={[
           { label: "Pending", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "pending").length) },
           { label: "Approved", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "approved").length) },
-          { label: "Rejected", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "rejected").length) }
+          { label: "Rejected", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "rejected").length) },
         ]}
       />
 
@@ -126,7 +353,7 @@ export default function HospitalsPage() {
                 { label: "All Statuses", value: "all" },
                 { label: "Pending", value: "pending" },
                 { label: "Approved", value: "approved" },
-                { label: "Rejected", value: "rejected" }
+                { label: "Rejected", value: "rejected" },
               ]}
             />
           </label>
@@ -141,18 +368,14 @@ export default function HospitalsPage() {
               header: "Profile",
               render: (row) => (
                 <div className="flex items-center gap-3">
-                  <Avatar
-                    name={row.hospitalName || row.fullName}
-                    size="sm"
-                    className="bg-[#F0FDFA] text-[#0EA5A4]"
-                  />
+                  <Avatar name={row.hospitalName || row.fullName} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
                   <div>
                     <p className="text-sm font-medium text-[#0F172A]">{row.hospitalName || row.fullName}</p>
                     <p className="mt-1 text-xs text-[#64748B]">{row.email}</p>
                     <p className="mt-1 text-xs text-[#64748B]">Hospital account</p>
                   </div>
                 </div>
-              )
+              ),
             },
             {
               key: "details",
@@ -160,22 +383,20 @@ export default function HospitalsPage() {
               render: (row) => (
                 <div className="space-y-1">
                   <p className="text-sm text-[#0F172A]">{row.mobileNumber}</p>
-                  <p className="text-xs text-[#64748B]">
-                    {row.city}, {row.state}
-                  </p>
+                  <p className="text-xs text-[#64748B]">{row.city}, {row.state}</p>
                   <p className="text-xs text-[#64748B]">{row.country}</p>
                 </div>
-              )
+              ),
             },
             {
               key: "registrationDate",
               header: "Registered",
               render: (row) => (
                 <div className="space-y-1">
-                  <p className="text-sm text-[#0F172A]">{formatDisplayDate(row.registrationDate)}</p>
+                  <p className="text-sm text-[#0F172A]">{formatDisplayDate(row.registrationDate || "")}</p>
                   <p className="text-xs text-[#64748B]">Recent request</p>
                 </div>
-              )
+              ),
             },
             {
               key: "approvalStatus",
@@ -184,7 +405,7 @@ export default function HospitalsPage() {
                 <Badge status={badgeVariant(row.approvalStatus)} className="font-medium">
                   {formatApprovalStatus(row.approvalStatus)}
                 </Badge>
-              )
+              ),
             },
             {
               key: "actions",
@@ -192,11 +413,11 @@ export default function HospitalsPage() {
               className: "min-w-[220px]",
               render: (row) => (
                 <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                    <button
-                      type="button"
-                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
-                      onClick={() => void updateStatus(row.id, "approved")}
-                    >
+                  <button
+                    type="button"
+                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
+                    onClick={() => void updateStatus(row.id, "approved")}
+                  >
                     <Check className="size-4" />
                     Approve
                   </button>
@@ -209,8 +430,8 @@ export default function HospitalsPage() {
                     Reject
                   </button>
                 </div>
-              )
-            }
+              ),
+            },
           ]}
           data={hospitalRows}
           pageSize={6}

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@hookform/resolvers": "^3.10.0",
     "@next/swc-win32-x64-msvc": "^15.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -19,7 +20,8 @@
     "react": "19.0.0",
     "react-country-state-city": "^1.1.12",
     "react-dom": "19.0.0",
-    "react-hook-form": "^7.72.0"
+    "react-hook-form": "^7.72.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "22.13.10",
