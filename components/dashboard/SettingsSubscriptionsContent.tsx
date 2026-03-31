@@ -13,8 +13,10 @@ import {
 } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
-import { getMockUsers, type MockUser } from "@/lib/auth-flow";
+import type { MockUser } from "@/lib/auth-flow";
+import { apiRequest } from "@/lib/api";
 import {
+  getAdminHospitals,
   getSubscriptionSettings,
   updateCustomHospitalFee,
   updateDefaultFee,
@@ -35,40 +37,91 @@ function formatFee(value: string) {
 
 export function SettingsSubscriptionsContent() {
   const { currentUser } = useDashboardContext();
-  const [settings, setSettings] = React.useState<SubscriptionSettings>(getSubscriptionSettings());
-  const [draftDefaultFee, setDraftDefaultFee] = React.useState(settings.defaultFee);
+  const [settings, setSettings] = React.useState<SubscriptionSettings | null>(null);
+  const [draftDefaultFee, setDraftDefaultFee] = React.useState("");
   const [editingHospitalId, setEditingHospitalId] = React.useState<string | null>(null);
   const [editingFee, setEditingFee] = React.useState("");
+  const [hospitals, setHospitals] = React.useState<MockUser[]>([]);
+  const [hospitalSubscription, setHospitalSubscription] = React.useState<{
+    amount: number;
+    defaultAmount?: number;
+    source?: string;
+  } | null>(null);
 
-  const hospitals: HospitalFeeRow[] = getMockUsers()
-    .filter((user) => user.role === "hospital")
-    .map((hospital) => {
-      const customFee = settings.customFees.find((item) => item.hospitalId === hospital.id)?.fee;
+  React.useEffect(() => {
+    let active = true;
 
-      return {
-        ...hospital,
-        displayName: hospital.hospitalName || hospital.fullName,
-        customFee: customFee || undefined,
-        amount: customFee || settings.defaultFee,
-        feeSource: customFee ? "Hospital override" : "Default fee"
-      };
-    });
+    if (currentUser.role === "admin") {
+      Promise.all([getSubscriptionSettings(), getAdminHospitals()])
+        .then(([settingsData, hospitalData]) => {
+          if (!active) return;
+          setSettings(settingsData);
+          setDraftDefaultFee(settingsData.defaultFee);
+          setHospitals(hospitalData);
+        })
+        .catch(() => {
+          if (!active) return;
+          setSettings({ defaultFee: "0", customFees: [] });
+          setDraftDefaultFee("0");
+          setHospitals([]);
+        });
+    } else if (currentUser.role === "hospital") {
+      apiRequest<{ amount: number; defaultAmount?: number; source?: string }>(
+        `/hospitals/${currentUser.id}/subscription`
+      )
+        .then((data) => {
+          if (!active) return;
+          setHospitalSubscription(data);
+        })
+        .catch(() => {
+          if (!active) return;
+          setHospitalSubscription(null);
+        });
+    }
 
-  function saveDefaultFee() {
-    const nextSettings = updateDefaultFee(draftDefaultFee);
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
+
+  const hospitalRows: HospitalFeeRow[] = hospitals.map((hospital) => {
+    const customFee = settings?.customFees.find((item) => item.hospitalId === hospital.id)?.fee;
+
+    return {
+      ...hospital,
+      displayName: hospital.hospitalName || hospital.fullName,
+      customFee: customFee || undefined,
+      amount: customFee || settings?.defaultFee || "0",
+      feeSource: customFee ? "Hospital override" : "Default fee"
+    };
+  });
+
+  async function saveDefaultFee() {
+    if (!settings) return;
+    const nextSettings = await updateDefaultFee(draftDefaultFee);
     setSettings(nextSettings);
+    setDraftDefaultFee(nextSettings.defaultFee);
   }
 
-  function saveCustomFee(hospitalId: string) {
-    const nextSettings = updateCustomHospitalFee(hospitalId, editingFee);
+  async function saveCustomFee(hospitalId: string) {
+    if (!editingFee.trim()) {
+      setEditingHospitalId(null);
+      setEditingFee("");
+      return;
+    }
+    const nextSettings = await updateCustomHospitalFee(hospitalId, editingFee);
     setSettings(nextSettings);
     setEditingHospitalId(null);
     setEditingFee("");
   }
 
   if (currentUser.role !== "admin") {
-    const currentFee = settings.customFees.find((item) => item.hospitalId === currentUser.id)?.fee;
-    const displayFee = currentFee || settings.defaultFee;
+    const displayFee =
+      hospitalSubscription?.amount != null ? String(hospitalSubscription.amount) : "0";
+    const defaultFee =
+      hospitalSubscription?.defaultAmount != null
+        ? String(hospitalSubscription.defaultAmount)
+        : displayFee;
 
     return (
       <div className="space-y-6">
@@ -80,7 +133,7 @@ export function SettingsSubscriptionsContent() {
           imageAlt="Billing and payment desk"
           stats={[
             { label: "Current Fee", value: formatFee(displayFee) },
-            { label: "Default Fee", value: formatFee(settings.defaultFee) }
+            { label: "Default Fee", value: formatFee(defaultFee) }
           ]}
         />
 
@@ -94,7 +147,7 @@ export function SettingsSubscriptionsContent() {
                 <div>
                   <p className="text-base font-medium text-[#0F172A]">Current Plan</p>
                   <p className="mt-1 text-xs text-[#64748B]">
-                    {currentFee ? "Custom fee" : "Using default"}
+                    {hospitalSubscription?.source === "hospital_override" ? "Custom fee" : "Using default"}
                   </p>
                 </div>
               </div>
@@ -120,11 +173,19 @@ export function SettingsSubscriptionsContent() {
 
             <div className="mt-4 border-t border-[#E2E8F0] pt-4">
               <p className="text-[32px] font-medium leading-none text-[#0F172A]">
-                {formatFee(settings.defaultFee)}
+                {formatFee(defaultFee)}
               </p>
             </div>
           </Card>
         </div>
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-4">Loading subscription settings...</Card>
       </div>
     );
   }
@@ -159,7 +220,7 @@ export function SettingsSubscriptionsContent() {
             />
           </label>
 
-          <Button className="h-11 w-full px-4" onClick={saveDefaultFee}>
+          <Button className="h-11 w-full px-4" onClick={() => void saveDefaultFee()}>
             Save Fee
           </Button>
         </div>
@@ -187,7 +248,7 @@ export function SettingsSubscriptionsContent() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {hospitals.map((row) => {
+          {hospitalRows.map((row) => {
             const isEditing = editingHospitalId === row.id;
 
             return (
@@ -247,7 +308,7 @@ export function SettingsSubscriptionsContent() {
                         size="sm"
                         className="h-10"
                         leftIcon={<Check className="size-4" />}
-                        onClick={() => saveCustomFee(row.id)}
+                        onClick={() => void saveCustomFee(row.id)}
                       >
                         Save
                       </Button>

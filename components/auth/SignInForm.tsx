@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthRole } from "@/components/auth/AuthRoleContext";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -11,11 +11,13 @@ import { beginMockSignin } from "@/lib/auth-flow";
 
 export function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setSelectedRole } = useAuthRole();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const verified = searchParams.get("verified") === "1";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,6 +41,11 @@ export function SignInForm() {
         <div className="space-y-2">
           <h1 className="text-[20px] font-medium text-[#0F172A]">Hospital Token Management System</h1>
           <p className="text-sm text-[#64748B]">Enter your email and password to continue.</p>
+          {verified ? (
+            <p className="text-sm font-medium text-emerald-600">
+              Registration verified. Please sign in to continue.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-4">

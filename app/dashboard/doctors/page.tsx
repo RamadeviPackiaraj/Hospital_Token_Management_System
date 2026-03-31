@@ -10,11 +10,11 @@ import { useDashboardContext, PageHero } from "@/components/dashboard";
 import { formatDisplayDate } from "@/lib/utils";
 import {
   formatApprovalStatus,
-  getMockUsers,
-  updateMockUserStatus,
   type MockUser,
   type UserApprovalStatus
 } from "@/lib/auth-flow";
+import { apiRequest } from "@/lib/api";
+import { getAdminDoctors } from "@/lib/dashboard-data";
 
 type DoctorRow = Record<string, unknown> & MockUser;
 
@@ -33,7 +33,9 @@ export default function DoctorsPage() {
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
 
   React.useEffect(() => {
-    setUsers(getMockUsers());
+    getAdminDoctors()
+      .then((data) => setUsers(data))
+      .catch(() => setUsers([]));
   }, []);
 
   React.useEffect(() => {
@@ -66,10 +68,14 @@ export default function DoctorsPage() {
     })
     .map((user) => ({ ...user }));
 
-  function updateStatus(userId: string, status: UserApprovalStatus) {
-    updateMockUserStatus(userId, status);
-    setUsers(getMockUsers());
-    refreshSession();
+  async function updateStatus(userId: string, status: UserApprovalStatus) {
+    await apiRequest(`/admin/doctors/${userId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    });
+    const updated = await getAdminDoctors();
+    setUsers(updated);
+    await refreshSession();
   }
 
   function confirmRejectDoctor() {
@@ -77,7 +83,7 @@ export default function DoctorsPage() {
       return;
     }
 
-    updateStatus(rejectTarget.id, "rejected");
+    void updateStatus(rejectTarget.id, "rejected");
     setRejectTarget(null);
   }
 
@@ -182,19 +188,19 @@ export default function DoctorsPage() {
               className: "min-w-[220px]",
               render: (row) => (
                 <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
-                    onClick={() => updateStatus(row.id, "approved")}
-                  >
+                    <button
+                      type="button"
+                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
+                      onClick={() => void updateStatus(row.id, "approved")}
+                    >
                     <Check className="size-4" />
                     Approve
                   </button>
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
-                    onClick={() => setRejectTarget(row)}
-                  >
+                    <button
+                      type="button"
+                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
+                      onClick={() => setRejectTarget(row)}
+                    >
                     <X className="size-4" />
                     Reject
                   </button>

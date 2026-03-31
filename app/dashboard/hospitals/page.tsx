@@ -10,11 +10,11 @@ import { useDashboardContext, PageHero } from "@/components/dashboard";
 import { formatDisplayDate } from "@/lib/utils";
 import {
   formatApprovalStatus,
-  getMockUsers,
-  updateMockUserStatus,
   type MockUser,
   type UserApprovalStatus
 } from "@/lib/auth-flow";
+import { apiRequest } from "@/lib/api";
+import { getAdminHospitals } from "@/lib/dashboard-data";
 
 type HospitalRow = Record<string, unknown> & MockUser;
 
@@ -33,7 +33,9 @@ export default function HospitalsPage() {
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
 
   React.useEffect(() => {
-    setUsers(getMockUsers());
+    getAdminHospitals()
+      .then((data) => setUsers(data))
+      .catch(() => setUsers([]));
   }, []);
 
   React.useEffect(() => {
@@ -66,10 +68,14 @@ export default function HospitalsPage() {
     })
     .map((user) => ({ ...user }));
 
-  function updateStatus(userId: string, status: UserApprovalStatus) {
-    updateMockUserStatus(userId, status);
-    setUsers(getMockUsers());
-    refreshSession();
+  async function updateStatus(userId: string, status: UserApprovalStatus) {
+    await apiRequest(`/admin/hospitals/${userId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    });
+    const updated = await getAdminHospitals();
+    setUsers(updated);
+    await refreshSession();
   }
 
   function confirmRejectHospital() {
@@ -77,7 +83,7 @@ export default function HospitalsPage() {
       return;
     }
 
-    updateStatus(rejectTarget.id, "rejected");
+    void updateStatus(rejectTarget.id, "rejected");
     setRejectTarget(null);
   }
 
@@ -186,11 +192,11 @@ export default function HospitalsPage() {
               className: "min-w-[220px]",
               render: (row) => (
                 <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
-                    onClick={() => updateStatus(row.id, "approved")}
-                  >
+                    <button
+                      type="button"
+                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
+                      onClick={() => void updateStatus(row.id, "approved")}
+                    >
                     <Check className="size-4" />
                     Approve
                   </button>

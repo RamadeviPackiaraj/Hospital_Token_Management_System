@@ -18,6 +18,7 @@ import {
   getAccessControlMessage,
   getCurrentSessionUser,
   getMockSession,
+  refreshSessionUser,
   type MockSession,
   type MockUser
 } from "@/lib/auth-flow";
@@ -84,16 +85,27 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
   const [currentUser, setCurrentUser] = React.useState<MockUser | null>(null);
   const [ready, setReady] = React.useState(false);
 
-  const refreshSession = React.useCallback(() => {
+  const refreshSession = React.useCallback(async () => {
     const nextSession = getMockSession();
     const nextUser = getCurrentSessionUser();
     setSession(nextSession);
     setCurrentUser(nextUser);
     setReady(true);
+
+    if (!nextSession) return;
+
+    try {
+      const freshUser = await refreshSessionUser();
+      if (freshUser) {
+        setCurrentUser(freshUser);
+      }
+    } catch {
+      // Ignore refresh failures; cached session is still usable.
+    }
   }, []);
 
   React.useEffect(() => {
-    refreshSession();
+    void refreshSession();
   }, [refreshSession]);
 
   const signOut = React.useCallback(() => {

@@ -52,7 +52,7 @@ export function RoleThemePanel({
         </Card>
         <Card className="p-4">
           <p className="text-xs text-[#64748B]">Backend mode</p>
-          <p className="mt-2 text-sm font-medium text-[#0F172A]">Mock data</p>
+          <p className="mt-2 text-sm font-medium text-[#0F172A]">Live data</p>
         </Card>
       </div>
     </div>

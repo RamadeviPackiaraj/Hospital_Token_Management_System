@@ -35,8 +35,16 @@ export function OtpForm() {
     setError("");
 
     try {
-      const session = await verifyMockOtp({ otp });
-      router.push(`/dashboard?role=${session.role}`);
+      const result = await verifyMockOtp({ otp });
+      if (result.mode === "signup") {
+        router.push("/signin?verified=1");
+        return;
+      }
+
+      if (result.session) {
+        setSelectedRole(result.session.role);
+        router.push(`/dashboard?role=${result.session.role}`);
+      }
     } catch (otpError) {
       setError(otpError instanceof Error ? otpError.message : "Unable to verify OTP.");
     } finally {

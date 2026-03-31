@@ -1,8 +1,5 @@
-import { getMockUsers, type MockUser } from "@/lib/auth-flow";
-
-export const DASHBOARD_DEPARTMENTS_KEY = "hospital_token_departments";
-export const DASHBOARD_SUBSCRIPTIONS_KEY = "hospital_token_subscriptions";
-export const HOSPITAL_SELECTIONS_KEY = "hospital_token_hospital_selections";
+import { apiRequest, buildQuery } from "@/lib/api";
+import { mapAdminEntityToMockUser, type MockUser } from "@/lib/auth-flow";
 
 export interface DepartmentRecord {
   id: string;
@@ -25,168 +22,202 @@ export interface HospitalSelection {
   requestedAt: string;
 }
 
-const defaultDepartments: DepartmentRecord[] = [
-  { id: "dept-1", name: "Cardiology" },
-  { id: "dept-2", name: "General" },
-  { id: "dept-3", name: "Orthopedics" },
-  { id: "dept-4", name: "ENT" }
-];
-
-const defaultSubscriptionSettings: SubscriptionSettings = {
-  defaultFee: "2500",
-  customFees: [
-    { hospitalId: "hospital-1", fee: "3200" }
-  ]
-};
-
-const defaultHospitalSelections: HospitalSelection[] = [
-  {
-    id: "selection-1",
-    doctorId: "doctor-1",
-    hospitalId: "hospital-1",
-    status: "approved",
-    requestedAt: "2026-03-20"
-  },
-  {
-    id: "selection-2",
-    doctorId: "doctor-2",
-    hospitalId: "hospital-1",
-    status: "pending",
-    requestedAt: "2026-03-24"
-  }
-];
-
-function getStoredJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return fallback;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+export async function getDepartments() {
+  const data = await apiRequest<DepartmentRecord[]>("/departments");
+  return data || [];
 }
 
-function setStoredJson<T>(key: string, value: T) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function getDepartments() {
-  return getStoredJson<DepartmentRecord[]>(DASHBOARD_DEPARTMENTS_KEY, defaultDepartments);
-}
-
-export function addDepartment(name: string) {
+export async function addDepartment(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return getDepartments();
-
-  const departments = getDepartments();
-  const nextDepartments = [...departments, { id: createId("dept"), name: trimmed }];
-  setStoredJson(DASHBOARD_DEPARTMENTS_KEY, nextDepartments);
-  return nextDepartments;
+  await apiRequest("/departments", {
+    method: "POST",
+    body: JSON.stringify({ departmentName: trimmed }),
+  });
+  return getDepartments();
 }
 
-export function updateDepartment(id: string, name: string) {
-  const departments = getDepartments().map((department) =>
-    department.id === id ? { ...department, name: name.trim() || department.name } : department
+export async function updateDepartment(id: string, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return getDepartments();
+  await apiRequest(`/departments/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ departmentName: trimmed }),
+  });
+  return getDepartments();
+}
+
+export async function deleteDepartment(id: string) {
+  await apiRequest(`/departments/${id}`, { method: "DELETE" });
+  return getDepartments();
+}
+
+export async function getSubscriptionSettings() {
+  const defaultSubscription = await apiRequest<{ amount: number }>("/admin/subscription/default");
+  const hospitalsResponse = await apiRequest<{ items: Array<Record<string, unknown>> }>(
+    `/admin/hospitals${buildQuery({ limit: 200 })}`
   );
-  setStoredJson(DASHBOARD_DEPARTMENTS_KEY, departments);
-  return departments;
+
+  const customFees = (hospitalsResponse.items || [])
+    .filter((item) => item && (item as any).subscription_amount != null)
+    .map((item) => ({
+      hospitalId: String((item as any).userId || (item as any).id),
+      fee: String((item as any).subscription_amount),
+    }))
+    .filter((fee) => fee.fee !== "");
+
+  return {
+    defaultFee: String(defaultSubscription.amount ?? 0),
+    customFees,
+  } satisfies SubscriptionSettings;
 }
 
-export function deleteDepartment(id: string) {
-  const departments = getDepartments().filter((department) => department.id !== id);
-  setStoredJson(DASHBOARD_DEPARTMENTS_KEY, departments);
-  return departments;
+export async function updateDefaultFee(defaultFee: string) {
+  const amount = Number(defaultFee);
+  if (Number.isNaN(amount)) {
+    throw new Error("Default fee must be a number");
+  }
+  await apiRequest("/admin/subscription/default", {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+  return getSubscriptionSettings();
 }
 
-export function getSubscriptionSettings() {
-  return getStoredJson<SubscriptionSettings>(DASHBOARD_SUBSCRIPTIONS_KEY, defaultSubscriptionSettings);
+export async function updateCustomHospitalFee(hospitalId: string, fee: string) {
+  const amount = Number(fee);
+  if (Number.isNaN(amount)) {
+    throw new Error("Fee must be a number");
+  }
+  await apiRequest("/admin/subscription/hospital", {
+    method: "POST",
+    body: JSON.stringify({ hospitalId, amount }),
+  });
+  return getSubscriptionSettings();
 }
 
-export function updateDefaultFee(defaultFee: string) {
-  const settings = { ...getSubscriptionSettings(), defaultFee };
-  setStoredJson(DASHBOARD_SUBSCRIPTIONS_KEY, settings);
-  return settings;
+export async function getSelectionsForDoctor(doctorId: string) {
+  const doctor = await apiRequest<{ selected_hospitals: any[]; approved_hospitals: any[] }>(
+    `/doctors/${doctorId}`
+  );
+
+  const now = new Date().toISOString().slice(0, 10);
+  const pending = (doctor.selected_hospitals || []).map((hospital) => ({
+    id: `${doctorId}:${hospital.id}:pending`,
+    doctorId,
+    hospitalId: hospital.id,
+    status: "pending" as const,
+    requestedAt: now,
+  }));
+
+  const approved = (doctor.approved_hospitals || []).map((hospital) => ({
+    id: `${doctorId}:${hospital.id}:approved`,
+    doctorId,
+    hospitalId: hospital.id,
+    status: "approved" as const,
+    requestedAt: now,
+  }));
+
+  return [...pending, ...approved];
 }
 
-export function updateCustomHospitalFee(hospitalId: string, fee: string) {
-  const settings = getSubscriptionSettings();
-  const customFees = settings.customFees.filter((item) => item.hospitalId !== hospitalId);
+export async function getSelectionsForHospital(hospitalId: string) {
+  const pendingData = await apiRequest<{ doctors: any[] }>(
+    `/hospitals/${hospitalId}/pending-doctors`
+  );
+  const approvedData = await apiRequest<{ doctors: any[] }>(
+    `/hospitals/${hospitalId}/approved-doctors`
+  );
 
-  if (fee.trim()) {
-    customFees.push({ hospitalId, fee });
+  const now = new Date().toISOString().slice(0, 10);
+  const pending = (pendingData.doctors || []).map((doctor) => ({
+    id: `${doctor.userId}:${hospitalId}:pending`,
+    doctorId: doctor.userId,
+    hospitalId,
+    status: "pending" as const,
+    requestedAt: now,
+  }));
+
+  const approved = (approvedData.doctors || []).map((doctor) => ({
+    id: `${doctor.userId}:${hospitalId}:approved`,
+    doctorId: doctor.userId,
+    hospitalId,
+    status: "approved" as const,
+    requestedAt: now,
+  }));
+
+  return [...pending, ...approved];
+}
+
+export async function getApprovedDoctorsForHospital(hospitalId: string) {
+  const approvedData = await apiRequest<{ doctors: any[] }>(
+    `/hospitals/${hospitalId}/approved-doctors`
+  );
+
+  return (approvedData.doctors || []).map(
+    (doctor): MockUser => ({
+      id: doctor.userId,
+      role: "doctor",
+      fullName: doctor.name,
+      mobileNumber: doctor.phone,
+      email: doctor.email,
+      department: doctor.department,
+      approvalStatus: "approved",
+      registrationDate: new Date().toISOString().slice(0, 10),
+    })
+  );
+}
+
+export async function submitHospitalSelections(doctorId: string, hospitalIds: string[]) {
+  for (const hospitalId of hospitalIds) {
+    await apiRequest(`/doctors/${doctorId}/select-hospital`, {
+      method: "POST",
+      body: JSON.stringify({ hospitalId }),
+    });
   }
 
-  const nextSettings = { ...settings, customFees };
-  setStoredJson(DASHBOARD_SUBSCRIPTIONS_KEY, nextSettings);
-  return nextSettings;
+  return getSelectionsForDoctor(doctorId);
 }
 
-export function getHospitalSelections() {
-  return getStoredJson<HospitalSelection[]>(HOSPITAL_SELECTIONS_KEY, defaultHospitalSelections);
-}
+export async function updateHospitalSelectionStatus(selectionId: string, status: "approved" | "rejected") {
+  const [doctorId, hospitalId] = selectionId.split(":");
+  if (!doctorId || !hospitalId) {
+    throw new Error("Invalid selection identifier");
+  }
 
-export function getHospitalNameById(hospitalId: string) {
-  const hospital = getMockUsers().find((user) => user.id === hospitalId);
-  return hospital?.hospitalName || hospital?.fullName || "Hospital";
-}
+  const endpoint =
+    status === "approved"
+      ? `/hospitals/${hospitalId}/approve-doctor`
+      : `/hospitals/${hospitalId}/reject-doctor`;
 
-export function getDoctorNameById(doctorId: string) {
-  const doctor = getMockUsers().find((user) => user.id === doctorId);
-  return doctor?.fullName || "Doctor";
-}
-
-export function submitHospitalSelections(doctorId: string, hospitalIds: string[]) {
-  const existing = getHospitalSelections();
-  const existingKeys = new Set(existing.map((item) => `${item.doctorId}:${item.hospitalId}`));
-  const nextSelections = [...existing];
-
-  hospitalIds.forEach((hospitalId) => {
-    const key = `${doctorId}:${hospitalId}`;
-    if (!existingKeys.has(key)) {
-      nextSelections.push({
-        id: createId("selection"),
-        doctorId,
-        hospitalId,
-        status: "pending",
-        requestedAt: new Date().toISOString().slice(0, 10)
-      });
-    }
+  await apiRequest(endpoint, {
+    method: "PATCH",
+    body: JSON.stringify({ doctorId }),
   });
 
-  setStoredJson(HOSPITAL_SELECTIONS_KEY, nextSelections);
-  return nextSelections;
+  return getSelectionsForHospital(hospitalId);
 }
 
-export function updateHospitalSelectionStatus(selectionId: string, status: HospitalSelection["status"]) {
-  const selections = getHospitalSelections().map((selection) =>
-    selection.id === selectionId ? { ...selection, status } : selection
+export async function getHospitalNameById(hospitalId: string) {
+  const hospital = await apiRequest<{ name: string }>(`/hospitals/${hospitalId}`);
+  return hospital?.name || "Hospital";
+}
+
+export async function getDoctorNameById(doctorId: string) {
+  const doctor = await apiRequest<{ name: string }>(`/doctors/${doctorId}`);
+  return doctor?.name || "Doctor";
+}
+
+export async function getAdminHospitals() {
+  const response = await apiRequest<{ items: any[] }>(
+    `/admin/hospitals${buildQuery({ limit: 200 })}`
   );
-  setStoredJson(HOSPITAL_SELECTIONS_KEY, selections);
-  return selections;
+  return (response.items || []).map(mapAdminEntityToMockUser);
 }
 
-export function getSelectionsForDoctor(doctorId: string) {
-  return getHospitalSelections().filter((selection) => selection.doctorId === doctorId);
-}
-
-export function getSelectionsForHospital(hospitalId: string) {
-  return getHospitalSelections().filter((selection) => selection.hospitalId === hospitalId);
-}
-
-export function getApprovedDoctorsForHospital(hospitalId: string) {
-  const approvedSelectionDoctorIds = new Set(
-    getSelectionsForHospital(hospitalId)
-      .filter((selection) => selection.status === "approved")
-      .map((selection) => selection.doctorId)
+export async function getAdminDoctors() {
+  const response = await apiRequest<{ items: any[] }>(
+    `/admin/doctors${buildQuery({ limit: 200 })}`
   );
-
-  return getMockUsers().filter((user) => approvedSelectionDoctorIds.has(user.id)) as MockUser[];
+  return (response.items || []).map(mapAdminEntityToMockUser);
 }

@@ -24,7 +24,9 @@ export function SettingsDepartmentsContent() {
   const [deleteTarget, setDeleteTarget] = React.useState<DepartmentRecord | null>(null);
 
   React.useEffect(() => {
-    setDepartments(getDepartments());
+    getDepartments()
+      .then((data) => setDepartments(data))
+      .catch(() => setDepartments([]));
   }, []);
 
   if (currentUser.role !== "admin") {
@@ -42,23 +44,26 @@ export function SettingsDepartmentsContent() {
     );
   }
 
-  function handleAddDepartment() {
-    setDepartments(addDepartment(departmentName));
+  async function handleAddDepartment() {
+    const updated = await addDepartment(departmentName);
+    setDepartments(updated);
     setDepartmentName("");
   }
 
-  function handleSaveDepartment(id: string) {
-    setDepartments(updateDepartment(id, editingName));
+  async function handleSaveDepartment(id: string) {
+    const updated = await updateDepartment(id, editingName);
+    setDepartments(updated);
     setEditingId(null);
     setEditingName("");
   }
 
-  function handleDeleteDepartment() {
+  async function handleDeleteDepartment() {
     if (!deleteTarget) {
       return;
     }
 
-    setDepartments(deleteDepartment(deleteTarget.id));
+    const updated = await deleteDepartment(deleteTarget.id);
+    setDepartments(updated);
     setDeleteTarget(null);
   }
 
@@ -90,7 +95,7 @@ export function SettingsDepartmentsContent() {
           </label>
 
           <div className="flex items-end">
-            <Button fullWidth className="h-10 rounded-md" onClick={handleAddDepartment} disabled={!departmentName.trim()}>
+            <Button fullWidth className="h-10 rounded-md" onClick={() => void handleAddDepartment()} disabled={!departmentName.trim()}>
               Add Department
             </Button>
           </div>
@@ -117,7 +122,7 @@ export function SettingsDepartmentsContent() {
               render: (row) =>
                 editingId === row.id ? (
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" className="h-10 rounded-lg" leftIcon={<PencilLine className="size-4" />} onClick={() => handleSaveDepartment(row.id)}>
+                    <Button size="sm" className="h-10 rounded-lg" leftIcon={<PencilLine className="size-4" />} onClick={() => void handleSaveDepartment(row.id)}>
                       Save
                     </Button>
                     <Button size="sm" variant="secondary" className="h-10 rounded-lg" onClick={() => setEditingId(null)}>
@@ -161,7 +166,7 @@ export function SettingsDepartmentsContent() {
         description="Are you sure you want to delete this department? This action cannot be undone."
         confirmLabel="Delete"
         cancelLabel="Cancel"
-        onConfirm={handleDeleteDepartment}
+        onConfirm={() => void handleDeleteDepartment()}
         onCancel={() => setDeleteTarget(null)}
       />
     </div>

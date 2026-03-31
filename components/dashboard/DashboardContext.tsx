@@ -6,7 +6,7 @@ import type { MockSession, MockUser } from "@/lib/auth-flow";
 export interface DashboardContextValue {
   session: MockSession;
   currentUser: MockUser;
-  refreshSession: () => void;
+  refreshSession: () => Promise<void>;
   signOut: () => void;
 }
 

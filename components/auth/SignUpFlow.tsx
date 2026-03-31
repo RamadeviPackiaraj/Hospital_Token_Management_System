@@ -17,7 +17,7 @@ import {
   isAuthRole,
   type SignupPayload
 } from "@/lib/auth-flow";
-import { getDepartments } from "@/lib/dashboard-data";
+import { getDepartments, type DepartmentRecord } from "@/lib/dashboard-data";
 
 type SignupFieldKey =
   | "fullName"
@@ -29,6 +29,9 @@ type SignupFieldKey =
   | "specialization"
   | "hospitalName"
   | "department"
+  | "gender"
+  | "dob"
+  | "bloodGroup"
   | "country"
   | "state"
   | "city"
@@ -50,6 +53,9 @@ const initialState: SignupFormState = {
   specialization: "",
   hospitalName: "",
   department: "",
+  gender: "",
+  dob: "",
+  bloodGroup: "",
   country: "",
   state: "",
   city: "",
@@ -75,7 +81,10 @@ function buildPayload(role: AuthRole, values: SignupFormState): SignupPayload {
       role: "doctor",
       medicalRegistrationId: values.medicalRegistrationId,
       specialization: values.specialization,
-      department: values.department
+      department: values.department,
+      gender: values.gender,
+      dob: values.dob,
+      bloodGroup: values.bloodGroup
     };
   }
 
@@ -111,7 +120,7 @@ export function SignUpFlow() {
   const [cities, setCities] = React.useState<CityOption[]>([]);
   const [selectedCountryId, setSelectedCountryId] = React.useState<number | null>(null);
   const [selectedStateId, setSelectedStateId] = React.useState<number | null>(null);
-  const [departments, setDepartments] = React.useState(getDepartments());
+  const [departments, setDepartments] = React.useState<DepartmentRecord[]>([]);
 
   const countryOptions = countries.map((country) => ({ value: String(country.id), label: country.name }));
   const stateOptions = states.map((state) => ({ value: String(state.id), label: state.name }));
@@ -140,7 +149,15 @@ export function SignUpFlow() {
       setCountries((nextCountries as CountryOption[]) ?? []);
     });
 
-    setDepartments(getDepartments());
+    getDepartments()
+      .then((nextDepartments) => {
+        if (!active) return;
+        setDepartments(nextDepartments);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDepartments([]);
+      });
 
     return () => {
       active = false;
@@ -370,13 +387,39 @@ export function SignUpFlow() {
           ) : null}
 
           {selectedRole === "doctor" ? (
-            <InputField
-              label="Specialization"
-              required={false}
-              value={values.specialization}
-              onChange={(event) => updateValue("specialization", event.target.value)}
-              placeholder="Enter specialization"
-            />
+            <>
+              <SelectField
+                label="Gender"
+                value={values.gender}
+                onChange={(event) => updateValue("gender", event.target.value)}
+                options={[
+                  { label: "Female", value: "female" },
+                  { label: "Male", value: "male" },
+                  { label: "Other", value: "other" }
+                ]}
+                placeholder="Select gender"
+              />
+              <InputField
+                label="Date of Birth"
+                type="date"
+                value={values.dob}
+                onChange={(event) => updateValue("dob", event.target.value)}
+                placeholder="YYYY-MM-DD"
+              />
+              <InputField
+                label="Blood Group"
+                value={values.bloodGroup}
+                onChange={(event) => updateValue("bloodGroup", event.target.value)}
+                placeholder="Enter blood group"
+              />
+              <InputField
+                label="Specialization"
+                required={false}
+                value={values.specialization}
+                onChange={(event) => updateValue("specialization", event.target.value)}
+                placeholder="Enter specialization"
+              />
+            </>
           ) : null}
         </div>
 

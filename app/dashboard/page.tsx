@@ -1,27 +1,86 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { Building2, Clock3, ShieldCheck, Stethoscope } from "lucide-react";
 import { Card } from "@/components/ui";
 import { useDashboardContext } from "@/components/dashboard";
-import { getMockUsers } from "@/lib/auth-flow";
+import type { MockUser } from "@/lib/auth-flow";
 import {
+  getAdminDoctors,
+  getAdminHospitals,
   getApprovedDoctorsForHospital,
   getSelectionsForDoctor,
-  getSelectionsForHospital
+  getSelectionsForHospital,
+  type HospitalSelection
 } from "@/lib/dashboard-data";
 
 export default function DashboardPage() {
   const { currentUser } = useDashboardContext();
-  const users = getMockUsers();
+  const [adminDoctors, setAdminDoctors] = React.useState<MockUser[]>([]);
+  const [adminHospitals, setAdminHospitals] = React.useState<MockUser[]>([]);
+  const [hospitalSelections, setHospitalSelections] = React.useState<HospitalSelection[]>([]);
+  const [doctorSelections, setDoctorSelections] = React.useState<HospitalSelection[]>([]);
+  const [approvedDoctors, setApprovedDoctors] = React.useState<MockUser[]>([]);
+
+  React.useEffect(() => {
+    let active = true;
+
+    if (currentUser.role === "admin") {
+      Promise.all([getAdminDoctors(), getAdminHospitals()])
+        .then(([doctors, hospitals]) => {
+          if (!active) return;
+          setAdminDoctors(doctors);
+          setAdminHospitals(hospitals);
+        })
+        .catch(() => {
+          if (!active) return;
+          setAdminDoctors([]);
+          setAdminHospitals([]);
+        });
+    }
+
+    if (currentUser.role === "hospital") {
+      Promise.all([
+        getSelectionsForHospital(currentUser.id),
+        getApprovedDoctorsForHospital(currentUser.id)
+      ])
+        .then(([selections, doctors]) => {
+          if (!active) return;
+          setHospitalSelections(selections);
+          setApprovedDoctors(doctors);
+        })
+        .catch(() => {
+          if (!active) return;
+          setHospitalSelections([]);
+          setApprovedDoctors([]);
+        });
+    }
+
+    if (currentUser.role === "doctor") {
+      getSelectionsForDoctor(currentUser.id)
+        .then((selections) => {
+          if (!active) return;
+          setDoctorSelections(selections);
+        })
+        .catch(() => {
+          if (!active) return;
+          setDoctorSelections([]);
+        });
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
 
   if (currentUser.role === "admin") {
-    const hospitals = users.filter((user) => user.role === "hospital");
-    const doctors = users.filter((user) => user.role === "doctor");
-    const pendingDoctorApprovals = doctors.filter((user) => user.approvalStatus === "pending");
-    const approvedDoctors = doctors.filter((user) => user.approvalStatus === "approved");
-    const pendingHospitalApprovals = hospitals.filter((user) => user.approvalStatus === "pending");
-    const approvedHospitals = hospitals.filter((user) => user.approvalStatus === "approved");
+    const hospitals = adminHospitals;
+    const doctors = adminDoctors;
+    const pendingDoctorApprovals = doctors.filter((user: any) => user.approvalStatus === "pending");
+    const approvedDoctorsCount = doctors.filter((user: any) => user.approvalStatus === "approved");
+    const pendingHospitalApprovals = hospitals.filter((user: any) => user.approvalStatus === "pending");
+    const approvedHospitals = hospitals.filter((user: any) => user.approvalStatus === "approved");
 
     return (
       <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -42,7 +101,7 @@ export default function DashboardPage() {
           },
           {
             title: "Approved Doctors",
-            value: String(approvedDoctors.length),
+            value: String(approvedDoctorsCount.length),
             note: "Doctor accounts approved",
             icon: <ShieldCheck className="size-5" />,
             href: "/dashboard/doctors?status=approved"
@@ -89,10 +148,8 @@ export default function DashboardPage() {
   }
 
   if (currentUser.role === "hospital") {
-    const approvedDoctors = getApprovedDoctorsForHospital(currentUser.id);
-    const hospitalSelections = getSelectionsForHospital(currentUser.id);
-    const pendingRequests = hospitalSelections.filter((selection) => selection.status === "pending");
-    const approvedRequests = hospitalSelections.filter((selection) => selection.status === "approved");
+    const pendingRequests = hospitalSelections.filter((selection: any) => selection.status === "pending");
+    const approvedRequests = hospitalSelections.filter((selection: any) => selection.status === "approved");
 
     return (
       <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -133,16 +190,15 @@ export default function DashboardPage() {
     );
   }
 
-  const selections = getSelectionsForDoctor(currentUser.id);
-  const approvedSelections = selections.filter((selection) => selection.status === "approved");
-  const pendingSelections = selections.filter((selection) => selection.status === "pending");
+  const approvedSelections = doctorSelections.filter((selection: any) => selection.status === "approved");
+  const pendingSelections = doctorSelections.filter((selection: any) => selection.status === "pending");
 
   return (
     <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {[
         {
           title: "Selected Hospitals",
-          value: String(selections.length),
+          value: String(doctorSelections.length),
           note: "Total hospital requests",
           icon: <Building2 className="size-5" />
         },
