@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { AuthCard } from "@/components/auth/AuthCard";
 import { useAuthRole } from "@/components/auth/AuthRoleContext";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import {
   clearPendingAuthChallenge,
   formatRoleLabel,
@@ -45,7 +46,7 @@ export function OtpForm() {
 
   if (!challenge) {
     return (
-      <Card className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-none">
+      <AuthCard>
         <div className="space-y-4">
           <p className="text-sm text-[#64748B]">No pending verification request was found.</p>
           <Button
@@ -58,12 +59,12 @@ export function OtpForm() {
             Go to sign in
           </Button>
         </div>
-      </Card>
+      </AuthCard>
     );
   }
 
   return (
-    <Card className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-none">
+    <AuthCard>
       <form className="space-y-5" onSubmit={handleVerify}>
         <div className="space-y-2">
           <h1 className="text-[20px] font-medium text-[#0F172A]">Verify OTP</h1>
@@ -89,6 +90,6 @@ export function OtpForm() {
           Verify
         </Button>
       </form>
-    </Card>
+    </AuthCard>
   );
 }

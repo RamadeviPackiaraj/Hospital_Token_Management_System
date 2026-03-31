@@ -6,10 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   LayoutDashboard,
+  Settings,
   Stethoscope,
-  Ticket,
-  Users,
-  WalletCards
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout";
 import { DashboardProvider } from "@/components/dashboard";
@@ -23,49 +21,48 @@ import {
   type MockSession,
   type MockUser
 } from "@/lib/auth-flow";
+import type { SidebarItem } from "@/components/layout/Sidebar";
 
-const menuItems = [
+const menuItems: SidebarItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="size-4" /> },
-  { label: "Users", href: "/dashboard/users", icon: <Users className="size-4" /> },
-  { label: "Hospitals", href: "/dashboard/hospitals", icon: <Building2 className="size-4" /> },
   { label: "Doctors", href: "/dashboard/doctors", icon: <Stethoscope className="size-4" /> },
-  { label: "Departments", href: "/dashboard/departments", icon: <Ticket className="size-4" /> },
-  { label: "Subscriptions", href: "/dashboard/subscriptions", icon: <WalletCards className="size-4" /> }
+  { label: "Hospitals", href: "/dashboard/hospitals", icon: <Building2 className="size-4" /> },
+  { label: "Settings", href: "/dashboard/settings", icon: <Settings className="size-4" /> }
 ] as const;
 
 function pageMeta(pathname: string, role: MockUser["role"]) {
-  if (pathname === "/dashboard/users") {
-    return {
-      title: role === "admin" ? "User Approval" : "Users",
-      subtitle: role === "admin" ? "Approve registrations" : "Admin only"
-    };
-  }
-
   if (pathname === "/dashboard/hospitals") {
     return {
       title: role === "doctor" ? "Hospital Selection" : "Hospitals",
-      subtitle: role === "doctor" ? "Select hospitals" : "Manage hospitals"
+      subtitle: role === "doctor" ? "Select hospitals" : "Approve hospital registrations"
     };
   }
 
   if (pathname === "/dashboard/doctors") {
     return {
       title: role === "hospital" ? "Doctor Approval" : "Doctors",
-      subtitle: role === "hospital" ? "Approve doctor requests" : "View doctors"
+      subtitle: role === "hospital" ? "Approve doctor requests" : "Approve doctor registrations"
     };
   }
 
-  if (pathname === "/dashboard/departments") {
+  if (pathname === "/dashboard/settings/departments" || pathname === "/dashboard/departments") {
     return {
       title: "Departments",
       subtitle: "Manage departments"
     };
   }
 
-  if (pathname === "/dashboard/subscriptions") {
+  if (pathname === "/dashboard/settings/subscriptions" || pathname === "/dashboard/subscriptions") {
     return {
       title: "Subscriptions",
       subtitle: "Manage pricing"
+    };
+  }
+
+  if (pathname === "/dashboard/settings") {
+    return {
+      title: "Settings",
+      subtitle: "Manage platform settings"
     };
   }
 
@@ -158,18 +155,15 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
   const visibleMenuItems = menuItems.filter((item) => {
     if (currentUser.role === "hospital") {
       return (
-        item.href !== "/dashboard/users" &&
         item.href !== "/dashboard/hospitals" &&
-        item.href !== "/dashboard/departments"
+        item.href !== "/dashboard/settings"
       );
     }
 
     if (currentUser.role === "doctor") {
       return (
-        item.href !== "/dashboard/users" &&
-        item.href !== "/dashboard/subscriptions" &&
         item.href !== "/dashboard/doctors" &&
-        item.href !== "/dashboard/departments"
+        item.href !== "/dashboard/settings"
       );
     }
 
@@ -200,7 +194,9 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
           ),
           items: visibleMenuItems.map((item) => ({
             ...item,
-            active: pathname === item.href
+            active:
+              pathname === item.href ||
+              (item.href === "/dashboard/settings" && pathname.startsWith("/dashboard/settings"))
           }))
         }}
         header={{
