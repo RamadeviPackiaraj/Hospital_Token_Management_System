@@ -21,17 +21,17 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-3xl border border-dashed border-slate-300 bg-white/70 p-8 text-center",
+        "rounded-lg border border-dashed border-[#E2E8F0] bg-[#FFFFFF] p-4 text-center",
         className
       )}
     >
       {icon ? (
-        <div className="mx-auto mb-4 inline-flex rounded-full bg-slate-100 p-4 text-slate-600">
+        <div className="mx-auto mb-4 inline-flex rounded-lg bg-[#F8FAFC] p-4 text-[#64748B]">
           {icon}
         </div>
       ) : null}
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{description}</p>
+      <h3 className="ui-section-title">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md ui-body-secondary">{description}</p>
       {actionLabel && onAction ? (
         <div className="mt-5">
           <Button onClick={onAction}>{actionLabel}</Button>

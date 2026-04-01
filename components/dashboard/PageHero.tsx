@@ -25,6 +25,8 @@ export function PageHero({
   imageAlt,
   stats = []
 }: PageHeroProps) {
+  const [imageFailed, setImageFailed] = React.useState(false);
+
   return (
     <Card className="mb-6 overflow-hidden p-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
@@ -53,7 +55,23 @@ export function PageHero({
 
         <div className="hidden lg:block">
           <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-            <img src={imageSrc} alt={imageAlt} className="h-[136px] w-full object-cover" />
+            {imageFailed ? (
+              <div className="flex h-[136px] w-full items-center justify-center bg-gradient-to-br from-[#F0FDFA] to-[#F8FAFC] p-4 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-white text-[#0EA5A4]">
+                    {icon}
+                  </div>
+                  <p className="ui-meta">{imageAlt}</p>
+                </div>
+              </div>
+            ) : (
+              <img
+                src={imageSrc}
+                alt={imageAlt}
+                className="h-[136px] w-full object-cover"
+                onError={() => setImageFailed(true)}
+              />
+            )}
           </div>
         </div>
       </div>

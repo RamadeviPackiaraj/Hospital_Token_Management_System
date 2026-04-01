@@ -5,7 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
+  CalendarClock,
   LayoutDashboard,
+  Ticket,
   Settings,
   Stethoscope,
 } from "lucide-react";
@@ -27,6 +29,8 @@ import type { SidebarItem } from "@/components/layout/Sidebar";
 const menuItems: SidebarItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="size-4" /> },
   { label: "Doctors", href: "/dashboard/doctors", icon: <Stethoscope className="size-4" /> },
+  { label: "Doctor Schedule", href: "/dashboard/doctor-schedule", icon: <CalendarClock className="size-4" /> },
+  { label: "Patient Entry", href: "/dashboard/patient-entry", icon: <Ticket className="size-4" /> },
   { label: "Hospitals", href: "/dashboard/hospitals", icon: <Building2 className="size-4" /> },
   { label: "Settings", href: "/dashboard/settings", icon: <Settings className="size-4" /> }
 ] as const;
@@ -43,6 +47,20 @@ function pageMeta(pathname: string, role: MockUser["role"]) {
     return {
       title: role === "hospital" ? "Doctor Approval" : "Doctors",
       subtitle: role === "hospital" ? "Approve doctor requests" : "Approve doctor registrations"
+    };
+  }
+
+  if (pathname === "/dashboard/doctor-schedule") {
+    return {
+      title: "Doctor Schedule",
+      subtitle: "Manage doctor availability"
+    };
+  }
+
+  if (pathname === "/dashboard/patient-entry") {
+    return {
+      title: "Patient Entry",
+      subtitle: "Allocate tokens from available schedules"
     };
   }
 
@@ -175,7 +193,16 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
     if (currentUser.role === "doctor") {
       return (
         item.href !== "/dashboard/doctors" &&
+        item.href !== "/dashboard/doctor-schedule" &&
+        item.href !== "/dashboard/patient-entry" &&
         item.href !== "/dashboard/settings"
+      );
+    }
+
+    if (currentUser.role === "admin") {
+      return (
+        item.href !== "/dashboard/doctor-schedule" &&
+        item.href !== "/dashboard/patient-entry"
       );
     }
 

@@ -192,8 +192,8 @@ export default function HospitalsPage() {
           title="Hospital Selection"
           description="Select hospitals"
           icon={<Building2 className="size-5" />}
-          imageSrc="https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=900&q=80"
-          imageAlt="Hospital ward"
+          imageSrc="https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=900&q=80"
+          imageAlt="Hospital building exterior"
           stats={[
             { label: "Available", value: String(availableHospitals.length) },
             { label: "Requests", value: String(requests.length) },

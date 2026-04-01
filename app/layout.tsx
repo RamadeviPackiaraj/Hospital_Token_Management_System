@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AuthRoleProvider } from "@/components/auth/AuthRoleContext";
+import "react-datepicker/dist/react-datepicker.css";
+import "react-time-picker/dist/TimePicker.css";
 import "./globals.css";
 
 const inter = Inter({

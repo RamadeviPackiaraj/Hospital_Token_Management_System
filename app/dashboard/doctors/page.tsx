@@ -188,8 +188,8 @@ export default function DoctorsPage() {
           title="Doctor Approval Board"
           description="Approve doctor requests"
           icon={<UserRoundCheck className="size-5" />}
-          imageSrc="https://images.unsplash.com/photo-1516549655669-dfbe1a1c14c2?auto=format&fit=crop&w=900&q=80"
-          imageAlt="Operating room"
+          imageSrc="https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=900&q=80"
+          imageAlt="Medical team discussion"
           stats={[
             { label: "Requests", value: String(hospitalRequests.length) },
             {
@@ -332,8 +332,8 @@ export default function DoctorsPage() {
         title="Doctor Approval Workflow"
         description="Approve doctor registrations"
         icon={<ShieldCheck className="size-5" />}
-        imageSrc="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Hospital administration desk"
+        imageSrc="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=900&q=80"
+        imageAlt="Doctor portrait"
         stats={[
           { label: "Pending", value: String(users.filter((user) => user.role === "doctor" && user.approvalStatus === "pending").length) },
           { label: "Approved", value: String(users.filter((user) => user.role === "doctor" && user.approvalStatus === "approved").length) },
