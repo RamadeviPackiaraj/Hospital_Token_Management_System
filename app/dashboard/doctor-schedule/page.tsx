@@ -79,6 +79,25 @@ export default function DoctorSchedulePage() {
     [consultationTime, endTime, startTime]
   );
 
+  const mergeDoctorNames = React.useCallback(
+    (scheduleRecords: DoctorScheduleRecord[], doctorDirectory: ScheduleDoctorDirectoryItem[]) =>
+      scheduleRecords.map((schedule) => {
+        const matchedDoctor = doctorDirectory.find((doctor) => doctor.id === schedule.doctorId);
+        const hasGenericName = !schedule.doctorName?.trim() || schedule.doctorName.trim().toLowerCase() === "doctor";
+
+        if (!matchedDoctor || !hasGenericName) {
+          return schedule;
+        }
+
+        return {
+          ...schedule,
+          doctorName: matchedDoctor.name,
+          department: schedule.department || matchedDoctor.department,
+        };
+      }),
+    []
+  );
+
   const showPreview = Boolean(selectedDepartment && selectedDoctorId && selectedDate && startTime && endTime);
 
   React.useEffect(() => {
@@ -91,7 +110,7 @@ export default function DoctorSchedulePage() {
         if (!active) return;
         setDepartments(bootstrap.departments || []);
         setDoctors(bootstrap.doctors || []);
-        setSchedules(scheduleRecords);
+        setSchedules(mergeDoctorNames(scheduleRecords, bootstrap.doctors || []));
       })
       .catch((error) => {
         if (!active) return;
@@ -104,7 +123,7 @@ export default function DoctorSchedulePage() {
     return () => {
       active = false;
     };
-  }, [currentUser.role]);
+  }, [currentUser.role, mergeDoctorNames]);
 
   React.useEffect(() => {
     const subscription = watch((values, { name }) => {
@@ -149,7 +168,7 @@ export default function DoctorSchedulePage() {
         consultationTime: Number(values.consultationTime),
       });
 
-      setSchedules((current) => [nextSchedule, ...current]);
+      setSchedules((current) => [mergeDoctorNames([nextSchedule], doctors)[0], ...current]);
       setSubmitMessage(`Saved ${nextSchedule.slots.length} slots for ${doctor.name}.`);
       reset(defaultDoctorScheduleValues);
       setShowForm(false);

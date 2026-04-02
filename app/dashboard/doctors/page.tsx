@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Badge, Card, Input, Select, Table } from "@/components/ui";
@@ -15,6 +14,7 @@ import {
 } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
 import { getAdminDoctors } from "@/lib/dashboard-data";
+import { getDoctorSchedules, getScheduleBootstrap } from "@/lib/schedule-api";
 
 type DoctorRow = Record<string, unknown> & MockUser;
 type HospitalDoctorRequest = {
@@ -45,7 +45,6 @@ function formatDoctorDetail(value: string | undefined, fallback = "Not provided"
 }
 
 export default function DoctorsPage() {
-  const searchParams = useSearchParams();
   const { currentUser, refreshSession } = useDashboardContext();
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
@@ -67,13 +66,15 @@ export default function DoctorsPage() {
   }, [currentUser.role]);
 
   React.useEffect(() => {
-    const nextStatus = searchParams.get("status");
+    if (typeof window === "undefined") return;
+
+    const nextStatus = new URLSearchParams(window.location.search).get("status");
     setStatusFilter(
       nextStatus === "pending" || nextStatus === "approved" || nextStatus === "rejected"
         ? nextStatus
         : "all"
     );
-  }, [searchParams]);
+  }, []);
 
   React.useEffect(() => {
     if (currentUser.role !== "hospital") return;
@@ -85,7 +86,7 @@ export default function DoctorsPage() {
     setHospitalError("");
 
     try {
-      const [pendingResponse, approvedResponse, rejectedResponse] = await Promise.all([
+      const [pendingResponse, approvedResponse, rejectedResponse, bootstrap, schedules] = await Promise.all([
         apiRequest<{ doctors: Array<Omit<HospitalDoctorRequest, "status">> }>(
           `/hospitals/${currentUser.id}/pending-doctors`
         ),
@@ -95,6 +96,8 @@ export default function DoctorsPage() {
         apiRequest<{ doctors: Array<Omit<HospitalDoctorRequest, "status">> }>(
           `/hospitals/${currentUser.id}/rejected-doctors`
         ),
+        getScheduleBootstrap().catch(() => ({ doctors: [] })),
+        getDoctorSchedules().catch(() => []),
       ]);
 
       const pending = (pendingResponse.doctors || []).map((doctor) => ({
@@ -109,11 +112,47 @@ export default function DoctorsPage() {
         ...doctor,
         status: "rejected" as const,
       }));
-      setHospitalRequests([
-        ...pending,
-        ...approved,
-        ...rejected,
-      ]);
+
+      const requestsByDoctorId = new Map<string, HospitalDoctorRequest>();
+
+      [...pending, ...approved, ...rejected].forEach((doctor) => {
+        requestsByDoctorId.set(doctor.userId, doctor);
+      });
+
+      (bootstrap.doctors || []).forEach((doctor) => {
+        const doctorUserId = doctor.userId || doctor.id;
+        if (!doctorUserId || requestsByDoctorId.has(doctorUserId)) {
+          return;
+        }
+
+        requestsByDoctorId.set(doctorUserId, {
+          id: `${doctorUserId}:${currentUser.id}:approved-bootstrap`,
+          userId: doctorUserId,
+          name: doctor.name,
+          email: doctor.email || "",
+          phone: doctor.phone,
+          department: doctor.department,
+          status: "approved",
+        });
+      });
+
+      schedules.forEach((schedule) => {
+        const doctorKey = schedule.doctorId || `${schedule.doctorName}:${schedule.department}`;
+        if (!doctorKey || requestsByDoctorId.has(doctorKey)) {
+          return;
+        }
+
+        requestsByDoctorId.set(doctorKey, {
+          id: `${doctorKey}:${currentUser.id}:approved-schedule`,
+          userId: doctorKey,
+          name: schedule.doctorName || "Doctor",
+          email: "",
+          department: schedule.department,
+          status: "approved",
+        });
+      });
+
+      setHospitalRequests(Array.from(requestsByDoctorId.values()));
     } catch (error) {
       setHospitalError(error instanceof Error ? error.message : "Unable to load doctor requests.");
       setHospitalRequests([]);
@@ -144,13 +183,17 @@ export default function DoctorsPage() {
     await refreshSession();
   }
 
-  async function updateHospitalDoctorStatus(doctorId: string, status: "approved" | "rejected") {
+  async function updateHospitalDoctorStatus(
+    doctorId: string,
+    nextStatus: "approved" | "rejected",
+    currentStatus?: HospitalDoctorRequest["status"]
+  ) {
     setActioningDoctorId(doctorId);
     setHospitalError("");
 
     try {
       await apiRequest(
-        status === "approved"
+        nextStatus === "approved"
           ? `/hospitals/${currentUser.id}/approve-doctor`
           : `/hospitals/${currentUser.id}/reject-doctor`,
         {
@@ -160,7 +203,23 @@ export default function DoctorsPage() {
       );
       await loadHospitalRequests();
     } catch (error) {
-      setHospitalError(error instanceof Error ? error.message : "Unable to update doctor request.");
+      const message = error instanceof Error ? error.message : "Unable to update doctor request.";
+
+      if (message === "Doctor has not selected this hospital") {
+        if (currentStatus === "approved" && nextStatus === "approved") {
+          setHospitalError("Doctor already approved.");
+        } else if (currentStatus === "rejected" && nextStatus === "rejected") {
+          setHospitalError("Doctor already rejected.");
+        } else if (currentStatus === "approved" && nextStatus === "rejected") {
+          setHospitalError("Doctor is already approved and cannot be rejected from this record.");
+        } else if (currentStatus === "rejected" && nextStatus === "approved") {
+          setHospitalError("Doctor is already rejected and cannot be approved from this record.");
+        } else {
+          setHospitalError("Doctor status cannot be updated from this record.");
+        }
+      } else {
+        setHospitalError(message);
+      }
     } finally {
       setActioningDoctorId(null);
     }
@@ -284,24 +343,24 @@ export default function DoctorsPage() {
                 header: "Actions",
                 className: "min-w-[220px]",
                 render: (row) => (
-                    <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                      <button
-                        type="button"
-                        disabled={actioningDoctorId === row.userId}
-                        className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => void updateHospitalDoctorStatus(row.userId, "approved")}
-                      >
-                        <Check className="size-4" />
-                        Approve
+                  <div className="flex items-center justify-start gap-2 whitespace-nowrap">
+                    <button
+                      type="button"
+                      disabled={actioningDoctorId === row.userId}
+                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => void updateHospitalDoctorStatus(row.userId, "approved", row.status)}
+                    >
+                      <Check className="size-4" />
+                      Approve
                     </button>
-                      <button
-                        type="button"
-                        disabled={actioningDoctorId === row.userId}
-                        className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => void updateHospitalDoctorStatus(row.userId, "rejected")}
-                      >
-                        <X className="size-4" />
-                        Reject
+                    <button
+                      type="button"
+                      disabled={actioningDoctorId === row.userId}
+                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => void updateHospitalDoctorStatus(row.userId, "rejected", row.status)}
+                    >
+                      <X className="size-4" />
+                      Reject
                     </button>
                   </div>
                 ),

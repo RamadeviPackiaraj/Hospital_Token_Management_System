@@ -119,6 +119,13 @@ function mapSchedule(record: BackendScheduleRecord): DoctorScheduleRecord {
   };
 }
 
+function mapBootstrapDoctor(doctor: ScheduleDoctorDirectoryItem): ScheduleDoctorDirectoryItem {
+  return {
+    ...doctor,
+    id: doctor.userId || doctor.id,
+  };
+}
+
 function mapToken(record: BackendPatientTokenRecord): PatientTokenRecord {
   return {
     id: record.id,
@@ -137,7 +144,11 @@ function mapToken(record: BackendPatientTokenRecord): PatientTokenRecord {
 }
 
 export async function getScheduleBootstrap() {
-  return apiRequest<ScheduleBootstrapResponse>("/doctor-schedules/bootstrap");
+  const data = await apiRequest<ScheduleBootstrapResponse>("/doctor-schedules/bootstrap");
+  return {
+    ...data,
+    doctors: (data.doctors || []).map(mapBootstrapDoctor),
+  };
 }
 
 export async function getDoctorSchedules(params: ScheduleListParams = {}) {
