@@ -69,7 +69,7 @@ export function Table<T extends Record<string, unknown>>({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[#E2E8F0] text-left">
             <thead className="bg-[#F8FAFC]">
@@ -79,7 +79,7 @@ export function Table<T extends Record<string, unknown>>({
                     key={String(column.key)}
                     scope="col"
                     className={cn(
-                      "px-4 py-3 text-xs font-medium uppercase tracking-[0.08em] text-[#64748B]",
+                      "px-4 py-3 ui-table-header",
                       column.headerClassName
                     )}
                   >
@@ -111,7 +111,7 @@ export function Table<T extends Record<string, unknown>>({
                       {columns.map((column) => (
                         <td
                           key={String(column.key)}
-                          className={cn("px-4 py-3 text-sm text-[#0F172A]", column.className)}
+                          className={cn("px-4 py-3 ui-body", column.className)}
                         >
                           {column.render
                             ? column.render(row)
@@ -126,14 +126,14 @@ export function Table<T extends Record<string, unknown>>({
 
         {showEmptyState ? (
           <div className="flex min-h-48 items-center justify-center px-4 py-8 text-center">
-            <p className="text-sm font-medium text-[#64748B]">{emptyMessage}</p>
+            <p className="ui-body-secondary">{emptyMessage}</p>
           </div>
         ) : null}
       </div>
 
       {showPagination ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#64748B]">
+          <p className="ui-body-secondary">
             Showing {(currentPage - 1) * pageSize + 1}-
             {Math.min(currentPage * pageSize, data.length)} of {data.length}
           </p>
@@ -146,7 +146,7 @@ export function Table<T extends Record<string, unknown>>({
             >
               Previous
             </Button>
-            <span className="min-w-20 text-center text-sm font-medium text-[#64748B]">
+            <span className="min-w-20 text-center ui-body-secondary">
               {currentPage} / {totalPages}
             </span>
             <Button

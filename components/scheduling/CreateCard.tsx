@@ -23,8 +23,8 @@ export function CreateCard({ active = false, onClick }: CreateCardProps) {
           <Plus className="size-5" />
         </div>
         <div className="flex flex-col gap-2">
-          <p className="text-base font-medium text-[#0F172A]">Create New Schedule</p>
-          <p className="text-sm text-[#64748B]">Set doctor availability and generate slots.</p>
+          <p className="ui-card-title">Create New Schedule</p>
+          <p className="ui-card-meta">Set doctor availability and generate slots.</p>
         </div>
       </div>
     </button>

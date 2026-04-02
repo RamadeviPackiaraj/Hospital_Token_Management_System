@@ -44,8 +44,8 @@ export function Header({
             leftIcon={<Menu className="size-4" />}
           />
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-medium text-white">{title}</h1>
-            {subtitle ? <p className="truncate text-xs text-slate-300">{subtitle}</p> : null}
+            <h1 className="truncate text-[20px] font-medium leading-7 text-white sm:text-[24px] sm:leading-8">{title}</h1>
+            {subtitle ? <p className="truncate text-xs font-normal leading-4 text-white/80">{subtitle}</p> : null}
           </div>
         </div>
 
@@ -53,8 +53,8 @@ export function Header({
           <div className="hidden min-w-0 items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 py-2 sm:flex">
             <Avatar name={user.name} src={user.imageSrc} size="sm" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-white">{user.name}</p>
-              {user.role ? <p className="truncate text-xs text-white/80">{user.role}</p> : null}
+              <p className="truncate text-sm font-medium leading-5 text-white">{user.name}</p>
+              {user.role ? <p className="truncate text-xs font-normal leading-4 text-white/80">{user.role}</p> : null}
             </div>
           </div>
 

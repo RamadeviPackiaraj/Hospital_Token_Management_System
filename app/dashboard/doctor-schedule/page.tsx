@@ -13,6 +13,7 @@ import {
   ScheduleList,
   SlotPreview,
 } from "@/components/scheduling";
+import { getApprovedDoctorsForHospital } from "@/lib/dashboard-data";
 import {
   createDoctorOptions,
   createSelectOptions,
@@ -103,6 +104,76 @@ export default function DoctorSchedulePage() {
     []
   );
 
+  const buildApprovedDoctorDirectory = React.useCallback(
+    (
+      approvedDoctors: Array<{
+        id: string;
+        fullName: string;
+        department?: string;
+        email?: string;
+        mobileNumber?: string;
+      }>,
+      bootstrapDoctors: ScheduleDoctorDirectoryItem[],
+      scheduleRecords: DoctorScheduleRecord[]
+    ) => {
+      const bootstrapById = new Map(
+        bootstrapDoctors.map((doctor) => [doctor.userId || doctor.id, doctor] as const)
+      );
+      const scheduleByDoctorId = new Map(
+        scheduleRecords.map((schedule) => [schedule.doctorId, schedule] as const)
+      );
+
+      const uniqueDoctors = new Map<string, ScheduleDoctorDirectoryItem>();
+
+      approvedDoctors.forEach((doctor) => {
+        const doctorId = doctor.id;
+        if (!doctorId || uniqueDoctors.has(doctorId)) {
+          return;
+        }
+
+        const bootstrapDoctor = bootstrapById.get(doctorId);
+        const scheduledDoctor = scheduleByDoctorId.get(doctorId);
+        uniqueDoctors.set(doctorId, {
+          id: doctorId,
+          userId: doctorId,
+          name:
+            bootstrapDoctor?.name ||
+            doctor.fullName ||
+            scheduledDoctor?.doctorName ||
+            "Doctor",
+          department:
+            bootstrapDoctor?.department ||
+            doctor.department ||
+            scheduledDoctor?.department ||
+            "",
+          email: bootstrapDoctor?.email || doctor.email || "",
+          phone: bootstrapDoctor?.phone || doctor.mobileNumber || "",
+          status: "approved",
+        });
+      });
+
+      scheduleRecords.forEach((schedule) => {
+        if (!schedule.doctorId || uniqueDoctors.has(schedule.doctorId)) {
+          return;
+        }
+
+        const bootstrapDoctor = bootstrapById.get(schedule.doctorId);
+        uniqueDoctors.set(schedule.doctorId, {
+          id: schedule.doctorId,
+          userId: schedule.doctorId,
+          name: bootstrapDoctor?.name || schedule.doctorName || "Doctor",
+          department: bootstrapDoctor?.department || schedule.department || "",
+          email: bootstrapDoctor?.email || "",
+          phone: bootstrapDoctor?.phone || "",
+          status: "approved",
+        });
+      });
+
+      return Array.from(uniqueDoctors.values());
+    },
+    []
+  );
+
   const showPreview = Boolean(selectedDepartment && selectedDoctorId && selectedDate && startTime && endTime);
 
   React.useEffect(() => {
@@ -110,12 +181,21 @@ export default function DoctorSchedulePage() {
 
     let active = true;
 
-    Promise.all([getScheduleBootstrap(), getDoctorSchedules()])
-      .then(([bootstrap, scheduleRecords]) => {
+    Promise.all([
+      getScheduleBootstrap(),
+      getDoctorSchedules(),
+      getApprovedDoctorsForHospital(currentUser.id).catch(() => []),
+    ])
+      .then(([bootstrap, scheduleRecords, approvedDoctors]) => {
         if (!active) return;
+        const approvedDirectory = buildApprovedDoctorDirectory(
+          approvedDoctors,
+          bootstrap.doctors || [],
+          scheduleRecords
+        );
         setDepartments(bootstrap.departments || []);
-        setDoctors(bootstrap.doctors || []);
-        setSchedules(mergeDoctorNames(scheduleRecords, bootstrap.doctors || []));
+        setDoctors(approvedDirectory);
+        setSchedules(mergeDoctorNames(scheduleRecords, approvedDirectory));
       })
       .catch((error) => {
         if (!active) return;
@@ -128,7 +208,7 @@ export default function DoctorSchedulePage() {
     return () => {
       active = false;
     };
-  }, [currentUser.role, mergeDoctorNames]);
+  }, [buildApprovedDoctorDirectory, currentUser.id, currentUser.role, mergeDoctorNames]);
 
   React.useEffect(() => {
     const subscription = watch((values, { name }) => {
@@ -151,8 +231,8 @@ export default function DoctorSchedulePage() {
   if (currentUser.role !== "hospital") {
     return (
       <UiCard className="p-4">
-        <h2 className="text-base font-medium text-[#0F172A]">Doctor Schedule</h2>
-        <p className="mt-1 text-sm text-[#64748B]">Only hospital users can access doctor schedule management.</p>
+        <h2 className="ui-section-title">Doctor Schedule</h2>
+        <p className="mt-1 ui-body-secondary">Only hospital users can access doctor schedule management.</p>
       </UiCard>
     );
   }

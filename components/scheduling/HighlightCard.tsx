@@ -32,8 +32,8 @@ export const HighlightCard = React.forwardRef<HTMLDivElement, HighlightCardProps
           </div>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-medium text-[#0F172A]">{title}</h3>
-          {description ? <p className="mt-1 text-sm text-[#64748B]">{description}</p> : null}
+          <h3 className="ui-card-title">{title}</h3>
+          {description ? <p className="mt-1 ui-card-meta">{description}</p> : null}
         </div>
       </div>
       {children ? <div className="mt-4">{children}</div> : null}

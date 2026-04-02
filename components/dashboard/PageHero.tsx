@@ -46,7 +46,7 @@ export function PageHero({
               {stats.map((stat) => (
                 <Badge key={stat.label} variant="neutral" className="rounded-lg px-3 py-2 text-xs font-medium">
                   <span className="ui-label">{stat.label}</span>
-                  <span className="ml-2 ui-body">{stat.value}</span>
+                  <span className="ml-2 text-sm font-medium leading-5 text-[#0F172A]">{stat.value}</span>
                 </Badge>
               ))}
             </div>

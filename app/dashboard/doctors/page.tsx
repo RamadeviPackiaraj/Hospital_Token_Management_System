@@ -4,7 +4,7 @@ import * as React from "react";
 import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { Badge, Card, Input, Select, Table } from "@/components/ui";
+import { Badge, Button, Card, Input, Select, Table } from "@/components/ui";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
 import { formatDisplayDate } from "@/lib/utils";
 import {
@@ -319,8 +319,8 @@ export default function DoctorsPage() {
 
         <Card className="p-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm text-[#0F172A]">
-              Search
+            <label className="grid gap-2">
+              <span className="ui-field-label">Search</span>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
                 <Input
@@ -332,8 +332,8 @@ export default function DoctorsPage() {
               </div>
             </label>
 
-            <label className="grid gap-2 text-sm text-[#0F172A]">
-              Status
+            <label className="grid gap-2">
+              <span className="ui-field-label">Status</span>
               <Select
                 value={hospitalStatusFilter}
                 onChange={(event) => setHospitalStatusFilter(event.target.value)}
@@ -343,10 +343,10 @@ export default function DoctorsPage() {
                 { label: "Approved", value: "approved" },
                 { label: "Rejected", value: "rejected" },
               ]}
-            />
+              />
             </label>
           </div>
-          {hospitalError ? <p className="mt-3 text-sm text-[#EF4444]">{hospitalError}</p> : null}
+          {hospitalError ? <p className="mt-3 text-sm font-normal leading-5 text-[#EF4444]">{hospitalError}</p> : null}
         </Card>
 
         <Card className="p-4">
@@ -359,8 +359,8 @@ export default function DoctorsPage() {
                   <div className="flex items-center gap-3">
                     <Avatar name={row.name} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
                     <div>
-                      <p className="text-sm font-medium text-[#0F172A]">{row.name}</p>
-                      <p className="mt-1 text-xs text-[#64748B]">Hospital request</p>
+                      <p className="ui-card-title">{row.name}</p>
+                      <p className="mt-1 ui-card-meta">Hospital request</p>
                     </div>
                   </div>
                 ),
@@ -370,8 +370,8 @@ export default function DoctorsPage() {
                 header: "Details",
                 render: (row) => (
                   <div className="space-y-1">
-                    <p className="text-sm text-[#0F172A]">{formatDoctorDetail(row.department)}</p>
-                    <p className="text-xs text-[#64748B]">
+                    <p className="ui-card-body">{formatDoctorDetail(row.department)}</p>
+                    <p className="ui-card-meta">
                       Requested{" "}
                       {row.createdAt
                         ? formatDisplayDate(row.createdAt).replace(/ \d{2}:\d{2} (AM|PM)$/, "")
@@ -398,25 +398,25 @@ export default function DoctorsPage() {
                 header: "Actions",
                 className: "min-w-[220px]",
                 render: (row) => (
-                  <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                    <button
-                      type="button"
+                  <div className="flex items-center justify-start gap-3 whitespace-nowrap">
+                    <Button
                       disabled={actioningDoctorId === row.userId}
-                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      variant="successOutline"
+                      size="sm"
+                      leftIcon={<Check className="size-4" />}
                       onClick={() => void updateHospitalDoctorStatus(row.userId, "approved", row.status)}
                     >
-                      <Check className="size-4" />
                       Approve
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
                       disabled={actioningDoctorId === row.userId}
-                      className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      variant="dangerOutline"
+                      size="sm"
+                      leftIcon={<X className="size-4" />}
                       onClick={() => void updateHospitalDoctorStatus(row.userId, "rejected", row.status)}
                     >
-                      <X className="size-4" />
                       Reject
-                    </button>
+                    </Button>
                   </div>
                 ),
               },
@@ -434,8 +434,8 @@ export default function DoctorsPage() {
   if (currentUser.role !== "admin") {
     return (
       <Card className="p-4">
-        <h2 className="text-base font-medium text-[#0F172A]">Doctor module</h2>
-        <p className="mt-1 text-sm text-[#64748B]">Admin can review doctor registrations here.</p>
+        <h2 className="ui-section-title">Doctor module</h2>
+        <p className="mt-1 ui-body-secondary">Admin can review doctor registrations here.</p>
       </Card>
     );
   }
@@ -457,8 +457,8 @@ export default function DoctorsPage() {
 
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2 text-sm text-[#0F172A]">
-            Search
+          <label className="grid gap-2">
+            <span className="ui-field-label">Search</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
               <Input
@@ -470,8 +470,8 @@ export default function DoctorsPage() {
             </div>
           </label>
 
-          <label className="grid gap-2 text-sm text-[#0F172A]">
-            Status
+          <label className="grid gap-2">
+            <span className="ui-field-label">Status</span>
             <Select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -496,9 +496,9 @@ export default function DoctorsPage() {
                 <div className="flex items-center gap-3">
                   <Avatar name={row.fullName} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
                   <div>
-                    <p className="text-sm font-medium text-[#0F172A]">{row.fullName}</p>
-                    <p className="mt-1 text-xs text-[#64748B]">{row.email}</p>
-                    <p className="mt-1 text-xs text-[#64748B]">Doctor account</p>
+                    <p className="ui-card-title">{row.fullName}</p>
+                    <p className="mt-1 ui-card-meta">{row.email}</p>
+                    <p className="mt-1 ui-card-meta">Doctor account</p>
                   </div>
                 </div>
               ),
@@ -506,25 +506,25 @@ export default function DoctorsPage() {
             {
               key: "details",
               header: "Details",
-              render: (row) => (
-                <div className="space-y-1">
-                  <p className="text-sm text-[#0F172A]">{row.mobileNumber}</p>
-                  <p className="text-xs text-[#64748B]">Department: {formatDoctorDetail(row.department)}</p>
-                  <p className="text-xs text-[#64748B]">Specialization: {formatDoctorDetail(row.specialization)}</p>
-                  <p className="text-xs text-[#64748B]">Registration ID: {formatDoctorDetail(row.medicalRegistrationId)}</p>
-                </div>
-              ),
-            },
+                render: (row) => (
+                  <div className="space-y-1">
+                    <p className="ui-card-body">{row.mobileNumber}</p>
+                    <p className="ui-card-meta">Department: {formatDoctorDetail(row.department)}</p>
+                    <p className="ui-card-meta">Specialization: {formatDoctorDetail(row.specialization)}</p>
+                    <p className="ui-card-meta">Registration ID: {formatDoctorDetail(row.medicalRegistrationId)}</p>
+                  </div>
+                ),
+              },
             {
               key: "registrationDate",
               header: "Registered",
-              render: (row) => (
-                <div className="space-y-1">
-                  <p className="text-sm text-[#0F172A]">{formatDisplayDate(row.registrationDate || "")}</p>
-                  <p className="text-xs text-[#64748B]">Recent request</p>
-                </div>
-              ),
-            },
+                render: (row) => (
+                  <div className="space-y-1">
+                    <p className="ui-card-body">{formatDisplayDate(row.registrationDate || "")}</p>
+                    <p className="ui-card-meta">Recent request</p>
+                  </div>
+                ),
+              },
             {
               key: "approvalStatus",
               header: "Status",
@@ -536,29 +536,29 @@ export default function DoctorsPage() {
             },
             {
               key: "actions",
-              header: "Actions",
-              className: "min-w-[220px]",
-              render: (row) => (
-                <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
-                    onClick={() => void updateStatus(row.id, "approved")}
-                  >
-                    <Check className="size-4" />
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
-                    onClick={() => setRejectTarget(row)}
-                  >
-                    <X className="size-4" />
-                    Reject
-                  </button>
-                </div>
-              ),
-            },
+                header: "Actions",
+                className: "min-w-[220px]",
+                render: (row) => (
+                  <div className="flex items-center justify-start gap-3 whitespace-nowrap">
+                    <Button
+                      variant="successOutline"
+                      size="sm"
+                      leftIcon={<Check className="size-4" />}
+                      onClick={() => void updateStatus(row.id, "approved")}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="dangerOutline"
+                      size="sm"
+                      leftIcon={<X className="size-4" />}
+                      onClick={() => setRejectTarget(row)}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                ),
+              },
           ]}
           data={doctorRows}
           pageSize={6}

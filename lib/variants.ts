@@ -12,13 +12,17 @@ export const buttonVariants = {
   danger:
     "border border-[var(--error)] bg-[var(--error)] text-white shadow-sm hover:bg-[#dc2626] hover:border-[#dc2626] active:bg-[#b91c1c] focus-visible:ring-[var(--error)]",
   success:
-    "border border-[var(--success)] bg-[var(--success)] text-white shadow-sm hover:bg-[#16a34a] hover:border-[#16a34a] active:bg-[#15803d] focus-visible:ring-[var(--success)]"
+    "border border-[var(--success)] bg-[var(--success)] text-white shadow-sm hover:bg-[#16a34a] hover:border-[#16a34a] active:bg-[#15803d] focus-visible:ring-[var(--success)]",
+  successOutline:
+    "border border-[var(--success)] bg-white text-[var(--success)] hover:bg-[#F0FDF4] active:bg-[#DCFCE7] focus-visible:ring-[var(--success)]",
+  dangerOutline:
+    "border border-[var(--error)] bg-white text-[var(--error)] hover:bg-[#FEF2F2] active:bg-[#FEE2E2] focus-visible:ring-[var(--error)]"
 } as const;
 
 export const buttonSizeStyles = {
-  sm: "h-9 px-3.5 text-sm",
-  md: "h-11 px-4 text-sm",
-  lg: "h-12 px-5 text-sm"
+  sm: "h-9 px-3.5 text-sm font-medium",
+  md: "h-11 px-4 text-sm font-medium",
+  lg: "h-12 px-5 text-sm font-medium"
 } as const;
 
 export const buttonIconSizes = {

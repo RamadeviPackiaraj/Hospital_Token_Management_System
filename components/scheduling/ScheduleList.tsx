@@ -44,7 +44,7 @@ export function ScheduleList({
         ) : null}
 
         {schedules.length > 0 ? (
-          <div className="hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-5 py-3 md:grid md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(160px,0.9fr)] md:gap-4">
+          <div className="hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 md:grid md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(220px,1.1fr)] md:gap-4">
             <p className="ui-table-header">Doctor</p>
             <p className="ui-table-header">Date</p>
             <p className="ui-table-header">Time Range</p>
@@ -63,7 +63,7 @@ export function ScheduleList({
           return (
             <div
               key={schedule.id}
-              className="grid gap-4 rounded-lg border border-[#E2E8F0] bg-white p-4 transition hover:border-[#0EA5A4] hover:shadow-sm md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(160px,0.9fr)] md:items-center md:px-5"
+              className="grid gap-4 rounded-lg border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#0EA5A4] md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(220px,1.1fr)] md:items-center"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar
@@ -96,12 +96,13 @@ export function ScheduleList({
                   {counts.available}
                 </div>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="ui-meta md:hidden">Actions</p>
-                <div className="mt-1 flex flex-wrap gap-4">
+                <div className="mt-1 flex items-center gap-2 whitespace-nowrap">
                   <Button
                     size="sm"
-                    variant={editingScheduleId === schedule.id ? "secondary" : "ghost"}
+                    variant={editingScheduleId === schedule.id ? "secondary" : "primary"}
+                    className="h-9 rounded-md"
                     leftIcon={<Pencil className="size-4" />}
                     onClick={() => onEdit?.(schedule)}
                   >
@@ -109,7 +110,8 @@ export function ScheduleList({
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="dangerOutline"
+                    className="h-9 rounded-md"
                     leftIcon={<Trash2 className="size-4" />}
                     loading={deletingScheduleId === schedule.id}
                     onClick={() => void onDelete?.(schedule)}
