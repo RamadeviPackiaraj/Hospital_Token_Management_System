@@ -12,8 +12,8 @@ export interface ToastProps {
 }
 
 const toneMap = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  error: "border-rose-200 bg-rose-50 text-rose-800"
+  success: "text-[#0F172A]",
+  error: "text-[#0F172A]",
 };
 
 export function Toast({
@@ -21,7 +21,7 @@ export function Toast({
   type = "success",
   open,
   onClose,
-  autoHideDuration = 3000
+  autoHideDuration = 3000,
 }: ToastProps) {
   React.useEffect(() => {
     if (!open) {
@@ -41,20 +41,17 @@ export function Toast({
       <div
         role="status"
         aria-live="polite"
-        className={cn(
-          "rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-panel",
-          toneMap[type]
-        )}
+        className={cn("rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-panel", toneMap[type])}
       >
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-medium">{message}</p>
+          <p className="ui-body">{message}</p>
           <button
             type="button"
-            className="focus-ring rounded-md px-1 text-sm"
+            className="focus-ring rounded-md px-1 text-sm text-[#64748B]"
             onClick={onClose}
             aria-label="Close toast"
           >
-            ✕
+            x
           </button>
         </div>
       </div>

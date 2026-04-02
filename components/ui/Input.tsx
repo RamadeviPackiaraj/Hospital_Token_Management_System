@@ -23,7 +23,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
       type={type}
       className={cn(
         "focus-ring w-full rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] placeholder:text-[var(--text-secondary)]",
-        "transition hover:border-slate-300",
+        "transition hover:border-[#0EA5A4]",
         sizeStyles[inputSize],
         className
       )}

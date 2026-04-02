@@ -35,15 +35,15 @@ function SummaryCard({
   icon: React.ReactNode;
 }) {
   return (
-    <Card className="p-4 transition hover:border-[#0EA5A4]/40">
+    <Card className="transition hover:border-[#0EA5A4]/40">
       <div className="flex items-center gap-4">
         <div className="flex size-11 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-xs text-gray-500">{title}</p>
-          <p className="mt-2 text-xl font-medium leading-none text-[#0F172A]">{value}</p>
-          <p className="mt-2 text-sm text-[#64748B]">{note}</p>
+          <p className="ui-label">{title}</p>
+          <p className="mt-2 text-[20px] font-medium leading-7 text-[#0F172A]">{value}</p>
+          <p className="mt-2 ui-body-secondary">{note}</p>
         </div>
       </div>
     </Card>

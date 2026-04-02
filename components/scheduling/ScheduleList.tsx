@@ -1,23 +1,35 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Card } from "@/components/scheduling/Card";
+import { Button } from "@/components/ui/Button";
 import type { DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
 import { formatScheduleDate, formatScheduleTime, getScheduleCounts } from "@/lib/scheduling";
 
 interface ScheduleListProps {
   schedules: DoctorScheduleRecord[];
+  editingScheduleId?: string | null;
+  deletingScheduleId?: string | null;
+  onEdit?: (schedule: DoctorScheduleRecord) => void;
+  onDelete?: (schedule: DoctorScheduleRecord) => void | Promise<void>;
 }
 
-export function ScheduleList({ schedules }: ScheduleListProps) {
+export function ScheduleList({
+  schedules,
+  editingScheduleId = null,
+  deletingScheduleId = null,
+  onEdit,
+  onDelete,
+}: ScheduleListProps) {
   return (
     <Card>
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h2 className="text-base font-medium text-[#0F172A]">Scheduled Doctors</h2>
-          <p className="text-sm text-[#64748B]">Card list of saved doctor availability.</p>
+          <h2 className="ui-section-title">Scheduled Doctors</h2>
+          <p className="ui-body-secondary">Card list of saved doctor availability.</p>
         </div>
-        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-xs text-[#64748B]">
+        <div className="ui-card-chip">
           {schedules.length} records
         </div>
       </div>
@@ -27,17 +39,18 @@ export function ScheduleList({ schedules }: ScheduleListProps) {
       <div className="grid gap-4">
         {schedules.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-            <p className="text-sm text-[#64748B]">No schedules added yet.</p>
+            <p className="ui-body-secondary">No schedules added yet.</p>
           </div>
         ) : null}
 
         {schedules.length > 0 ? (
-          <div className="hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-5 py-3 md:grid md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)] md:gap-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#64748B]">Doctor</p>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#64748B]">Date</p>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#64748B]">Time Range</p>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#64748B]">Slots</p>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#64748B]">Available</p>
+          <div className="hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-5 py-3 md:grid md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(160px,0.9fr)] md:gap-4">
+            <p className="ui-table-header">Doctor</p>
+            <p className="ui-table-header">Date</p>
+            <p className="ui-table-header">Time Range</p>
+            <p className="ui-table-header">Slots</p>
+            <p className="ui-table-header">Available</p>
+            <p className="ui-table-header">Actions</p>
           </div>
         ) : null}
 
@@ -50,7 +63,7 @@ export function ScheduleList({ schedules }: ScheduleListProps) {
           return (
             <div
               key={schedule.id}
-              className="grid gap-4 rounded-lg border border-[#E2E8F0] bg-white p-4 transition hover:border-[#0EA5A4] hover:shadow-sm md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)] md:items-center md:px-5"
+              className="grid gap-4 rounded-lg border border-[#E2E8F0] bg-white p-4 transition hover:border-[#0EA5A4] hover:shadow-sm md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(160px,0.9fr)] md:items-center md:px-5"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar
@@ -59,28 +72,50 @@ export function ScheduleList({ schedules }: ScheduleListProps) {
                   className="bg-[#F0FDFA] font-medium text-[#0EA5A4]"
                 />
                 <div className="min-w-0">
-                  <p className="text-base font-medium text-[#0F172A]">{schedule.doctorName}</p>
-                  <p className="mt-1 text-sm text-[#64748B]">{schedule.department}</p>
+                  <p className="ui-card-title">{schedule.doctorName}</p>
+                  <p className="mt-1 ui-body-secondary">{schedule.department}</p>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-[#64748B] md:hidden">Date</p>
-                <p className="mt-1 text-sm text-[#0F172A]">{formatScheduleDate(schedule.date)}</p>
+                <p className="ui-meta md:hidden">Date</p>
+                <p className="mt-1 ui-card-body">{formatScheduleDate(schedule.date)}</p>
               </div>
               <div>
-                <p className="text-xs text-[#64748B] md:hidden">Time Range</p>
-                <p className="mt-1 text-sm text-[#0F172A]">
+                <p className="ui-meta md:hidden">Time Range</p>
+                <p className="mt-1 ui-card-body">
                   {formatScheduleTime(startTime)} - {formatScheduleTime(endTime)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-[#64748B] md:hidden">Slots</p>
-                <p className="mt-1 text-sm text-[#0F172A]">{counts.total}</p>
+                <p className="ui-meta md:hidden">Slots</p>
+                <p className="mt-1 ui-card-body">{counts.total}</p>
               </div>
               <div>
-                <p className="text-xs text-[#64748B] md:hidden">Available</p>
-                <div className="mt-1 inline-flex rounded-full bg-[#F0FDFA] px-2.5 py-1 text-sm text-[#0EA5A4]">
+                <p className="ui-meta md:hidden">Available</p>
+                <div className="mt-1 inline-flex rounded-full bg-[#F0FDFA] px-2.5 py-1 text-xs font-medium text-[#0EA5A4]">
                   {counts.available}
+                </div>
+              </div>
+              <div>
+                <p className="ui-meta md:hidden">Actions</p>
+                <div className="mt-1 flex flex-wrap gap-4">
+                  <Button
+                    size="sm"
+                    variant={editingScheduleId === schedule.id ? "secondary" : "ghost"}
+                    leftIcon={<Pencil className="size-4" />}
+                    onClick={() => onEdit?.(schedule)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    leftIcon={<Trash2 className="size-4" />}
+                    loading={deletingScheduleId === schedule.id}
+                    onClick={() => void onDelete?.(schedule)}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </div>
             </div>

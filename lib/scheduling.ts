@@ -123,10 +123,14 @@ export function formatScheduleDate(value: string) {
   return format(parsed, "dd/MM/yyyy");
 }
 
-export function formatScheduleTime(value: string) {
+export function formatTimeTo12Hour(value: string) {
   const parsed = parse(value, "HH:mm", new Date());
   if (!isValid(parsed)) return value;
   return format(parsed, "hh:mm a");
+}
+
+export function formatScheduleTime(value: string) {
+  return formatTimeTo12Hour(value);
 }
 
 export function getScheduleCounts(schedule: DoctorScheduleRecord) {

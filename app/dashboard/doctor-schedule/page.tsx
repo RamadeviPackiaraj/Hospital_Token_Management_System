@@ -22,9 +22,11 @@ import {
 import type { DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
 import {
   createDoctorSchedule,
+  deleteDoctorSchedule,
   getDoctorSchedules,
   getScheduleBootstrap,
   type ScheduleDoctorDirectoryItem,
+  updateDoctorSchedule,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
 import {
@@ -40,6 +42,8 @@ export default function DoctorSchedulePage() {
   const [departments, setDepartments] = React.useState<string[]>([]);
   const [doctors, setDoctors] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
   const [submitMessage, setSubmitMessage] = React.useState("");
+  const [editingScheduleId, setEditingScheduleId] = React.useState<string | null>(null);
+  const [deletingScheduleId, setDeletingScheduleId] = React.useState<string | null>(null);
 
   const methods = useForm<DoctorScheduleFormValues>({
     resolver: zodResolver(doctorScheduleSchema),
@@ -159,15 +163,44 @@ export default function DoctorSchedulePage() {
 
     try {
       setSubmitMessage("");
-
-      const nextSchedule = await createDoctorSchedule({
+      const payload = {
         doctorId: doctor.id,
         department: values.department,
         date: values.date,
         startTime: values.startTime,
         endTime: values.endTime,
         consultationTime: Number(values.consultationTime),
-      });
+      };
+
+      if (editingScheduleId) {
+        const updatedSchedule = await updateDoctorSchedule({
+          scheduleId: editingScheduleId,
+          ...payload,
+        });
+
+        setSchedules((current) =>
+          current.map((schedule) =>
+            schedule.id === editingScheduleId ? mergeDoctorNames([updatedSchedule], doctors)[0] : schedule
+          )
+        );
+        setSubmitMessage(`Updated ${doctor.name}'s schedule for ${formatScheduleDate(values.date)}.`);
+        setEditingScheduleId(null);
+        setShowForm(false);
+        reset(defaultDoctorScheduleValues);
+        logger.success("Doctor schedule updated successfully.", {
+          source: "doctor-schedule",
+          data: {
+            scheduleId: updatedSchedule.id,
+            doctorId: doctor.id,
+            doctorName: doctor.name,
+            date: values.date,
+          },
+          toast: true,
+        });
+        return;
+      }
+
+      const nextSchedule = await createDoctorSchedule(payload);
 
       setSchedules((current) => [mergeDoctorNames([nextSchedule], doctors)[0], ...current]);
       setSubmitMessage(`Saved ${nextSchedule.slots.length} slots for ${doctor.name}.`);
@@ -194,6 +227,75 @@ export default function DoctorSchedulePage() {
     }
   }
 
+  function addMinutesToTime(value: string, minutesToAdd: number) {
+    const [hoursText, minutesText] = value.split(":");
+    const hours = Number(hoursText);
+    const minutes = Number(minutesText);
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return value;
+    }
+
+    const totalMinutes = hours * 60 + minutes + minutesToAdd;
+    const normalizedHours = Math.floor(totalMinutes / 60)
+      .toString()
+      .padStart(2, "0");
+    const normalizedMinutes = (totalMinutes % 60).toString().padStart(2, "0");
+
+    return `${normalizedHours}:${normalizedMinutes}`;
+  }
+
+  function handleEditSchedule(schedule: DoctorScheduleRecord) {
+    const startTime = schedule.startTime ?? schedule.slots[0]?.time ?? "";
+    const lastSlotTime = schedule.slots[schedule.slots.length - 1]?.time ?? "";
+    const endTime = schedule.endTime ?? addMinutesToTime(lastSlotTime, schedule.consultationTime);
+
+    reset({
+      department: schedule.department,
+      doctorId: schedule.doctorId,
+      date: schedule.date,
+      startTime,
+      endTime,
+      consultationTime: String(schedule.consultationTime),
+    });
+    setSubmitMessage("");
+    setEditingScheduleId(schedule.id);
+    setShowForm(true);
+  }
+
+  function handleCancelForm() {
+    reset(defaultDoctorScheduleValues);
+    setSubmitMessage("");
+    setEditingScheduleId(null);
+    setShowForm(false);
+  }
+
+  async function handleDeleteSchedule(schedule: DoctorScheduleRecord) {
+    setDeletingScheduleId(schedule.id);
+
+    try {
+      await deleteDoctorSchedule(schedule.id);
+      setSchedules((current) => current.filter((item) => item.id !== schedule.id));
+      if (editingScheduleId === schedule.id) {
+        handleCancelForm();
+      }
+      logger.success("Doctor schedule deleted successfully.", {
+        source: "doctor-schedule",
+        data: { scheduleId: schedule.id, doctorName: schedule.doctorName, date: schedule.date },
+        toast: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to delete doctor schedule.";
+      logger.error("Unable to delete the doctor schedule.", {
+        source: "doctor-schedule",
+        data: { error: message, scheduleId: schedule.id },
+        toast: true,
+      });
+    } finally {
+      setDeletingScheduleId(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHero
@@ -209,7 +311,18 @@ export default function DoctorSchedulePage() {
         ]}
       />
 
-      <CreateCard active={showForm} onClick={() => setShowForm((current) => !current)} />
+      <CreateCard
+        active={showForm}
+        onClick={() => {
+          if (showForm && editingScheduleId) {
+            handleCancelForm();
+            return;
+          }
+
+          setSubmitMessage("");
+          setShowForm((current) => !current);
+        }}
+      />
 
       {showForm ? (
         <section className={showPreview ? "grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]" : "grid gap-6"}>
@@ -222,6 +335,8 @@ export default function DoctorSchedulePage() {
             submitMessage={submitMessage}
             isSubmitting={isSubmitting}
             minDate={new Date().toISOString().slice(0, 10)}
+            submitLabel={editingScheduleId ? "Update Schedule" : "Save Schedule"}
+            onCancel={handleCancelForm}
             onSubmit={handleSubmit(onSubmit)}
           />
 
@@ -243,7 +358,13 @@ export default function DoctorSchedulePage() {
         </section>
       ) : null}
 
-      <ScheduleList schedules={schedules} />
+      <ScheduleList
+        schedules={schedules}
+        editingScheduleId={editingScheduleId}
+        deletingScheduleId={deletingScheduleId}
+        onEdit={handleEditSchedule}
+        onDelete={handleDeleteSchedule}
+      />
     </div>
   );
 }

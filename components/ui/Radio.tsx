@@ -15,20 +15,20 @@ export function Radio({ className, label, description, id, ...props }: RadioProp
   return (
     <label
       htmlFor={inputId}
-      className="flex cursor-pointer items-start gap-3 rounded-xl p-1 text-sm text-slate-700"
+      className="flex cursor-pointer items-start gap-3 rounded-xl p-1 text-sm text-[#0F172A]"
     >
       <input
         id={inputId}
         type="radio"
         className={cn(
-          "focus-ring mt-0.5 h-4 w-4 border-slate-300 text-brand-600",
+          "focus-ring mt-0.5 h-4 w-4 border-[#E2E8F0] text-[#0EA5A4]",
           className
         )}
         {...props}
       />
       <span className="space-y-1">
-        {label ? <span className="block font-medium text-slate-900">{label}</span> : null}
-        {description ? <span className="block text-xs text-slate-500">{description}</span> : null}
+        {label ? <span className="block text-sm font-medium text-[#0F172A]">{label}</span> : null}
+        {description ? <span className="block text-xs text-[#64748B]">{description}</span> : null}
       </span>
     </label>
   );

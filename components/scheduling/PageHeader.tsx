@@ -11,10 +11,10 @@ export function PageHeader({ title, description, meta }: PageHeaderProps) {
     <header className="flex flex-col gap-2">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="text-xl font-medium text-[#0F172A]">{title}</h1>
-          <p className="text-sm text-[#64748B]">{description}</p>
+          <h1 className="ui-page-title">{title}</h1>
+          <p className="ui-page-subtitle">{description}</p>
         </div>
-        {meta ? <p className="text-xs text-gray-500">{meta}</p> : null}
+        {meta ? <p className="ui-meta">{meta}</p> : null}
       </div>
     </header>
   );

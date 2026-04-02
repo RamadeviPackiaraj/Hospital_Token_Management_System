@@ -2,6 +2,7 @@ import { apiRequest, buildQuery } from "@/lib/api";
 import type {
   DoctorDirectoryItem,
   DoctorScheduleRecord,
+  PatientTokenStatus,
   PatientTokenRecord,
 } from "@/lib/mock-data/scheduling";
 
@@ -52,6 +53,7 @@ interface BackendPatientTokenRecord {
   doctorName: string;
   date: string;
   time: string;
+  status?: string;
   createdAt?: string;
   createdAtDisplay?: string;
 }
@@ -91,6 +93,10 @@ export interface CreateDoctorSchedulePayload {
   consultationTime: number;
 }
 
+export interface UpdateDoctorSchedulePayload extends CreateDoctorSchedulePayload {
+  scheduleId: string;
+}
+
 export interface AssignPatientTokenPayload {
   patientName: string;
   dob: string;
@@ -100,6 +106,19 @@ export interface AssignPatientTokenPayload {
   department: string;
   date?: string;
   doctorId?: string;
+}
+
+export interface UpdatePatientTokenStatusPayload {
+  tokenId: string;
+  status: PatientTokenStatus;
+}
+
+function normalizePatientTokenStatus(status?: string): PatientTokenStatus {
+  if (status === "CALLING" || status === "COMPLETED") {
+    return status;
+  }
+
+  return "NOT_STARTED";
 }
 
 function mapSchedule(record: BackendScheduleRecord): DoctorScheduleRecord {
@@ -139,6 +158,7 @@ function mapToken(record: BackendPatientTokenRecord): PatientTokenRecord {
     doctorName: record.doctorName,
     date: record.date,
     time: record.time,
+    status: normalizePatientTokenStatus(record.status),
     createdAt: record.createdAtDisplay || record.createdAt || "",
   };
 }
@@ -170,6 +190,27 @@ export async function createDoctorSchedule(payload: CreateDoctorSchedulePayload)
   return mapSchedule(data);
 }
 
+export async function updateDoctorSchedule(payload: UpdateDoctorSchedulePayload) {
+  const data = await apiRequest<BackendScheduleRecord>(`/doctor-schedules/${payload.scheduleId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      doctorId: payload.doctorId,
+      department: payload.department,
+      date: payload.date,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      consultationTime: payload.consultationTime,
+    }),
+  });
+  return mapSchedule(data);
+}
+
+export async function deleteDoctorSchedule(scheduleId: string) {
+  return apiRequest<{ success?: boolean; message?: string }>(`/doctor-schedules/${scheduleId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getScheduleSummary(date?: string) {
   return apiRequest<ScheduleSummary>(`/doctor-schedules/summary${buildQuery({ date })}`);
 }
@@ -196,4 +237,16 @@ export async function assignPatientToken(payload: AssignPatientTokenPayload) {
     token: mapToken(data.token),
     schedule: mapSchedule(data.schedule),
   };
+}
+
+export async function updatePatientTokenStatus(payload: UpdatePatientTokenStatusPayload) {
+  const data = await apiRequest<BackendPatientTokenRecord>(
+    `/doctor-schedules/tokens/${payload.tokenId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status: payload.status }),
+    }
+  );
+
+  return mapToken(data);
 }

@@ -20,6 +20,8 @@ interface CreateScheduleProps {
   submitMessage: string;
   isSubmitting: boolean;
   minDate: string;
+  submitLabel?: string;
+  onCancel?: () => void;
   onSubmit: () => void;
 }
 
@@ -32,14 +34,16 @@ export function CreateSchedule({
   submitMessage,
   isSubmitting,
   minDate,
+  submitLabel = "Save Schedule",
+  onCancel,
   onSubmit,
 }: CreateScheduleProps) {
   return (
-    <Card className="w-full transition hover:shadow-sm">
+    <Card className="w-full">
       <div className="flex flex-col gap-2">
-        <h2 className="text-base font-medium text-[#0F172A]">Schedule Form</h2>
-        <p className="text-sm text-[#64748B]">Select doctor availability and review slots before saving.</p>
-        {submitMessage ? <p className="text-xs text-[#0EA5A4]">{submitMessage}</p> : null}
+        <h2 className="ui-section-title">Schedule Form</h2>
+        <p className="ui-body-secondary">Select doctor availability and review slots before saving.</p>
+        {submitMessage ? <p className="ui-meta text-[#0EA5A4]">{submitMessage}</p> : null}
       </div>
 
       <div className="my-4 border-t border-[#E2E8F0]" />
@@ -130,9 +134,14 @@ export function CreateSchedule({
           />
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-4">
+          {onCancel ? (
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          ) : null}
           <Button type="submit" loading={isSubmitting} leftIcon={<Plus className="size-4" />}>
-            Save Schedule
+            {submitLabel}
           </Button>
         </div>
       </form>

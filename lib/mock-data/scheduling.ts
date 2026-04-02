@@ -21,6 +21,8 @@ export interface DoctorScheduleRecord {
   slots: DoctorScheduleSlot[];
 }
 
+export type PatientTokenStatus = "NOT_STARTED" | "CALLING" | "COMPLETED";
+
 export interface PatientTokenRecord {
   id: string;
   tokenNumber: number;
@@ -33,6 +35,7 @@ export interface PatientTokenRecord {
   doctorName: string;
   date: string;
   time: string;
+  status: PatientTokenStatus;
   createdAt: string;
 }
 
@@ -113,6 +116,7 @@ export const mockPatientTokens: PatientTokenRecord[] = [
     doctorName: "Dr. Asha Menon",
     date: "2026-04-01",
     time: "10:00",
+    status: "NOT_STARTED",
     createdAt: "01/04/2026, 09:52 am",
   },
   {
@@ -127,6 +131,7 @@ export const mockPatientTokens: PatientTokenRecord[] = [
     doctorName: "Dr. Nisha Varma",
     date: "2026-04-01",
     time: "11:00",
+    status: "CALLING",
     createdAt: "01/04/2026, 10:18 am",
   },
   {
@@ -141,6 +146,7 @@ export const mockPatientTokens: PatientTokenRecord[] = [
     doctorName: "Dr. Nisha Varma",
     date: "2026-04-01",
     time: "11:30",
+    status: "COMPLETED",
     createdAt: "01/04/2026, 10:44 am",
   },
 ];

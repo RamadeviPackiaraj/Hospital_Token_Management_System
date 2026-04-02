@@ -33,16 +33,16 @@ export function PatientEntryForm({
   onCancel,
 }: PatientEntryFormProps) {
   return (
-    <Card className="w-full p-4 transition hover:shadow-sm">
+    <Card className="w-full">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-medium text-[#0F172A]">Enter Patient Details</h2>
-          <p className="mt-1 text-sm text-[#64748B]">Fill in the patient details to generate the next available token.</p>
+          <h2 className="ui-section-title">Enter Patient Details</h2>
+          <p className="mt-1 ui-body-secondary">Fill in the patient details to generate the next available token.</p>
         </div>
-        <p className="text-xs text-[#64748B]">{formatScheduleDate(visitDate)}</p>
+        <p className="ui-meta">{formatScheduleDate(visitDate)}</p>
       </div>
 
-      {message ? <p className="mt-3 text-sm text-[#64748B]">{message}</p> : null}
+      {message ? <p className="mt-3 ui-body-secondary">{message}</p> : null}
 
       <div className="my-4 border-t border-[#E2E8F0]" />
 
@@ -115,7 +115,7 @@ export function PatientEntryForm({
           />
         </div>
 
-        <div className="flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-4">
           <Button
             type="button"
             variant="secondary"

@@ -24,6 +24,7 @@ import {
   getDoctorSchedules,
   getPatientTokens,
   getScheduleBootstrap,
+  updatePatientTokenStatus,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
 import {
@@ -39,6 +40,7 @@ export default function PatientEntryPage() {
   const [departments, setDepartments] = React.useState<string[]>([]);
   const [showForm, setShowForm] = React.useState(false);
   const [formMessage, setFormMessage] = React.useState("");
+  const [updatingTokenId, setUpdatingTokenId] = React.useState<string | null>(null);
 
   const methods = useForm<PatientEntryFormValues>({
     resolver: zodResolver(patientEntrySchema),
@@ -138,6 +140,31 @@ export default function PatientEntryPage() {
     }
   }
 
+  async function handleTokenStatusChange(tokenId: string, status: PatientTokenRecord["status"]) {
+    setUpdatingTokenId(tokenId);
+
+    try {
+      const updatedToken = await updatePatientTokenStatus({ tokenId, status });
+      setTokens((current) =>
+        current.map((token) => (token.id === updatedToken.id ? updatedToken : token))
+      );
+      logger.success("Token status updated", {
+        source: "patient-entry",
+        data: { tokenId, status },
+        toast: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update status";
+      logger.error("Failed to update status", {
+        source: "patient-entry",
+        data: { tokenId, status, error: message },
+        toast: true,
+      });
+    } finally {
+      setUpdatingTokenId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHero
@@ -179,7 +206,12 @@ export default function PatientEntryPage() {
         />
       ) : null}
 
-      <TokenList tokens={tokens} departments={departments} />
+      <TokenList
+        tokens={tokens}
+        departments={departments}
+        updatingTokenId={updatingTokenId}
+        onStatusChange={handleTokenStatusChange}
+      />
     </div>
   );
 }
