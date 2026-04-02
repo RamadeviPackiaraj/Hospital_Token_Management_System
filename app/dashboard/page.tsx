@@ -21,7 +21,8 @@ import {
   getSelectionsForHospital,
   type HospitalSelection,
 } from "@/lib/dashboard-data";
-import { getStoredDoctorSchedules, todayDateString } from "@/lib/scheduling";
+import { getScheduleSummary } from "@/lib/schedule-api";
+import { todayDateString } from "@/lib/scheduling";
 
 function SummaryCard({
   title,
@@ -71,20 +72,7 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     let active = true;
-
-    const storedSchedules = getStoredDoctorSchedules();
     const today = todayDateString();
-    const todaySchedules = storedSchedules.filter((schedule) => schedule.date === today);
-
-    if (active) {
-      setTodayScheduleCount(todaySchedules.length);
-      setTodayAvailableSlots(
-        todaySchedules.reduce(
-          (sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length,
-          0
-        )
-      );
-    }
 
     if (currentUser.role === "admin") {
       Promise.all([getAdminDoctors(), getAdminHospitals()])
@@ -104,16 +92,21 @@ export default function DashboardPage() {
       Promise.all([
         getSelectionsForHospital(currentUser.id),
         getApprovedDoctorsForHospital(currentUser.id),
+        getScheduleSummary(today),
       ])
-        .then(([selections, doctors]) => {
+        .then(([selections, doctors, summary]) => {
           if (!active) return;
           setHospitalSelections(selections);
           setApprovedDoctors(doctors);
+          setTodayScheduleCount(summary.totalSchedules || 0);
+          setTodayAvailableSlots(summary.availableSlots || 0);
         })
         .catch(() => {
           if (!active) return;
           setHospitalSelections([]);
           setApprovedDoctors([]);
+          setTodayScheduleCount(0);
+          setTodayAvailableSlots(0);
         });
     }
 

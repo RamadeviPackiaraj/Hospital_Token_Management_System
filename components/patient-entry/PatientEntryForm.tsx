@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { Button } from "@/components/ui";
 import { Card, DatePicker, Input, Select } from "@/components/scheduling";
-import { bloodGroupOptions, mockDepartments } from "@/lib/mock-data/scheduling";
+import { bloodGroupOptions } from "@/lib/mock-data/scheduling";
 import { createSelectOptions, formatScheduleDate } from "@/lib/scheduling";
 import type { PatientEntryFormValues } from "@/utils/schedulingSchemas";
 
@@ -16,6 +16,7 @@ interface PatientEntryFormProps {
   isSubmitting: boolean;
   visitDate: string;
   message: string;
+  departments: string[];
   onSubmit: () => void;
   onCancel: () => void;
 }
@@ -27,6 +28,7 @@ export function PatientEntryForm({
   isSubmitting,
   visitDate,
   message,
+  departments,
   onSubmit,
   onCancel,
 }: PatientEntryFormProps) {
@@ -105,7 +107,7 @@ export function PatientEntryForm({
             id="department"
             label="Department"
             placeholder="Select department"
-            options={createSelectOptions(mockDepartments)}
+            options={createSelectOptions(departments)}
             error={errors.department?.message}
             required
             defaultValue=""

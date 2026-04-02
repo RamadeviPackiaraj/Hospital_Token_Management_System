@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { PageHero, useDashboardContext } from "@/components/dashboard";
 import { Card as UiCard } from "@/components/ui";
 import {
-  Card,
   CreateCard,
   CreateSchedule,
   HighlightCard,
@@ -19,12 +18,14 @@ import {
   createSelectOptions,
   formatScheduleDate,
   generateTimeSlots,
-  getDoctorById,
-  getStoredDoctorSchedules,
-  persistDoctorSchedules,
-  buildDoctorSchedule,
 } from "@/lib/scheduling";
-import { mockDepartments, mockDoctors, type DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
+import type { DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
+import {
+  createDoctorSchedule,
+  getDoctorSchedules,
+  getScheduleBootstrap,
+  type ScheduleDoctorDirectoryItem,
+} from "@/lib/schedule-api";
 import {
   defaultDoctorScheduleValues,
   doctorScheduleSchema,
@@ -35,6 +36,8 @@ export default function DoctorSchedulePage() {
   const { currentUser } = useDashboardContext();
   const [showForm, setShowForm] = React.useState(false);
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
+  const [departments, setDepartments] = React.useState<string[]>([]);
+  const [doctors, setDoctors] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
   const [submitMessage, setSubmitMessage] = React.useState("");
 
   const methods = useForm<DoctorScheduleFormValues>({
@@ -62,13 +65,13 @@ export default function DoctorSchedulePage() {
   const consultationTime = watch("consultationTime");
 
   const filteredDoctors = React.useMemo(() => {
-    if (!selectedDepartment) return mockDoctors;
-    return mockDoctors.filter((doctor) => doctor.department === selectedDepartment);
-  }, [selectedDepartment]);
+    if (!selectedDepartment) return doctors;
+    return doctors.filter((doctor) => doctor.department === selectedDepartment);
+  }, [doctors, selectedDepartment]);
 
   const selectedDoctor = React.useMemo(
-    () => (selectedDoctorId ? getDoctorById(selectedDoctorId) : null),
-    [selectedDoctorId]
+    () => doctors.find((doctor) => doctor.id === selectedDoctorId) ?? null,
+    [doctors, selectedDoctorId]
   );
 
   const previewSlots = React.useMemo(
@@ -79,8 +82,29 @@ export default function DoctorSchedulePage() {
   const showPreview = Boolean(selectedDepartment && selectedDoctorId && selectedDate && startTime && endTime);
 
   React.useEffect(() => {
-    setSchedules(getStoredDoctorSchedules());
-  }, []);
+    if (currentUser.role !== "hospital") return;
+
+    let active = true;
+
+    Promise.all([getScheduleBootstrap(), getDoctorSchedules()])
+      .then(([bootstrap, scheduleRecords]) => {
+        if (!active) return;
+        setDepartments(bootstrap.departments || []);
+        setDoctors(bootstrap.doctors || []);
+        setSchedules(scheduleRecords);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setDepartments([]);
+        setDoctors([]);
+        setSchedules([]);
+        setSubmitMessage(error instanceof Error ? error.message : "Unable to load doctor schedules.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser.role]);
 
   React.useEffect(() => {
     const subscription = watch((values, { name }) => {
@@ -89,7 +113,7 @@ export default function DoctorSchedulePage() {
       const doctorId = values.doctorId;
       if (!doctorId) return;
 
-      const doctor = getDoctorById(doctorId);
+      const doctor = doctors.find((item) => item.id === doctorId);
       if (!doctor || !values.department) return;
 
       if (doctor.department !== values.department) {
@@ -98,7 +122,7 @@ export default function DoctorSchedulePage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [setValue, watch]);
+  }, [doctors, setValue, watch]);
 
   if (currentUser.role !== "hospital") {
     return (
@@ -109,26 +133,29 @@ export default function DoctorSchedulePage() {
     );
   }
 
-  function onSubmit(values: DoctorScheduleFormValues) {
-    const doctor = getDoctorById(values.doctorId);
+  async function onSubmit(values: DoctorScheduleFormValues) {
+    const doctor = doctors.find((item) => item.id === values.doctorId);
     if (!doctor) return;
 
-    const nextSchedule = buildDoctorSchedule({
-      doctorId: doctor.id,
-      doctorName: doctor.name,
-      department: values.department,
-      date: values.date,
-      startTime: values.startTime,
-      endTime: values.endTime,
-      consultationTime: Number(values.consultationTime),
-    });
+    try {
+      setSubmitMessage("");
 
-    const nextSchedules = [nextSchedule, ...schedules];
-    setSchedules(nextSchedules);
-    persistDoctorSchedules(nextSchedules);
-    setSubmitMessage(`Saved ${nextSchedule.slots.length} slots for ${doctor.name}.`);
-    reset(defaultDoctorScheduleValues);
-    setShowForm(false);
+      const nextSchedule = await createDoctorSchedule({
+        doctorId: doctor.id,
+        department: values.department,
+        date: values.date,
+        startTime: values.startTime,
+        endTime: values.endTime,
+        consultationTime: Number(values.consultationTime),
+      });
+
+      setSchedules((current) => [nextSchedule, ...current]);
+      setSubmitMessage(`Saved ${nextSchedule.slots.length} slots for ${doctor.name}.`);
+      reset(defaultDoctorScheduleValues);
+      setShowForm(false);
+    } catch (error) {
+      setSubmitMessage(error instanceof Error ? error.message : "Unable to save doctor schedule.");
+    }
   }
 
   return (
@@ -154,7 +181,7 @@ export default function DoctorSchedulePage() {
             control={control}
             register={register}
             errors={errors}
-            departmentOptions={createSelectOptions(mockDepartments)}
+            departmentOptions={createSelectOptions(departments)}
             doctorOptions={createDoctorOptions(filteredDoctors)}
             submitMessage={submitMessage}
             isSubmitting={isSubmitting}

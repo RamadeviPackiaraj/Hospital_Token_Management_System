@@ -12,17 +12,19 @@ import {
   TokenList,
 } from "@/components/patient-entry";
 import {
-  assignFirstAvailableToken,
   formatScheduleDate,
-  getStoredDoctorSchedules,
-  persistDoctorSchedules,
   todayDateString,
 } from "@/lib/scheduling";
 import {
-  mockPatientTokens,
   type DoctorScheduleRecord,
   type PatientTokenRecord,
 } from "@/lib/mock-data/scheduling";
+import {
+  assignPatientToken,
+  getDoctorSchedules,
+  getPatientTokens,
+  getScheduleBootstrap,
+} from "@/lib/schedule-api";
 import {
   defaultPatientEntryValues,
   patientEntrySchema,
@@ -32,7 +34,8 @@ import {
 export default function PatientEntryPage() {
   const { currentUser } = useDashboardContext();
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
-  const [tokens, setTokens] = React.useState<PatientTokenRecord[]>(mockPatientTokens);
+  const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
+  const [departments, setDepartments] = React.useState<string[]>([]);
   const [showForm, setShowForm] = React.useState(false);
   const [formMessage, setFormMessage] = React.useState("");
 
@@ -51,10 +54,6 @@ export default function PatientEntryPage() {
     formState: { errors, isSubmitting },
   } = methods;
 
-  React.useEffect(() => {
-    setSchedules(getStoredDoctorSchedules());
-  }, []);
-
   if (currentUser.role !== "hospital") {
     return (
       <UiCard className="p-4">
@@ -65,51 +64,64 @@ export default function PatientEntryPage() {
   }
 
   const visitDate = todayDateString();
+
+  React.useEffect(() => {
+    let active = true;
+
+    Promise.all([
+      getDoctorSchedules({ date: visitDate }),
+      getPatientTokens({ date: visitDate }),
+      getScheduleBootstrap(),
+    ])
+      .then(([scheduleRecords, tokenRecords, bootstrap]) => {
+        if (!active) return;
+        setSchedules(scheduleRecords);
+        setTokens(tokenRecords);
+        setDepartments(bootstrap.departments || []);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSchedules([]);
+        setTokens([]);
+        setDepartments([]);
+        setFormMessage(error instanceof Error ? error.message : "Unable to load patient entry data.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [visitDate]);
+
   const todaySchedules = schedules.filter((schedule) => schedule.date === visitDate);
   const todayAvailable = todaySchedules.reduce(
     (sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length,
     0
   );
 
-  function onSubmit(values: PatientEntryFormValues) {
-    const result = assignFirstAvailableToken(schedules, values.department, visitDate);
-
-    setSchedules(result.schedules);
-    persistDoctorSchedules(result.schedules);
-
-    if (!result.assignment) {
-      setFormMessage(`No availability found in ${values.department}. Try another department.`);
-      return;
-    }
-
-    const createdAt = new Intl.DateTimeFormat("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date());
-
-    setTokens((current) => [
-      {
-        id: `${result.assignment.date}-${result.assignment.department}-${result.assignment.tokenNumber}-${Date.now()}`,
-        tokenNumber: result.assignment.tokenNumber,
+  async function onSubmit(values: PatientEntryFormValues) {
+    try {
+      const result = await assignPatientToken({
         patientName: values.patientName,
         dob: values.dob,
         bloodGroup: values.bloodGroup,
         aadhaar: values.aadhaar,
         contact: values.contact,
-        department: result.assignment.department,
-        doctorName: result.assignment.doctorName,
-        date: result.assignment.date,
-        time: result.assignment.time,
-        createdAt,
-      },
-      ...current,
-    ]);
-    setFormMessage("");
-    reset(defaultPatientEntryValues);
-    setShowForm(false);
+        department: values.department,
+        date: visitDate,
+      });
+
+      setSchedules((current) =>
+        current.map((schedule) => (schedule.id === result.schedule.id ? result.schedule : schedule))
+      );
+      setTokens((current) => [result.token, ...current]);
+      setFormMessage("");
+      reset(defaultPatientEntryValues);
+      setShowForm(false);
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error ? error.message : "Unable to generate patient token."
+      );
+    }
   }
 
   return (
@@ -143,6 +155,7 @@ export default function PatientEntryPage() {
           isSubmitting={isSubmitting}
           visitDate={visitDate}
           message={formMessage}
+          departments={departments}
           onSubmit={handleSubmit(onSubmit)}
           onCancel={() => {
             reset(defaultPatientEntryValues);

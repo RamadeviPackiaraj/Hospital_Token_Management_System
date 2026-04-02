@@ -16,6 +16,8 @@ export interface DoctorScheduleRecord {
   department: string;
   date: string;
   consultationTime: number;
+  startTime?: string;
+  endTime?: string;
   slots: DoctorScheduleSlot[];
 }
 

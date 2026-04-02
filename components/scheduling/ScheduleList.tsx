@@ -43,8 +43,9 @@ export function ScheduleList({ schedules }: ScheduleListProps) {
 
         {schedules.map((schedule) => {
           const counts = getScheduleCounts(schedule);
-          const startTime = schedule.slots[0]?.time ?? "--";
-          const endTime = schedule.slots[schedule.slots.length - 1]?.time ?? "--";
+          const startTime = schedule.startTime ?? schedule.slots[0]?.time ?? "--";
+          const endTime =
+            schedule.endTime ?? schedule.slots[schedule.slots.length - 1]?.time ?? "--";
 
           return (
             <div

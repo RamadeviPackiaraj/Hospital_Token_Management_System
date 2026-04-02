@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dateSchema, nameSchema, requiredString, selectSchema } from "@/utils/validationSchemas";
-import { getDoctorById, generateTimeSlots } from "@/lib/scheduling";
+import { generateTimeSlots } from "@/lib/scheduling";
 
 export const doctorScheduleSchema = z
   .object({
@@ -14,16 +14,6 @@ export const doctorScheduleSchema = z
     }),
   })
   .superRefine((values, context) => {
-    const doctor = getDoctorById(values.doctorId);
-
-    if (doctor && doctor.department !== values.department) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["doctorId"],
-        message: "Selected doctor does not belong to this department",
-      });
-    }
-
     if (values.startTime && values.endTime && values.startTime >= values.endTime) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
