@@ -13,6 +13,7 @@ import { FormWrapper } from "@/components/FormWrapper";
 import { Input } from "@/components/Input";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Select } from "@/components/Select";
+import { DatePicker as ScheduleDatePicker } from "@/components/scheduling/DatePicker";
 import { useAuthRole } from "@/components/auth/AuthRoleContext";
 import {
   AuthRole,
@@ -22,6 +23,8 @@ import {
   type SignupPayload,
 } from "@/lib/auth-flow";
 import { getDepartments, type DepartmentRecord } from "@/lib/dashboard-data";
+import { logger } from "@/lib/logger";
+import { bloodGroupOptions } from "@/lib/mock-data/scheduling";
 import { defaultSignupValues, signupSchema, type SignupFormValues } from "@/utils/validationSchemas";
 
 type CountryOption = { id: number; name: string };
@@ -221,9 +224,20 @@ export function SignUpFlow() {
     try {
       const challenge = await beginMockSignup(buildPayload(selectedRole, formValues));
       setSelectedRole(challenge.role);
+      logger.success(`${formatRoleLabel(selectedRole)} account created. Verify OTP to continue.`, {
+        source: "auth.signup",
+        data: { role: selectedRole, email: formValues.email },
+        toast: true,
+      });
       router.push(`/verify-otp?mode=${challenge.mode}&role=${challenge.role}`);
     } catch (signupError) {
-      setServerError(signupError instanceof Error ? signupError.message : "Unable to start sign up.");
+      const message = signupError instanceof Error ? signupError.message : "Unable to start sign up.";
+      setServerError(message);
+      logger.error("Unable to create your account right now.", {
+        source: "auth.signup",
+        data: { role: selectedRole, error: message },
+        toast: true,
+      });
     }
   }
 
@@ -483,25 +497,44 @@ export function SignUpFlow() {
                 )}
               />
 
-              <Input
-                label="Date of Birth"
-                type="date"
-                placeholder="YYYY-MM-DD"
-                error={errors.dob?.message}
-                success={isFieldValid("dob")}
-                {...register("dob", {
-                  onChange: () => setServerError(""),
-                })}
+              <Controller
+                name="dob"
+                control={control}
+                render={({ field }) => (
+                  <ScheduleDatePicker
+                    id="dob"
+                    label="Date of Birth"
+                    value={field.value}
+                    onChange={(nextValue) => {
+                      field.onChange(nextValue);
+                      setServerError("");
+                    }}
+                    onBlur={field.onBlur}
+                    error={errors.dob?.message}
+                    required
+                    max={new Date().toISOString().slice(0, 10)}
+                  />
+                )}
               />
 
-              <Input
-                label="Blood Group"
-                placeholder="Enter blood group"
-                error={errors.bloodGroup?.message}
-                success={isFieldValid("bloodGroup")}
-                {...register("bloodGroup", {
-                  onChange: () => setServerError(""),
-                })}
+              <Controller
+                name="bloodGroup"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Blood Group"
+                    value={field.value}
+                    options={[...bloodGroupOptions]}
+                    placeholder="Select blood group"
+                    error={errors.bloodGroup?.message}
+                    success={isFieldValid("bloodGroup")}
+                    onBlur={field.onBlur}
+                    onChange={(event) => {
+                      field.onChange(event.target.value);
+                      setServerError("");
+                    }}
+                  />
+                )}
               />
 
               <Input

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import {
   Building2,
   CalendarClock,
@@ -21,7 +20,7 @@ import {
   getSelectionsForHospital,
   type HospitalSelection,
 } from "@/lib/dashboard-data";
-import { getScheduleSummary } from "@/lib/schedule-api";
+import { getDoctorSchedules, getScheduleBootstrap, getScheduleSummary } from "@/lib/schedule-api";
 import { todayDateString } from "@/lib/scheduling";
 
 function SummaryCard({
@@ -29,15 +28,13 @@ function SummaryCard({
   value,
   note,
   icon,
-  href,
 }: {
   title: string;
   value: string;
   note: string;
   icon: React.ReactNode;
-  href?: string;
 }) {
-  const content = (
+  return (
     <Card className="p-4 transition hover:border-[#0EA5A4]/40">
       <div className="flex items-center gap-4">
         <div className="flex size-11 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
@@ -50,13 +47,6 @@ function SummaryCard({
         </div>
       </div>
     </Card>
-  );
-
-  if (!href) return content;
-  return (
-    <Link href={href} className="block">
-      {content}
-    </Link>
   );
 }
 
@@ -90,23 +80,98 @@ export default function DashboardPage() {
 
     if (currentUser.role === "hospital") {
       Promise.all([
-        getSelectionsForHospital(currentUser.id),
-        getApprovedDoctorsForHospital(currentUser.id),
-        getScheduleSummary(today),
+        getSelectionsForHospital(currentUser.id).catch(() => []),
+        getApprovedDoctorsForHospital(currentUser.id).catch(() => []),
+        getScheduleBootstrap().catch(() => ({ doctors: [] })),
+        getDoctorSchedules().catch(() => []),
+        getScheduleSummary(today).catch(() => ({
+          date: today,
+          totalSchedules: 0,
+          totalSlots: 0,
+          bookedSlots: 0,
+          availableSlots: 0,
+        })),
       ])
-        .then(([selections, doctors, summary]) => {
+        .then(([selections, doctors, bootstrap, schedules, summary]) => {
           if (!active) return;
-          setHospitalSelections(selections);
-          setApprovedDoctors(doctors);
-          setTodayScheduleCount(summary.totalSchedules || 0);
-          setTodayAvailableSlots(summary.availableSlots || 0);
-        })
-        .catch(() => {
-          if (!active) return;
-          setHospitalSelections([]);
-          setApprovedDoctors([]);
-          setTodayScheduleCount(0);
-          setTodayAvailableSlots(0);
+
+          const selectionMap = new Map<string, HospitalSelection>();
+          selections.forEach((selection) => {
+            selectionMap.set(selection.doctorId, selection);
+          });
+
+          (bootstrap.doctors || []).forEach((doctor) => {
+            const doctorId = doctor.userId || doctor.id;
+            if (!doctorId || selectionMap.has(doctorId)) return;
+
+            selectionMap.set(doctorId, {
+              id: `${doctorId}:${currentUser.id}:approved-bootstrap`,
+              doctorId,
+              hospitalId: currentUser.id,
+              status: "approved",
+              requestedAt: today,
+            });
+          });
+
+          schedules.forEach((schedule) => {
+            const doctorId = schedule.doctorId;
+            if (!doctorId || selectionMap.has(doctorId)) return;
+
+            selectionMap.set(doctorId, {
+              id: `${doctorId}:${currentUser.id}:approved-schedule`,
+              doctorId,
+              hospitalId: currentUser.id,
+              status: "approved",
+              requestedAt: today,
+            });
+          });
+
+          const doctorMap = new Map<string, MockUser>();
+          doctors.forEach((doctor) => {
+            doctorMap.set(doctor.id, doctor);
+          });
+
+          (bootstrap.doctors || []).forEach((doctor) => {
+            const doctorId = doctor.userId || doctor.id;
+            if (!doctorId || doctorMap.has(doctorId)) return;
+
+            doctorMap.set(doctorId, {
+              id: doctorId,
+              role: "doctor",
+              fullName: doctor.name,
+              mobileNumber: doctor.phone,
+              email: doctor.email || "",
+              department: doctor.department,
+              approvalStatus: "approved",
+              registrationDate: today,
+            });
+          });
+
+          schedules.forEach((schedule) => {
+            if (!schedule.doctorId || doctorMap.has(schedule.doctorId)) return;
+
+            doctorMap.set(schedule.doctorId, {
+              id: schedule.doctorId,
+              role: "doctor",
+              fullName: schedule.doctorName || "Doctor",
+              email: "",
+              department: schedule.department,
+              approvalStatus: "approved",
+              registrationDate: today,
+            });
+          });
+
+          setHospitalSelections(Array.from(selectionMap.values()));
+          setApprovedDoctors(Array.from(doctorMap.values()));
+          setTodayScheduleCount(summary.totalSchedules || schedules.length || 0);
+          setTodayAvailableSlots(
+            summary.availableSlots ||
+              schedules.reduce(
+                (sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length,
+                0
+              ) ||
+              0
+          );
         });
     }
 
@@ -143,42 +208,36 @@ export default function DashboardPage() {
             value={String(doctors.length)}
             note="Registered doctor accounts"
             icon={<Stethoscope className="size-5" />}
-            href="/dashboard/doctors"
           />
           <SummaryCard
             title="Pending Doctor Approvals"
             value={String(pendingDoctorApprovals.length)}
             note="Awaiting admin review"
             icon={<Clock3 className="size-5" />}
-            href="/dashboard/doctors?status=pending"
           />
           <SummaryCard
             title="Approved Doctors"
             value={String(approvedDoctorsCount.length)}
             note="Doctor accounts approved"
             icon={<ShieldCheck className="size-5" />}
-            href="/dashboard/doctors?status=approved"
           />
           <SummaryCard
             title="Total Hospitals"
             value={String(hospitals.length)}
             note="Registered hospital accounts"
             icon={<Building2 className="size-5" />}
-            href="/dashboard/hospitals"
           />
           <SummaryCard
             title="Pending Hospital Approvals"
             value={String(pendingHospitalApprovals.length)}
             note="Awaiting admin review"
             icon={<Clock3 className="size-5" />}
-            href="/dashboard/hospitals?status=pending"
           />
           <SummaryCard
             title="Approved Hospitals"
             value={String(approvedHospitals.length)}
             note="Hospital accounts approved"
             icon={<ShieldCheck className="size-5" />}
-            href="/dashboard/hospitals?status=approved"
           />
         </section>
       </div>
@@ -197,21 +256,18 @@ export default function DashboardPage() {
             value={String(pendingRequests.length)}
             note={`${approvedRequests.length} approved requests`}
             icon={<ShieldCheck className="size-5" />}
-            href="/dashboard/doctors"
           />
           <SummaryCard
             title="Doctor Schedule"
             value={String(todayScheduleCount)}
             note={`${approvedDoctors.length} active doctors`}
             icon={<CalendarClock className="size-5" />}
-            href="/dashboard/doctor-schedule"
           />
           <SummaryCard
             title="Patient Entry"
             value={String(todayAvailableSlots)}
             note="Open slots available for token generation"
             icon={<Ticket className="size-5" />}
-            href="/dashboard/patient-entry"
           />
         </section>
       </div>

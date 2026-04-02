@@ -20,6 +20,7 @@ import {
   type HospitalSelection,
   getAdminHospitals,
 } from "@/lib/dashboard-data";
+import { logger } from "@/lib/logger";
 
 type HospitalRow = Record<string, unknown> & MockUser;
 type HospitalDirectoryItem = {
@@ -143,13 +144,28 @@ export default function HospitalsPage() {
     .map((user) => ({ ...user }));
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
-    await apiRequest(`/admin/hospitals/${userId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    const updated = await getAdminHospitals();
-    setUsers(updated);
-    await refreshSession();
+    try {
+      await apiRequest(`/admin/hospitals/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      const updated = await getAdminHospitals();
+      setUsers(updated);
+      await refreshSession();
+      logger.success(status === "approved" ? "Hospital approved." : "Hospital rejected.", {
+        source: "hospitals.admin",
+        data: { userId, status },
+        toast: true,
+        destructive: status === "rejected",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update hospital status.";
+      logger.error("Unable to update the hospital status.", {
+        source: "hospitals.admin",
+        data: { userId, status, error: message },
+        toast: true,
+      });
+    }
   }
 
   function confirmRejectHospital() {
@@ -168,8 +184,19 @@ export default function HospitalsPage() {
       const nextRequests = await submitHospitalSelections(currentUser.id, selectedHospitalIds);
       setRequests(nextRequests);
       setSelectedHospitalIds([]);
+      logger.success("Hospital selection submitted.", {
+        source: "hospitals.doctor",
+        data: { hospitalIds: selectedHospitalIds },
+        toast: true,
+      });
     } catch (error) {
-      setDoctorError(error instanceof Error ? error.message : "Unable to submit hospital selection.");
+      const message = error instanceof Error ? error.message : "Unable to submit hospital selection.";
+      setDoctorError(message);
+      logger.error("Unable to submit the hospital selection.", {
+        source: "hospitals.doctor",
+        data: { hospitalIds: selectedHospitalIds, error: message },
+        toast: true,
+      });
     } finally {
       setSubmittingSelection(false);
     }

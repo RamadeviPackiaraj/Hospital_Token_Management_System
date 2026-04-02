@@ -17,6 +17,7 @@ import {
   type PendingAuthChallenge,
   verifyMockOtp,
 } from "@/lib/auth-flow";
+import { logger } from "@/lib/logger";
 import { verifyOtpSchema, type VerifyOtpFormValues } from "@/utils/validationSchemas";
 
 export function OtpForm() {
@@ -62,16 +63,31 @@ export function OtpForm() {
     try {
       const result = await verifyMockOtp(values);
       if (result.mode === "signup") {
+        logger.success("OTP verified successfully. Please sign in to continue.", {
+          source: "auth.otp",
+          toast: true,
+        });
         router.push("/signin?verified=1");
         return;
       }
 
       if (result.session) {
         setSelectedRole(result.session.role);
+        logger.success("OTP verified successfully.", {
+          source: "auth.otp",
+          data: { role: result.session.role },
+          toast: true,
+        });
         router.push(`/dashboard?role=${result.session.role}`);
       }
     } catch (otpError) {
-      setServerError(otpError instanceof Error ? otpError.message : "Unable to verify OTP.");
+      const message = otpError instanceof Error ? otpError.message : "Unable to verify OTP.";
+      setServerError(message);
+      logger.error("OTP verification failed. Please try again.", {
+        source: "auth.otp",
+        data: { error: message },
+        toast: true,
+      });
     }
   }
 
@@ -83,8 +99,18 @@ export function OtpForm() {
       setChallenge(getPendingAuthChallenge());
       setValue("otp", "", { shouldDirty: false, shouldValidate: false });
       clearErrors("otp");
+      logger.success("A new OTP has been sent.", {
+        source: "auth.otp",
+        toast: true,
+      });
     } catch (resendError) {
-      setServerError(resendError instanceof Error ? resendError.message : "Unable to resend OTP.");
+      const message = resendError instanceof Error ? resendError.message : "Unable to resend OTP.";
+      setServerError(message);
+      logger.error("Unable to resend OTP right now.", {
+        source: "auth.otp",
+        data: { error: message },
+        toast: true,
+      });
       throw resendError;
     }
   }

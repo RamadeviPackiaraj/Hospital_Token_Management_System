@@ -4,6 +4,7 @@ import * as React from "react";
 import ReactTimePicker from "react-time-picker";
 import { FormField } from "@/components/forms/FormField";
 import { Clock3 } from "lucide-react";
+import { format, isValid, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export interface TimePickerProps {
@@ -22,15 +23,33 @@ export interface TimePickerProps {
   onChange?: (value: string) => void;
 }
 
+function normalizeTimeValue(value: string) {
+  if (!value) return "";
+
+  const twelveHour = parse(value, "hh:mm a", new Date());
+  if (isValid(twelveHour)) {
+    return format(twelveHour, "HH:mm");
+  }
+
+  const twentyFourHour = parse(value, "HH:mm", new Date());
+  if (isValid(twentyFourHour)) {
+    return format(twentyFourHour, "HH:mm");
+  }
+
+  return value;
+}
+
 export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(function TimePicker(
   { label, error, hint, required, id, name, value, defaultValue, onChange, onBlur, className, disabled, step: _step },
   _
 ) {
-  const [selectedTime, setSelectedTime] = React.useState<string | null>(value ?? defaultValue ?? null);
+  const [selectedTime, setSelectedTime] = React.useState<string | null>(
+    normalizeTimeValue(value ?? defaultValue ?? "") || null
+  );
 
   React.useEffect(() => {
     if (value === undefined) return;
-    setSelectedTime(value || null);
+    setSelectedTime(normalizeTimeValue(value) || null);
   }, [value]);
 
   return (
@@ -40,10 +59,11 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(fu
           value={selectedTime}
           onChange={(nextValue) => {
             const normalized = typeof nextValue === "string" ? nextValue : "";
-            setSelectedTime(normalized || null);
-            onChange?.(normalized);
+            const normalizedTime = normalizeTimeValue(normalized);
+            setSelectedTime(normalizedTime || null);
+            onChange?.(normalizedTime);
           }}
-          format="HH:mm"
+          format="hh:mm a"
           clearIcon={null}
           className={cn("time-picker-field", className)}
           disabled={disabled}
@@ -53,6 +73,7 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(fu
           maxDetail="minute"
           hourPlaceholder="hh"
           minutePlaceholder="mm"
+          amPmAriaLabel="Select AM/PM"
           nativeInputAriaLabel={label}
           disableClock
         />

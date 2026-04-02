@@ -26,6 +26,7 @@ import {
   getScheduleBootstrap,
   type ScheduleDoctorDirectoryItem,
 } from "@/lib/schedule-api";
+import { logger } from "@/lib/logger";
 import {
   defaultDoctorScheduleValues,
   doctorScheduleSchema,
@@ -172,8 +173,24 @@ export default function DoctorSchedulePage() {
       setSubmitMessage(`Saved ${nextSchedule.slots.length} slots for ${doctor.name}.`);
       reset(defaultDoctorScheduleValues);
       setShowForm(false);
+      logger.success("Doctor schedule saved successfully.", {
+        source: "doctor-schedule",
+        data: {
+          doctorId: doctor.id,
+          doctorName: doctor.name,
+          date: values.date,
+          slots: nextSchedule.slots.length,
+        },
+        toast: true,
+      });
     } catch (error) {
-      setSubmitMessage(error instanceof Error ? error.message : "Unable to save doctor schedule.");
+      const message = error instanceof Error ? error.message : "Unable to save doctor schedule.";
+      setSubmitMessage(message);
+      logger.error("Unable to save the doctor schedule.", {
+        source: "doctor-schedule",
+        data: { error: message, doctorId: values.doctorId, date: values.date },
+        toast: true,
+      });
     }
   }
 

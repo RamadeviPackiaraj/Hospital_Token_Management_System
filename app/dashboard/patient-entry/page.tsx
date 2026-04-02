@@ -25,6 +25,7 @@ import {
   getPatientTokens,
   getScheduleBootstrap,
 } from "@/lib/schedule-api";
+import { logger } from "@/lib/logger";
 import {
   defaultPatientEntryValues,
   patientEntrySchema,
@@ -117,10 +118,23 @@ export default function PatientEntryPage() {
       setFormMessage("");
       reset(defaultPatientEntryValues);
       setShowForm(false);
+      logger.success("Patient token generated successfully.", {
+        source: "patient-entry",
+        data: {
+          patientName: result.token.patientName,
+          tokenNumber: result.token.tokenNumber,
+          department: result.token.department,
+        },
+        toast: true,
+      });
     } catch (error) {
-      setFormMessage(
-        error instanceof Error ? error.message : "Unable to generate patient token."
-      );
+      const message = error instanceof Error ? error.message : "Unable to generate patient token.";
+      setFormMessage(message);
+      logger.error("Unable to generate the patient token.", {
+        source: "patient-entry",
+        data: { error: message, department: values.department },
+        toast: true,
+      });
     }
   }
 
@@ -165,7 +179,7 @@ export default function PatientEntryPage() {
         />
       ) : null}
 
-      <TokenList tokens={tokens} />
+      <TokenList tokens={tokens} departments={departments} />
     </div>
   );
 }

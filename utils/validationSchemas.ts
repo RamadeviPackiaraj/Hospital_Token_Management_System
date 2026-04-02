@@ -4,11 +4,16 @@ const REQUIRED_MESSAGE = "This field is required";
 const NAME_REGEX = /^[A-Za-z ]+$/;
 
 function parseDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  let normalizedValue = value;
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+    const [day, month, year] = value.split("/");
+    normalizedValue = `${year}-${month}-${day}`;
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return null;
   }
 
-  const date = new Date(`${value}T00:00:00`);
+  const date = new Date(`${normalizedValue}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 

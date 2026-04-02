@@ -22,6 +22,7 @@ import {
   updateDefaultFee,
   type SubscriptionSettings
 } from "@/lib/dashboard-data";
+import { logger } from "@/lib/logger";
 
 type HospitalFeeRow = Record<string, unknown> &
   MockUser & {
@@ -109,10 +110,19 @@ export function SettingsSubscriptionsContent() {
       const nextSettings = await updateDefaultFee(draftDefaultFee);
       setSettings(nextSettings);
       setDraftDefaultFee(nextSettings.defaultFee);
+      logger.success("Default subscription fee updated.", {
+        source: "settings.subscriptions",
+        data: { defaultFee: nextSettings.defaultFee },
+        toast: true,
+      });
     } catch (error) {
-      setDefaultFeeError(
-        error instanceof Error ? error.message : "Unable to save default fee."
-      );
+      const message = error instanceof Error ? error.message : "Unable to save default fee.";
+      setDefaultFeeError(message);
+      logger.error("Unable to update the default subscription fee.", {
+        source: "settings.subscriptions",
+        data: { error: message },
+        toast: true,
+      });
     } finally {
       setSavingDefaultFee(false);
     }
@@ -133,8 +143,19 @@ export function SettingsSubscriptionsContent() {
       setSettings(nextSettings);
       setEditingHospitalId(null);
       setEditingFee("");
+      logger.success("Custom hospital fee updated.", {
+        source: "settings.subscriptions",
+        data: { hospitalId, fee: editingFee || null },
+        toast: true,
+      });
     } catch (error) {
-      setCustomFeeError(error instanceof Error ? error.message : "Unable to save custom fee.");
+      const message = error instanceof Error ? error.message : "Unable to save custom fee.";
+      setCustomFeeError(message);
+      logger.error("Unable to update the hospital fee.", {
+        source: "settings.subscriptions",
+        data: { hospitalId, error: message },
+        toast: true,
+      });
     } finally {
       setSavingCustomFeeId(null);
     }

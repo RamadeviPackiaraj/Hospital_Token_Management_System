@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
 import { getAdminDoctors } from "@/lib/dashboard-data";
+import { logger } from "@/lib/logger";
 import { getDoctorSchedules, getScheduleBootstrap } from "@/lib/schedule-api";
 
 type DoctorRow = Record<string, unknown> & MockUser;
@@ -174,13 +175,28 @@ export default function DoctorsPage() {
     .map((user) => ({ ...user }));
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
-    await apiRequest(`/admin/doctors/${userId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    const updated = await getAdminDoctors();
-    setUsers(updated);
-    await refreshSession();
+    try {
+      await apiRequest(`/admin/doctors/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      const updated = await getAdminDoctors();
+      setUsers(updated);
+      await refreshSession();
+      logger.success(status === "approved" ? "Doctor approved." : "Doctor rejected.", {
+        source: "doctors.admin",
+        data: { userId, status },
+        toast: true,
+        destructive: status === "rejected",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update doctor status.";
+      logger.error("Unable to update the doctor status.", {
+        source: "doctors.admin",
+        data: { userId, status, error: message },
+        toast: true,
+      });
+    }
   }
 
   async function updateHospitalDoctorStatus(
@@ -202,23 +218,62 @@ export default function DoctorsPage() {
         }
       );
       await loadHospitalRequests();
+      logger.success(nextStatus === "approved" ? "Doctor approved." : "Doctor rejected.", {
+        source: "doctors.hospital",
+        data: { doctorId, nextStatus },
+        toast: true,
+        destructive: nextStatus === "rejected",
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to update doctor request.";
 
       if (message === "Doctor has not selected this hospital") {
         if (currentStatus === "approved" && nextStatus === "approved") {
           setHospitalError("Doctor already approved.");
+          logger.warn("Doctor is already approved.", {
+            source: "doctors.hospital",
+            data: { doctorId, currentStatus, nextStatus },
+            toast: true,
+          });
         } else if (currentStatus === "rejected" && nextStatus === "rejected") {
           setHospitalError("Doctor already rejected.");
+          logger.warn("Doctor is already rejected.", {
+            source: "doctors.hospital",
+            data: { doctorId, currentStatus, nextStatus },
+            toast: true,
+            destructive: true,
+          });
         } else if (currentStatus === "approved" && nextStatus === "rejected") {
           setHospitalError("Doctor is already approved and cannot be rejected from this record.");
+          logger.warn("This approved doctor cannot be rejected here.", {
+            source: "doctors.hospital",
+            data: { doctorId, currentStatus, nextStatus },
+            toast: true,
+            destructive: true,
+          });
         } else if (currentStatus === "rejected" && nextStatus === "approved") {
           setHospitalError("Doctor is already rejected and cannot be approved from this record.");
+          logger.warn("This rejected doctor cannot be approved here.", {
+            source: "doctors.hospital",
+            data: { doctorId, currentStatus, nextStatus },
+            toast: true,
+          });
         } else {
           setHospitalError("Doctor status cannot be updated from this record.");
+          logger.warn("Doctor status cannot be changed from this record.", {
+            source: "doctors.hospital",
+            data: { doctorId, currentStatus, nextStatus },
+            toast: true,
+            destructive: nextStatus === "rejected",
+          });
         }
       } else {
         setHospitalError(message);
+        logger.error("Unable to update the doctor request.", {
+          source: "doctors.hospital",
+          data: { doctorId, currentStatus, nextStatus, error: message },
+          toast: true,
+        });
       }
     } finally {
       setActioningDoctorId(null);

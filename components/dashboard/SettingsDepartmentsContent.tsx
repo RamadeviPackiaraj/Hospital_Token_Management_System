@@ -12,6 +12,7 @@ import {
   updateDepartment,
   type DepartmentRecord
 } from "@/lib/dashboard-data";
+import { logger } from "@/lib/logger";
 
 type DepartmentRow = Record<string, unknown> & DepartmentRecord;
 
@@ -25,8 +26,21 @@ export function SettingsDepartmentsContent() {
 
   React.useEffect(() => {
     getDepartments()
-      .then((data) => setDepartments(data))
-      .catch(() => setDepartments([]));
+      .then((data) => {
+        setDepartments(data);
+        logger.info("Departments loaded successfully.", {
+          source: "settings.departments",
+          data: { count: data.length },
+        });
+      })
+      .catch((error) => {
+        setDepartments([]);
+        logger.error("Unable to load departments.", {
+          source: "settings.departments",
+          data: { message: error instanceof Error ? error.message : String(error) },
+          toast: true,
+        });
+      });
   }, []);
 
   if (currentUser.role !== "admin") {
@@ -45,16 +59,42 @@ export function SettingsDepartmentsContent() {
   }
 
   async function handleAddDepartment() {
-    const updated = await addDepartment(departmentName);
-    setDepartments(updated);
-    setDepartmentName("");
+    try {
+      const updated = await addDepartment(departmentName);
+      setDepartments(updated);
+      logger.success("Department added successfully.", {
+        source: "settings.departments",
+        data: { name: departmentName, count: updated.length },
+        toast: true,
+      });
+      setDepartmentName("");
+    } catch (error) {
+      logger.error("Unable to add the department.", {
+        source: "settings.departments",
+        data: { name: departmentName, error: error instanceof Error ? error.message : String(error) },
+        toast: true,
+      });
+    }
   }
 
   async function handleSaveDepartment(id: string) {
-    const updated = await updateDepartment(id, editingName);
-    setDepartments(updated);
-    setEditingId(null);
-    setEditingName("");
+    try {
+      const updated = await updateDepartment(id, editingName);
+      setDepartments(updated);
+      logger.success("Department updated successfully.", {
+        source: "settings.departments",
+        data: { id, name: editingName },
+        toast: true,
+      });
+      setEditingId(null);
+      setEditingName("");
+    } catch (error) {
+      logger.error("Unable to update the department.", {
+        source: "settings.departments",
+        data: { id, name: editingName, error: error instanceof Error ? error.message : String(error) },
+        toast: true,
+      });
+    }
   }
 
   async function handleDeleteDepartment() {
@@ -62,9 +102,23 @@ export function SettingsDepartmentsContent() {
       return;
     }
 
-    const updated = await deleteDepartment(deleteTarget.id);
-    setDepartments(updated);
-    setDeleteTarget(null);
+    try {
+      const updated = await deleteDepartment(deleteTarget.id);
+      setDepartments(updated);
+      logger.warn("Department deleted.", {
+        source: "settings.departments",
+        data: { id: deleteTarget.id, name: deleteTarget.name },
+        toast: true,
+        destructive: true,
+      });
+      setDeleteTarget(null);
+    } catch (error) {
+      logger.error("Unable to delete the department.", {
+        source: "settings.departments",
+        data: { id: deleteTarget.id, name: deleteTarget.name, error: error instanceof Error ? error.message : String(error) },
+        toast: true,
+      });
+    }
   }
 
   const departmentRows: DepartmentRow[] = departments.map((department) => ({ ...department }));

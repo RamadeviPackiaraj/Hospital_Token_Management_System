@@ -3,7 +3,7 @@
 import { Avatar } from "@/components/data-display/Avatar";
 import { Card } from "@/components/scheduling/Card";
 import type { DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
-import { formatScheduleDate, getScheduleCounts } from "@/lib/scheduling";
+import { formatScheduleDate, formatScheduleTime, getScheduleCounts } from "@/lib/scheduling";
 
 interface ScheduleListProps {
   schedules: DoctorScheduleRecord[];
@@ -69,7 +69,9 @@ export function ScheduleList({ schedules }: ScheduleListProps) {
               </div>
               <div>
                 <p className="text-xs text-[#64748B] md:hidden">Time Range</p>
-                <p className="mt-1 text-sm text-[#0F172A]">{startTime} - {endTime}</p>
+                <p className="mt-1 text-sm text-[#0F172A]">
+                  {formatScheduleTime(startTime)} - {formatScheduleTime(endTime)}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-[#64748B] md:hidden">Slots</p>

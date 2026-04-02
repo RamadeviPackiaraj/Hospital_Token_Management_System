@@ -123,6 +123,12 @@ export function formatScheduleDate(value: string) {
   return format(parsed, "dd/MM/yyyy");
 }
 
+export function formatScheduleTime(value: string) {
+  const parsed = parse(value, "HH:mm", new Date());
+  if (!isValid(parsed)) return value;
+  return format(parsed, "hh:mm a");
+}
+
 export function getScheduleCounts(schedule: DoctorScheduleRecord) {
   const booked = schedule.slots.filter((slot) => slot.isBooked).length;
   const available = schedule.slots.length - booked;

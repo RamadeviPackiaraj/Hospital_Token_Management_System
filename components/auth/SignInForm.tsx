@@ -11,6 +11,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { FormWrapper } from "@/components/FormWrapper";
 import { Input } from "@/components/Input";
 import { PasswordInput } from "@/components/PasswordInput";
+import { logger } from "@/lib/logger";
 import { beginMockSignin } from "@/lib/auth-flow";
 import { signInSchema, type SignInFormValues } from "@/utils/validationSchemas";
 
@@ -47,10 +48,21 @@ export function SignInForm() {
 
     try {
       const challenge = await beginMockSignin(values);
+      logger.success("Login success: OTP sent successfully.", {
+        source: "auth.signin",
+        data: { email: values.email, role: challenge.role },
+        toast: true,
+      });
       setSelectedRole(challenge.role);
       router.push(`/verify-otp?mode=${challenge.mode}&role=${challenge.role}`);
     } catch (signInError) {
-      setServerError(signInError instanceof Error ? signInError.message : "Unable to sign in.");
+      const message = signInError instanceof Error ? signInError.message : "Unable to sign in.";
+      logger.error(`Login error: ${message}`, {
+        source: "auth.signin",
+        data: { email: values.email },
+        toast: true,
+      });
+      setServerError(message);
     }
   }
 
