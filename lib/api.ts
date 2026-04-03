@@ -1,10 +1,3 @@
-import axios, {
-  AxiosError,
-  AxiosHeaders,
-  type AxiosInstance,
-  type AxiosRequestConfig,
-  type InternalAxiosRequestConfig,
-} from "axios";
 import { logger } from "@/lib/logger";
 
 export const API_BASE_URL =
@@ -40,131 +33,109 @@ interface ApiRequestConfig {
   auth?: boolean;
 }
 
-type InternalAxiosConfig = AxiosRequestConfig & {
-  metadata?: {
-    auth?: boolean;
-  };
-};
-
-type InterceptorConfig = InternalAxiosRequestConfig & {
-  metadata?: {
-    auth?: boolean;
-  };
-};
-
 function extractPath(url?: string) {
   if (!url) return "";
   return url.replace(API_BASE_URL, "");
 }
 
-function createApiClient(): AxiosInstance {
-  const client = axios.create({
-    baseURL: API_BASE_URL,
-  });
-
-  client.interceptors.request.use(
-    (config: InterceptorConfig) => {
-      const authEnabled = config.metadata?.auth !== false;
-      const isFormData = typeof FormData !== "undefined" && config.data instanceof FormData;
-      const headers = AxiosHeaders.from(config.headers);
-
-      if (!isFormData && config.data != null && !headers.get("Content-Type")) {
-        headers.set("Content-Type", "application/json");
-      }
-
-      if (authEnabled) {
-        const token = getAuthToken();
-        if (token) {
-          headers.set("Authorization", `Bearer ${token}`);
-        }
-      }
-
-      config.headers = headers;
-
-      logger.info(`API Request: ${extractPath(config.url) || "/"}`, {
-        source: "api.request",
-        data: {
-          url: extractPath(config.url) || "/",
-          method: (config.method || "GET").toUpperCase(),
-          payload: config.data,
-          params: config.params,
-        },
-      });
-
-      return config;
-    },
-    (error) => {
-      logger.error("API Request Error", {
-        source: "api.request",
-        data: { message: error instanceof Error ? error.message : String(error) },
-      });
-      return Promise.reject(error);
-    }
-  );
-
-  client.interceptors.response.use(
-    (response) => {
-      const path = extractPath(response.config.url) || "/";
-      const message =
-        response.data?.message || `API Success: ${response.config.method?.toUpperCase() || "GET"} ${path}`;
-
-      logger.success(message, {
-        source: "api.response",
-        data: {
-          url: path,
-          method: response.config.method?.toUpperCase(),
-          status: response.status,
-          response: response.data,
-        },
-      });
-
-      return response;
-    },
-    (error: AxiosError<ApiResponse<unknown>>) => {
-      const path = extractPath(error.config?.url) || "/";
-      const message =
-        error.response?.data?.errors?.[0]?.message ||
-        error.response?.data?.message ||
-        error.message ||
-        "Request failed";
-
-      logger.error(`API Error: ${message}`, {
-        source: "api.error",
-        data: {
-          url: path,
-          method: error.config?.method?.toUpperCase(),
-          status: error.response?.status,
-          payload: (error.config as InternalAxiosConfig | undefined)?.data,
-          response: error.response?.data,
-        },
-      });
-
-      return Promise.reject(error);
-    }
-  );
-
-  return client;
+function isFormDataBody(body: BodyInit | null | undefined) {
+  return typeof FormData !== "undefined" && body instanceof FormData;
 }
 
-export const apiClient = createApiClient();
+function buildHeaders(options: RequestInit, config: ApiRequestConfig) {
+  const headers = new Headers(options.headers);
+  const authEnabled = config.auth !== false;
+
+  if (options.body != null && !isFormDataBody(options.body) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (authEnabled) {
+    const token = getAuthToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  return headers;
+}
+
+async function parseResponseBody<T>(response: Response): Promise<ApiResponse<T> | T | null> {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as ApiResponse<T> | T;
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const text = await response.text();
+  return text ? (text as T) : null;
+}
 
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   config: ApiRequestConfig = {}
 ): Promise<T> {
-  try {
-    const response = await apiClient.request<ApiResponse<T> | T>({
-      url: path,
-      method: options.method || "GET",
-      data: options.body,
-      headers: options.headers as Record<string, string> | undefined,
-      metadata: {
-        auth: config.auth,
-      },
-    } as InternalAxiosConfig);
+  const method = (options.method || "GET").toUpperCase();
+  const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const requestHeaders = buildHeaders(options, config);
 
-    const parsed = response.data;
+  logger.info(`API Request: ${path || "/"}`, {
+    source: "api.request",
+    data: {
+      url: path || "/",
+      method,
+      payload: options.body,
+    },
+  });
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      method,
+      headers: requestHeaders,
+    });
+    const parsed = await parseResponseBody<T>(response);
+
+    if (!response.ok) {
+      const apiError = parsed && typeof parsed === "object" ? (parsed as ApiResponse<T>) : undefined;
+      const message =
+        apiError?.errors?.[0]?.message ||
+        apiError?.message ||
+        `Request failed with status ${response.status}`;
+
+      logger.error(`API Error: ${message}`, {
+        source: "api.error",
+        data: {
+          url: extractPath(url) || "/",
+          method,
+          status: response.status,
+          payload: options.body,
+          response: parsed,
+        },
+      });
+
+      throw new Error(message);
+    }
+
+    const successMessage =
+      parsed && typeof parsed === "object" && "message" in parsed && typeof parsed.message === "string"
+        ? parsed.message
+        : `API Success: ${method} ${extractPath(url) || "/"}`;
+
+    logger.success(successMessage, {
+      source: "api.response",
+      data: {
+        url: extractPath(url) || "/",
+        method,
+        status: response.status,
+        response: parsed,
+      },
+    });
 
     if (parsed && typeof parsed === "object" && "data" in parsed) {
       return (parsed.data as T) ?? ({} as T);
@@ -172,20 +143,10 @@ export async function apiRequest<T>(
 
     return (parsed as T) ?? ({} as T);
   } catch (error) {
-    if (axios.isAxiosError<ApiResponse<T>>(error)) {
-      if (!error.response) {
-        throw new Error(
-          `Unable to reach the API at ${API_BASE_URL}. Check that the backend server is running and the frontend API URL is correct. Original error: ${error.message}`
-        );
-      }
-
-      const message =
-        error.response.data?.errors?.[0]?.message ||
-        error.response.data?.message ||
-        error.message ||
-        "Request failed";
-
-      throw new Error(message);
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Unable to reach the API at ${API_BASE_URL}. Check that the backend server is running and the frontend API URL is correct. Original error: ${error.message}`
+      );
     }
 
     throw error;
