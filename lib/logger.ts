@@ -18,6 +18,10 @@ const toastBaseStyle = {
   boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
 } as const;
 
+const AUTH_TOKEN_KEY = "hospital_token_auth_token";
+const REMOTE_LOG_API_URL =
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "") + "/logs";
+
 function showToast(type: LogLevel, message: string, destructive = false) {
   if (type === "success" && !destructive) {
     toast.success(message, {
@@ -74,7 +78,55 @@ function showToast(type: LogLevel, message: string, destructive = false) {
   });
 }
 
+function sanitizeLogData(data: unknown) {
+  if (data === undefined) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(data));
+  } catch {
+    return String(data);
+  }
+}
+
+function persistLog(type: LogLevel, message: string, options: LogOptions = {}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (process.env.NEXT_PUBLIC_ENABLE_REMOTE_LOGGER === "false") {
+    return;
+  }
+
+  const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  void fetch(REMOTE_LOG_API_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      type,
+      message,
+      source: options.source,
+      origin: "frontend",
+      data: sanitizeLogData(options.data),
+    }),
+    keepalive: true,
+  }).catch(() => {
+    // Swallow remote logging failures so UI logging never becomes user-facing.
+  });
+}
+
 function add(type: LogLevel, message: string, options: LogOptions = {}) {
+  persistLog(type, message, options);
+
   const logsEnabled =
     process.env.NEXT_PUBLIC_ENABLE_LOGGER !== "false" &&
     process.env.NODE_ENV !== "production";
