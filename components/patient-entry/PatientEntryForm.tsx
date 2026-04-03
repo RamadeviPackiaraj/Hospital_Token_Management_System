@@ -5,8 +5,8 @@ import { Search, X } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { Button } from "@/components/ui";
 import { Card, DatePicker, Input, Select } from "@/components/scheduling";
-import { bloodGroupOptions } from "@/lib/mock-data/scheduling";
 import { createSelectOptions, formatScheduleDate } from "@/lib/scheduling";
+import { bloodGroupOptions } from "@/lib/scheduling-types";
 import type { PatientEntryFormValues } from "@/utils/schedulingSchemas";
 
 interface PatientEntryFormProps {

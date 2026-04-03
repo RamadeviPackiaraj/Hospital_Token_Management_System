@@ -33,6 +33,20 @@ interface ApiRequestConfig {
   auth?: boolean;
 }
 
+export class ApiRequestError<T = unknown> extends Error {
+  status?: number;
+  data?: ApiResponse<T> | T | null;
+  path?: string;
+
+  constructor(message: string, options: { status?: number; data?: ApiResponse<T> | T | null; path?: string } = {}) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = options.status;
+    this.data = options.data;
+    this.path = options.path;
+  }
+}
+
 function extractPath(url?: string) {
   if (!url) return "";
   return url.replace(API_BASE_URL, "");
@@ -119,7 +133,11 @@ export async function apiRequest<T>(
         },
       });
 
-      throw new Error(message);
+      throw new ApiRequestError(message, {
+        status: response.status,
+        data: parsed,
+        path: extractPath(url) || "/",
+      });
     }
 
     const successMessage =
@@ -144,7 +162,7 @@ export async function apiRequest<T>(
     return (parsed as T) ?? ({} as T);
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(
+      throw new ApiRequestError(
         `Unable to reach the API at ${API_BASE_URL}. Check that the backend server is running and the frontend API URL is correct. Original error: ${error.message}`
       );
     }

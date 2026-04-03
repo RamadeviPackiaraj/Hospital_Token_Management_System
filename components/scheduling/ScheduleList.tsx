@@ -4,7 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Card } from "@/components/scheduling/Card";
 import { Button } from "@/components/ui/Button";
-import type { DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
+import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
 import { formatScheduleDate, formatScheduleTime, getScheduleCounts } from "@/lib/scheduling";
 
 interface ScheduleListProps {

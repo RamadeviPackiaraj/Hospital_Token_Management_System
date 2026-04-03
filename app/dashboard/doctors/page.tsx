@@ -15,7 +15,6 @@ import {
 import { apiRequest } from "@/lib/api";
 import { getAdminDoctors } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
-import { getDoctorSchedules, getScheduleBootstrap } from "@/lib/schedule-api";
 
 type DoctorRow = Record<string, unknown> & MockUser;
 type HospitalDoctorRequest = {
@@ -87,7 +86,7 @@ export default function DoctorsPage() {
     setHospitalError("");
 
     try {
-      const [pendingResponse, approvedResponse, rejectedResponse, bootstrap, schedules] = await Promise.all([
+      const [pendingResponse, approvedResponse, rejectedResponse] = await Promise.all([
         apiRequest<{ doctors: Array<Omit<HospitalDoctorRequest, "status">> }>(
           `/hospitals/${currentUser.id}/pending-doctors`
         ),
@@ -97,8 +96,6 @@ export default function DoctorsPage() {
         apiRequest<{ doctors: Array<Omit<HospitalDoctorRequest, "status">> }>(
           `/hospitals/${currentUser.id}/rejected-doctors`
         ),
-        getScheduleBootstrap().catch(() => ({ doctors: [] })),
-        getDoctorSchedules().catch(() => []),
       ]);
 
       const pending = (pendingResponse.doctors || []).map((doctor) => ({
@@ -118,39 +115,6 @@ export default function DoctorsPage() {
 
       [...pending, ...approved, ...rejected].forEach((doctor) => {
         requestsByDoctorId.set(doctor.userId, doctor);
-      });
-
-      (bootstrap.doctors || []).forEach((doctor) => {
-        const doctorUserId = doctor.userId || doctor.id;
-        if (!doctorUserId || requestsByDoctorId.has(doctorUserId)) {
-          return;
-        }
-
-        requestsByDoctorId.set(doctorUserId, {
-          id: `${doctorUserId}:${currentUser.id}:approved-bootstrap`,
-          userId: doctorUserId,
-          name: doctor.name,
-          email: doctor.email || "",
-          phone: doctor.phone,
-          department: doctor.department,
-          status: "approved",
-        });
-      });
-
-      schedules.forEach((schedule) => {
-        const doctorKey = schedule.doctorId || `${schedule.doctorName}:${schedule.department}`;
-        if (!doctorKey || requestsByDoctorId.has(doctorKey)) {
-          return;
-        }
-
-        requestsByDoctorId.set(doctorKey, {
-          id: `${doctorKey}:${currentUser.id}:approved-schedule`,
-          userId: doctorKey,
-          name: schedule.doctorName || "Doctor",
-          email: "",
-          department: schedule.department,
-          status: "approved",
-        });
       });
 
       setHospitalRequests(Array.from(requestsByDoctorId.values()));
@@ -400,7 +364,7 @@ export default function DoctorsPage() {
                 render: (row) => (
                   <div className="flex items-center justify-start gap-3 whitespace-nowrap">
                     <Button
-                      disabled={actioningDoctorId === row.userId}
+                      disabled={actioningDoctorId === row.userId || row.status === "approved"}
                       variant="successOutline"
                       size="sm"
                       leftIcon={<Check className="size-4" />}
@@ -409,7 +373,7 @@ export default function DoctorsPage() {
                       Approve
                     </Button>
                     <Button
-                      disabled={actioningDoctorId === row.userId}
+                      disabled={actioningDoctorId === row.userId || row.status === "rejected"}
                       variant="dangerOutline"
                       size="sm"
                       leftIcon={<X className="size-4" />}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/Badge";
-import type { PatientTokenStatus } from "@/lib/mock-data/scheduling";
+import type { PatientTokenStatus } from "@/lib/scheduling-types";
 
 interface TokenStatusBadgeProps {
   status: PatientTokenStatus;
@@ -19,7 +19,7 @@ const statusConfig: Record<
     tone: "neutral",
   },
   CALLING: {
-    label: "Calling",
+    label: "In Progress",
     tone: "warning",
   },
   COMPLETED: {

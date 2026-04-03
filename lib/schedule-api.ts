@@ -4,13 +4,14 @@ import type {
   DoctorScheduleRecord,
   PatientTokenStatus,
   PatientTokenRecord,
-} from "@/lib/mock-data/scheduling";
+} from "@/lib/scheduling-types";
 
 export interface ScheduleDoctorDirectoryItem extends DoctorDirectoryItem {
   userId?: string;
   email?: string;
   phone?: string;
   status?: string;
+  isApproved?: boolean;
 }
 
 interface ScheduleBootstrapResponse {
@@ -142,6 +143,7 @@ function mapBootstrapDoctor(doctor: ScheduleDoctorDirectoryItem): ScheduleDoctor
   return {
     ...doctor,
     id: doctor.userId || doctor.id,
+    isApproved: doctor.isApproved ?? doctor.status === "approved",
   };
 }
 

@@ -4,7 +4,7 @@ import * as React from "react";
 import { CalendarDays } from "lucide-react";
 import { Card } from "@/components/scheduling";
 import { Select } from "@/components/ui";
-import { type PatientTokenRecord, type PatientTokenStatus } from "@/lib/mock-data/scheduling";
+import { type PatientTokenRecord, type PatientTokenStatus } from "@/lib/scheduling-types";
 import { TokenCard } from "./TokenCard";
 
 interface TokenListProps {

@@ -14,13 +14,13 @@ import {
   SlotPreview,
 } from "@/components/scheduling";
 import { getApprovedDoctorsForHospital } from "@/lib/dashboard-data";
+import { ApiRequestError } from "@/lib/api";
 import {
   createDoctorOptions,
   createSelectOptions,
   formatScheduleDate,
   generateTimeSlots,
 } from "@/lib/scheduling";
-import type { DoctorScheduleRecord } from "@/lib/mock-data/scheduling";
 import {
   createDoctorSchedule,
   deleteDoctorSchedule,
@@ -30,6 +30,7 @@ import {
   updateDoctorSchedule,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
+import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
 import {
   defaultDoctorScheduleValues,
   doctorScheduleSchema,
@@ -41,7 +42,8 @@ export default function DoctorSchedulePage() {
   const [showForm, setShowForm] = React.useState(false);
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
   const [departments, setDepartments] = React.useState<string[]>([]);
-  const [doctors, setDoctors] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
+  const [doctorDirectory, setDoctorDirectory] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
+  const [approvedDoctors, setApprovedDoctors] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
   const [submitMessage, setSubmitMessage] = React.useState("");
   const [editingScheduleId, setEditingScheduleId] = React.useState<string | null>(null);
   const [deletingScheduleId, setDeletingScheduleId] = React.useState<string | null>(null);
@@ -71,19 +73,58 @@ export default function DoctorSchedulePage() {
   const consultationTime = watch("consultationTime");
 
   const filteredDoctors = React.useMemo(() => {
-    if (!selectedDepartment) return doctors;
-    return doctors.filter((doctor) => doctor.department === selectedDepartment);
-  }, [doctors, selectedDepartment]);
+    const approvedOnly = approvedDoctors.filter((doctor) => doctor.isApproved);
+
+    if (!selectedDepartment) {
+      return approvedOnly;
+    }
+
+    return approvedOnly.filter((doctor) => doctor.department === selectedDepartment);
+  }, [approvedDoctors, selectedDepartment]);
 
   const selectedDoctor = React.useMemo(
-    () => doctors.find((doctor) => doctor.id === selectedDoctorId) ?? null,
-    [doctors, selectedDoctorId]
+    () => doctorDirectory.find((doctor) => doctor.id === selectedDoctorId) ?? null,
+    [doctorDirectory, selectedDoctorId]
   );
 
   const previewSlots = React.useMemo(
     () => generateTimeSlots(startTime || "", endTime || "", Number(consultationTime || 15)).map((slot) => slot.time),
     [consultationTime, endTime, startTime]
   );
+  const hasApprovedDoctors = filteredDoctors.length > 0;
+  const selectedApprovedDoctor = React.useMemo(
+    () => filteredDoctors.find((doctor) => doctor.id === selectedDoctorId) ?? null,
+    [filteredDoctors, selectedDoctorId]
+  );
+  const canSaveSchedule = Boolean(selectedDepartment && selectedApprovedDoctor);
+  const selectedDoctorSchedules = React.useMemo(() => {
+    if (!selectedDoctorId || !selectedDate) {
+      return [];
+    }
+
+    return schedules.filter(
+      (schedule) =>
+        schedule.doctorId === selectedDoctorId &&
+        schedule.date === selectedDate &&
+        schedule.id !== editingScheduleId
+    );
+  }, [editingScheduleId, schedules, selectedDate, selectedDoctorId]);
+  const conflictingSchedules = React.useMemo(() => {
+    if (!startTime || !endTime) {
+      return [];
+    }
+
+    const nextStart = startTime;
+    const nextEnd = endTime;
+
+    return selectedDoctorSchedules.filter(
+      (schedule) =>
+        Boolean(schedule.startTime) &&
+        Boolean(schedule.endTime) &&
+        nextStart < String(schedule.endTime) &&
+        nextEnd > String(schedule.startTime)
+    );
+  }, [endTime, selectedDoctorSchedules, startTime]);
 
   const mergeDoctorNames = React.useCallback(
     (scheduleRecords: DoctorScheduleRecord[], doctorDirectory: ScheduleDoctorDirectoryItem[]) =>
@@ -149,6 +190,7 @@ export default function DoctorSchedulePage() {
           email: bootstrapDoctor?.email || doctor.email || "",
           phone: bootstrapDoctor?.phone || doctor.mobileNumber || "",
           status: "approved",
+          isApproved: true,
         });
       });
 
@@ -166,6 +208,7 @@ export default function DoctorSchedulePage() {
           email: bootstrapDoctor?.email || "",
           phone: bootstrapDoctor?.phone || "",
           status: "approved",
+          isApproved: Boolean(bootstrapDoctor?.isApproved),
         });
       });
 
@@ -189,18 +232,20 @@ export default function DoctorSchedulePage() {
       .then(([bootstrap, scheduleRecords, approvedDoctors]) => {
         if (!active) return;
         const approvedDirectory = buildApprovedDoctorDirectory(
-          approvedDoctors,
-          bootstrap.doctors || [],
+          approvedDoctors.filter((doctor) => doctor.approvalStatus === "approved"),
+          (bootstrap.doctors || []).filter((doctor) => doctor.isApproved),
           scheduleRecords
         );
         setDepartments(bootstrap.departments || []);
-        setDoctors(approvedDirectory);
+        setApprovedDoctors(approvedDirectory.filter((doctor) => doctor.isApproved));
+        setDoctorDirectory(approvedDirectory);
         setSchedules(mergeDoctorNames(scheduleRecords, approvedDirectory));
       })
       .catch((error) => {
         if (!active) return;
         setDepartments([]);
-        setDoctors([]);
+        setApprovedDoctors([]);
+        setDoctorDirectory([]);
         setSchedules([]);
         setSubmitMessage(error instanceof Error ? error.message : "Unable to load doctor schedules.");
       });
@@ -217,7 +262,7 @@ export default function DoctorSchedulePage() {
       const doctorId = values.doctorId;
       if (!doctorId) return;
 
-      const doctor = doctors.find((item) => item.id === doctorId);
+      const doctor = approvedDoctors.find((item) => item.id === doctorId);
       if (!doctor || !values.department) return;
 
       if (doctor.department !== values.department) {
@@ -226,7 +271,18 @@ export default function DoctorSchedulePage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [doctors, setValue, watch]);
+  }, [approvedDoctors, setValue, watch]);
+
+  React.useEffect(() => {
+    if (!selectedDoctorId) {
+      return;
+    }
+
+    const doctorStillAvailable = filteredDoctors.some((doctor) => doctor.id === selectedDoctorId);
+    if (!doctorStillAvailable) {
+      setValue("doctorId", "");
+    }
+  }, [filteredDoctors, selectedDoctorId, setValue]);
 
   if (currentUser.role !== "hospital") {
     return (
@@ -237,9 +293,30 @@ export default function DoctorSchedulePage() {
     );
   }
 
+  function getApiErrorMessage(error: unknown) {
+    if (error instanceof ApiRequestError) {
+      const apiData =
+        error.data && typeof error.data === "object" && "message" in error.data
+          ? (error.data as { message?: string })
+          : null;
+      return apiData?.message || error.message;
+    }
+
+    return error instanceof Error ? error.message : "Failed to save schedule";
+  }
+
   async function onSubmit(values: DoctorScheduleFormValues) {
-    const doctor = doctors.find((item) => item.id === values.doctorId);
-    if (!doctor) return;
+    const doctor = approvedDoctors.find((item) => item.id === values.doctorId);
+    if (!doctor) {
+      const message = "No approved doctors available";
+      setSubmitMessage(message);
+      logger.error(message, {
+        source: "doctor-schedule",
+        data: { doctorId: values.doctorId, department: values.department },
+        toast: true,
+      });
+      return;
+    }
 
     try {
       setSubmitMessage("");
@@ -251,26 +328,27 @@ export default function DoctorSchedulePage() {
         endTime: values.endTime,
         consultationTime: Number(values.consultationTime),
       };
+      console.log("Payload:", payload);
 
       if (editingScheduleId) {
-        const updatedSchedule = await updateDoctorSchedule({
+        const response = await updateDoctorSchedule({
           scheduleId: editingScheduleId,
           ...payload,
         });
+        console.log("Response:", response);
 
         setSchedules((current) =>
           current.map((schedule) =>
-            schedule.id === editingScheduleId ? mergeDoctorNames([updatedSchedule], doctors)[0] : schedule
+            schedule.id === editingScheduleId ? mergeDoctorNames([response], doctorDirectory)[0] : schedule
           )
         );
-        setSubmitMessage(`Updated ${doctor.name}'s schedule for ${formatScheduleDate(values.date)}.`);
+        setSubmitMessage("Schedule updated successfully");
         setEditingScheduleId(null);
-        setShowForm(false);
         reset(defaultDoctorScheduleValues);
-        logger.success("Doctor schedule updated successfully.", {
+        logger.success("Schedule updated successfully", {
           source: "doctor-schedule",
           data: {
-            scheduleId: updatedSchedule.id,
+            scheduleId: response.id,
             doctorId: doctor.id,
             doctorName: doctor.name,
             date: values.date,
@@ -280,28 +358,31 @@ export default function DoctorSchedulePage() {
         return;
       }
 
-      const nextSchedule = await createDoctorSchedule(payload);
+      const response = await createDoctorSchedule(payload);
+      console.log("Response:", response);
 
-      setSchedules((current) => [mergeDoctorNames([nextSchedule], doctors)[0], ...current]);
-      setSubmitMessage(`Saved ${nextSchedule.slots.length} slots for ${doctor.name}.`);
+      setSchedules((current) => [mergeDoctorNames([response], doctorDirectory)[0], ...current]);
+      setSubmitMessage("Schedule created successfully");
       reset(defaultDoctorScheduleValues);
-      setShowForm(false);
-      logger.success("Doctor schedule saved successfully.", {
+      logger.success("Schedule created successfully", {
         source: "doctor-schedule",
         data: {
           doctorId: doctor.id,
           doctorName: doctor.name,
           date: values.date,
-          slots: nextSchedule.slots.length,
+          slots: response.slots.length,
         },
         toast: true,
-      });
+        });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to save doctor schedule.";
+      const message = getApiErrorMessage(error);
+      const errorData =
+        error instanceof ApiRequestError && error.data && typeof error.data === "object" ? error.data : error;
+      console.log("Error:", errorData);
       setSubmitMessage(message);
-      logger.error("Unable to save the doctor schedule.", {
+      logger.error(message, {
         source: "doctor-schedule",
-        data: { error: message, doctorId: values.doctorId, date: values.date },
+        data: { error: errorData, doctorId: values.doctorId, date: values.date },
         toast: true,
       });
     }
@@ -412,10 +493,13 @@ export default function DoctorSchedulePage() {
             errors={errors}
             departmentOptions={createSelectOptions(departments)}
             doctorOptions={createDoctorOptions(filteredDoctors)}
+            doctorEmptyMessage={!filteredDoctors.length ? "No approved doctors available" : undefined}
             submitMessage={submitMessage}
             isSubmitting={isSubmitting}
             minDate={new Date().toISOString().slice(0, 10)}
             submitLabel={editingScheduleId ? "Update Schedule" : "Save Schedule"}
+            disableDoctorSelection={!selectedDepartment || !hasApprovedDoctors}
+            disableSubmit={!canSaveSchedule || isSubmitting}
             onCancel={handleCancelForm}
             onSubmit={handleSubmit(onSubmit)}
           />
@@ -433,6 +517,34 @@ export default function DoctorSchedulePage() {
               className="transition hover:shadow-sm"
             >
               <SlotPreview slots={previewSlots} />
+              {selectedDoctorSchedules.length ? (
+                <div className="mt-4 rounded-lg border border-[#E2E8F0] bg-white p-4">
+                  <p className="text-sm font-medium text-[#0F172A]">Existing schedules on this date</p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    {selectedDoctorSchedules.map((schedule) => {
+                      const isConflict = conflictingSchedules.some((item) => item.id === schedule.id);
+
+                      return (
+                        <div
+                          key={schedule.id}
+                          className={
+                            isConflict
+                              ? "rounded-lg border border-[#FCA5A5] bg-[#FEF2F2] px-3 py-2 text-sm text-[#991B1B]"
+                              : "rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A]"
+                          }
+                        >
+                          {schedule.startTime} - {schedule.endTime}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {conflictingSchedules.length ? (
+                    <p className="mt-3 text-sm text-[#B91C1C]">
+                      Warning: this time range overlaps with an existing schedule.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </HighlightCard>
           ) : null}
         </section>

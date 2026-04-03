@@ -3,7 +3,7 @@
 import { CalendarDays, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import type { PatientTokenRecord, PatientTokenStatus } from "@/lib/mock-data/scheduling";
+import type { PatientTokenRecord, PatientTokenStatus } from "@/lib/scheduling-types";
 import { formatScheduleDate, formatTimeTo12Hour } from "@/lib/scheduling";
 import { TokenStatusBadge } from "./TokenStatusBadge";
 

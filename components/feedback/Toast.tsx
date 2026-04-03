@@ -41,7 +41,7 @@ export function Toast({
       <div
         role="status"
         aria-live="polite"
-        className={cn("rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 shadow-panel", toneMap[type])}
+        className={cn("ui-card px-4 py-3", toneMap[type])}
       >
         <div className="flex items-start justify-between gap-3">
           <p className="ui-body">{message}</p>

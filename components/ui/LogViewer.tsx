@@ -51,17 +51,17 @@ export function LogViewer() {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3">
       {isOpen ? (
-        <section className="w-[320px] max-w-full rounded-lg border border-[#E2E8F0] bg-white p-4 shadow-sm">
+        <section className="ui-card w-[320px] max-w-full">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-[#0F172A]">Frontend Logs</h2>
-              <p className="text-xs text-[#64748B]">{filteredLogs.length} visible of {logs.length}</p>
+              <h2 className="ui-section-title">Frontend Logs</h2>
+              <p className="ui-meta">{filteredLogs.length} visible of {logs.length}</p>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="focus-ring rounded-md border border-[#E2E8F0] p-2 text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+                className="ui-icon-button"
                 onClick={() => void copyLogs()}
                 aria-label="Copy logs"
               >
@@ -69,7 +69,7 @@ export function LogViewer() {
               </button>
               <button
                 type="button"
-                className="focus-ring rounded-md border border-[#E2E8F0] p-2 text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+                className="ui-icon-button"
                 onClick={downloadLogs}
                 aria-label="Download logs"
               >
@@ -77,7 +77,7 @@ export function LogViewer() {
               </button>
               <button
                 type="button"
-                className="focus-ring rounded-md border border-[#E2E8F0] p-2 text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+                className="ui-icon-button"
                 onClick={clearLogs}
                 aria-label="Clear logs"
               >
@@ -85,7 +85,7 @@ export function LogViewer() {
               </button>
               <button
                 type="button"
-                className="focus-ring rounded-md border border-[#E2E8F0] p-2 text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+                className="ui-icon-button"
                 onClick={() => setOpen(false)}
                 aria-label="Close logs"
               >
@@ -114,12 +114,12 @@ export function LogViewer() {
 
           <div ref={listRef} className="mt-4 max-h-[400px] space-y-3 overflow-y-auto pr-1">
             {filteredLogs.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 text-center">
-                <p className="text-xs text-[#64748B]">No logs yet.</p>
+              <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 text-center">
+                <p className="ui-meta">No logs yet.</p>
               </div>
             ) : (
               filteredLogs.map((log) => (
-                <article key={log.id} className="rounded-lg border border-[#E2E8F0] bg-white p-3 shadow-sm">
+                <article key={log.id} className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-panel">
                   <div className="flex items-start justify-between gap-3">
                     <span
                       className={cn(
@@ -129,13 +129,13 @@ export function LogViewer() {
                     >
                       {log.type}
                     </span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="ui-meta">
                       {new Date(log.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-[#0F172A]">{log.message}</p>
+                  <p className="mt-2 ui-body">{log.message}</p>
                   {log.source ? (
-                    <p className="mt-1 text-[10px] text-gray-400">Source: {log.source}</p>
+                    <p className="mt-1 ui-meta">Source: {log.source}</p>
                   ) : null}
                   {log.data !== undefined ? (
                     <div className="mt-2">
@@ -147,7 +147,7 @@ export function LogViewer() {
                         {expandedLogIds.includes(log.id) ? "Hide data" : "Show data"}
                       </button>
                       {expandedLogIds.includes(log.id) ? (
-                        <pre className="mt-2 overflow-x-auto rounded-md bg-[#F8FAFC] p-2 text-[10px] text-[#64748B]">
+                        <pre className="mt-2 overflow-x-auto rounded-lg bg-[#F8FAFC] p-2 text-xs text-[#64748B]">
                           {JSON.stringify(log.data, null, 2)}
                         </pre>
                       ) : null}
@@ -163,7 +163,7 @@ export function LogViewer() {
       <button
         type="button"
         onClick={toggleOpen}
-        className="focus-ring inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm font-medium text-[#0F172A] shadow-sm transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+        className="focus-ring inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm font-medium text-[#0F172A] shadow-panel transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
       >
         <Bug className="size-4" />
         Logs

@@ -16,10 +16,6 @@ import {
   todayDateString,
 } from "@/lib/scheduling";
 import {
-  type DoctorScheduleRecord,
-  type PatientTokenRecord,
-} from "@/lib/mock-data/scheduling";
-import {
   assignPatientToken,
   getDoctorSchedules,
   getPatientTokens,
@@ -27,6 +23,7 @@ import {
   updatePatientTokenStatus,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
+import type { DoctorScheduleRecord, PatientTokenRecord } from "@/lib/scheduling-types";
 import {
   defaultPatientEntryValues,
   patientEntrySchema,

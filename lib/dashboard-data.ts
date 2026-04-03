@@ -18,6 +18,7 @@ export interface HospitalSelection {
   id: string;
   doctorId: string;
   hospitalId: string;
+  hospitalName?: string;
   status: "pending" | "approved" | "rejected";
   requestedAt: string;
 }
@@ -120,6 +121,7 @@ export async function getSelectionsForDoctor(doctorId: string) {
     id: `${doctorId}:${hospital.id}:pending`,
     doctorId,
     hospitalId: hospital.id,
+    hospitalName: hospital.name,
     status: "pending" as const,
     requestedAt: now,
   }));
@@ -128,6 +130,7 @@ export async function getSelectionsForDoctor(doctorId: string) {
     id: `${doctorId}:${hospital.id}:approved`,
     doctorId,
     hospitalId: hospital.id,
+    hospitalName: hospital.name,
     status: "approved" as const,
     requestedAt: now,
   }));
@@ -136,6 +139,7 @@ export async function getSelectionsForDoctor(doctorId: string) {
     id: `${doctorId}:${hospital.id}:rejected`,
     doctorId,
     hospitalId: hospital.id,
+    hospitalName: hospital.name,
     status: "rejected" as const,
     requestedAt: now,
   }));
@@ -208,6 +212,14 @@ export async function submitHospitalSelections(doctorId: string, hospitalIds: st
       body: JSON.stringify({ hospitalId }),
     });
   }
+
+  return getSelectionsForDoctor(doctorId);
+}
+
+export async function removeHospitalSelection(doctorId: string, hospitalId: string) {
+  await apiRequest(`/doctors/${doctorId}/select-hospital/${hospitalId}`, {
+    method: "DELETE",
+  });
 
   return getSelectionsForDoctor(doctorId);
 }

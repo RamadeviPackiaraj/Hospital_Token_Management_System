@@ -24,7 +24,7 @@ import {
 } from "@/lib/auth-flow";
 import { getDepartments, type DepartmentRecord } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
-import { bloodGroupOptions } from "@/lib/mock-data/scheduling";
+import { bloodGroupOptions } from "@/lib/scheduling-types";
 import { defaultSignupValues, signupSchema, type SignupFormValues } from "@/utils/validationSchemas";
 
 type CountryOption = { id: number; name: string };

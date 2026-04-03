@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Building2, Check, Search, ShieldCheck, X } from "lucide-react";
+import { Building2, Check, RotateCcw, Search, ShieldCheck, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
@@ -16,6 +16,7 @@ import {
 import { apiRequest, buildQuery } from "@/lib/api";
 import {
   getSelectionsForDoctor,
+  removeHospitalSelection,
   submitHospitalSelections,
   type HospitalSelection,
   getAdminHospitals,
@@ -79,6 +80,7 @@ export default function HospitalsPage() {
   const [loadingDoctorView, setLoadingDoctorView] = React.useState(true);
   const [doctorError, setDoctorError] = React.useState("");
   const [submittingSelection, setSubmittingSelection] = React.useState(false);
+  const [removingHospitalId, setRemovingHospitalId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (currentUser.role !== "admin") return;
@@ -202,6 +204,38 @@ export default function HospitalsPage() {
     }
   }
 
+  function getRevertLabel(status: HospitalSelection["status"]) {
+    if (status === "pending") return "Cancel Request";
+    if (status === "approved") return "Remove Selection";
+    return "Clear Rejection";
+  }
+
+  async function handleRemoveSelection(hospitalId: string) {
+    setRemovingHospitalId(hospitalId);
+    setDoctorError("");
+
+    try {
+      const nextRequests = await removeHospitalSelection(currentUser.id, hospitalId);
+      setRequests(nextRequests);
+      setSelectedHospitalIds((current) => current.filter((id) => id !== hospitalId));
+      logger.success("Hospital selection reverted successfully.", {
+        source: "hospitals.doctor",
+        data: { hospitalId },
+        toast: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to revert hospital selection.";
+      setDoctorError(message);
+      logger.error("Unable to revert the hospital selection.", {
+        source: "hospitals.doctor",
+        data: { hospitalId, error: message },
+        toast: true,
+      });
+    } finally {
+      setRemovingHospitalId(null);
+    }
+  }
+
   if (currentUser.role === "doctor") {
     const requestsByHospitalId = new Map(requests.map((request) => [request.hospitalId, request]));
     const filteredHospitals = availableHospitals.filter((hospital) => {
@@ -227,12 +261,12 @@ export default function HospitalsPage() {
           ]}
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="p-4">
             <div className="space-y-4">
               <div className="space-y-1">
-                <h2 className="text-lg font-medium text-[#0F172A]">Select Hospitals</h2>
-                <p className="text-sm text-[#64748B]">Choose approved hospitals and submit your requests.</p>
+                <h2 className="ui-section-title">Select Hospitals</h2>
+                <p className="ui-body-secondary">Choose approved hospitals and submit your requests.</p>
               </div>
 
               <div className="relative">
@@ -245,7 +279,7 @@ export default function HospitalsPage() {
                 />
               </div>
 
-              {doctorError ? <p className="text-sm text-[#EF4444]">{doctorError}</p> : null}
+              {doctorError ? <p className="ui-body text-[#EF4444]">{doctorError}</p> : null}
 
               <div className="grid gap-3 md:grid-cols-2">
                 {filteredHospitals.map((hospital) => {
@@ -254,7 +288,7 @@ export default function HospitalsPage() {
                   return (
                     <label
                       key={hospital.id}
-                      className="flex cursor-pointer gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 transition hover:border-[#0EA5A4]/40"
+                      className="ui-interactive-card flex cursor-pointer gap-3"
                     >
                       <Checkbox
                         checked={selectedHospitalIds.includes(hospital.id)}
@@ -267,9 +301,9 @@ export default function HospitalsPage() {
                         }}
                       />
                       <div className="min-w-0 space-y-1">
-                        <p className="truncate text-sm font-medium text-[#0F172A]">{hospital.name}</p>
-                        <p className="text-xs text-[#64748B]">{hospital.email}</p>
-                        <p className="text-sm text-[#64748B]">
+                        <p className="truncate ui-card-title">{hospital.name}</p>
+                        <p className="ui-card-meta">{hospital.email}</p>
+                        <p className="ui-card-body text-[#64748B]">
                           {[location.city, location.state].filter(Boolean).join(", ") || "Location unavailable"}
                         </p>
                       </div>
@@ -296,33 +330,47 @@ export default function HospitalsPage() {
           <Card className="p-4">
             <div className="space-y-4">
               <div className="space-y-1">
-                <h2 className="text-lg font-medium text-[#0F172A]">Current Requests</h2>
-                <p className="text-sm text-[#64748B]">Track approved, pending, and rejected hospital selections.</p>
+                <h2 className="ui-section-title">Current Requests</h2>
+                <p className="ui-body-secondary">Track approved, pending, and rejected hospital selections.</p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {requests.map((request) => {
                   const hospital = availableHospitals.find((item) => item.id === request.hospitalId) || null;
 
                   return (
-                    <div key={request.id} className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                    <div key={request.id} className="rounded-lg border border-[#E2E8F0] bg-white p-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-[#0F172A]">{hospital?.name || "Hospital request"}</p>
-                          <p className="mt-1 text-xs text-[#64748B]">
+                        <div className="min-w-0">
+                          <p className="truncate ui-card-title">
+                            {hospital?.name || request.hospitalName || "Hospital request"}
+                          </p>
+                          <p className="mt-1 ui-card-meta">
                             Requested {getRequestDateLabel(request.requestedAt)}
                           </p>
                         </div>
-                        <Badge status={requestBadgeVariant(request.status)} className="font-medium">
-                          {formatRequestStatus(request.status)}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge status={requestBadgeVariant(request.status)} className="font-medium">
+                            {formatRequestStatus(request.status)}
+                          </Badge>
+                          <button
+                            type="button"
+                            className="ui-icon-button"
+                            disabled={submittingSelection || removingHospitalId === request.hospitalId}
+                            onClick={() => void handleRemoveSelection(request.hospitalId)}
+                            aria-label={getRevertLabel(request.status)}
+                            title={getRevertLabel(request.status)}
+                          >
+                            <RotateCcw className="size-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
 
                 {!loadingDoctorView && requests.length === 0 ? (
-                  <p className="text-sm text-[#64748B]">No hospital requests submitted yet.</p>
+                  <p className="ui-body-secondary">No hospital requests submitted yet.</p>
                 ) : null}
               </div>
             </div>

@@ -69,7 +69,7 @@ export function Table<T extends Record<string, unknown>>({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="overflow-hidden rounded-lg border border-[#E2E8F0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-panel">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[#E2E8F0] text-left">
             <thead className="bg-[#F8FAFC]">

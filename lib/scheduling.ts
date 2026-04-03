@@ -1,13 +1,9 @@
-import {
-  mockDoctorSchedules,
-  mockDoctors,
-  type DoctorDirectoryItem,
-  type DoctorScheduleRecord,
-  type DoctorScheduleSlot,
-} from "@/lib/mock-data/scheduling";
+import type {
+  DoctorDirectoryItem,
+  DoctorScheduleRecord,
+  DoctorScheduleSlot,
+} from "@/lib/scheduling-types";
 import { format, isValid, parse } from "date-fns";
-
-const STORAGE_KEY = "hospital-token-doctor-schedules";
 
 export interface CreateDoctorScheduleInput {
   doctorId: string;
@@ -29,10 +25,6 @@ export interface TokenAssignment {
 
 export function todayDateString() {
   return new Date().toISOString().slice(0, 10);
-}
-
-export function getDoctorById(doctorId: string) {
-  return mockDoctors.find((doctor) => doctor.id === doctorId) ?? null;
 }
 
 export function createSelectOptions(values: readonly string[]) {
@@ -93,30 +85,6 @@ export function buildDoctorSchedule(input: CreateDoctorScheduleInput): DoctorSch
   };
 }
 
-export function getStoredDoctorSchedules() {
-  if (typeof window === "undefined") {
-    return mockDoctorSchedules;
-  }
-
-  const storedValue = window.localStorage.getItem(STORAGE_KEY);
-  if (!storedValue) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mockDoctorSchedules));
-    return mockDoctorSchedules;
-  }
-
-  try {
-    const parsed = JSON.parse(storedValue) as DoctorScheduleRecord[];
-    return Array.isArray(parsed) ? parsed : mockDoctorSchedules;
-  } catch {
-    return mockDoctorSchedules;
-  }
-}
-
-export function persistDoctorSchedules(schedules: DoctorScheduleRecord[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(schedules));
-}
-
 export function formatScheduleDate(value: string) {
   const parsed = parse(value, "yyyy-MM-dd", new Date());
   if (!isValid(parsed)) return value;
@@ -141,50 +109,5 @@ export function getScheduleCounts(schedule: DoctorScheduleRecord) {
     booked,
     available,
     total: schedule.slots.length,
-  };
-}
-
-export function assignFirstAvailableToken(
-  schedules: DoctorScheduleRecord[],
-  department: string,
-  date: string
-) {
-  const updatedSchedules = schedules.map((schedule) => ({
-    ...schedule,
-    slots: schedule.slots.map((slot) => ({ ...slot })),
-  }));
-
-  const matchingSchedules = updatedSchedules
-    .filter((schedule) => schedule.department === department && schedule.date === date)
-    .sort((left, right) => {
-      const leftFirstSlot = left.slots[0]?.time ?? "23:59";
-      const rightFirstSlot = right.slots[0]?.time ?? "23:59";
-      return leftFirstSlot.localeCompare(rightFirstSlot);
-    });
-
-  for (const schedule of matchingSchedules) {
-    const slotIndex = schedule.slots.findIndex((slot) => !slot.isBooked);
-    if (slotIndex === -1) continue;
-
-    schedule.slots[slotIndex] = {
-      ...schedule.slots[slotIndex],
-      isBooked: true,
-    };
-
-    return {
-      schedules: updatedSchedules,
-      assignment: {
-        tokenNumber: slotIndex + 1,
-        doctorName: schedule.doctorName,
-        department: schedule.department,
-        date: schedule.date,
-        time: schedule.slots[slotIndex].time,
-      } satisfies TokenAssignment,
-    };
-  }
-
-  return {
-    schedules: updatedSchedules,
-    assignment: null,
   };
 }

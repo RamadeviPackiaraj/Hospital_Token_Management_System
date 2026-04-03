@@ -17,10 +17,14 @@ interface CreateScheduleProps {
   errors: FieldErrors<DoctorScheduleFormValues>;
   departmentOptions: SelectOption[];
   doctorOptions: SelectOption[];
+  doctorHint?: string;
+  doctorEmptyMessage?: string;
   submitMessage: string;
   isSubmitting: boolean;
   minDate: string;
   submitLabel?: string;
+  disableDoctorSelection?: boolean;
+  disableSubmit?: boolean;
   onCancel?: () => void;
   onSubmit: () => void;
 }
@@ -31,10 +35,14 @@ export function CreateSchedule({
   errors,
   departmentOptions,
   doctorOptions,
+  doctorHint,
+  doctorEmptyMessage,
   submitMessage,
   isSubmitting,
   minDate,
   submitLabel = "Save Schedule",
+  disableDoctorSelection = false,
+  disableSubmit = false,
   onCancel,
   onSubmit,
 }: CreateScheduleProps) {
@@ -67,8 +75,10 @@ export function CreateSchedule({
             placeholder="Select doctor"
             options={doctorOptions}
             error={errors.doctorId?.message}
+            hint={doctorEmptyMessage || doctorHint}
             required
             defaultValue=""
+            disabled={disableDoctorSelection}
             {...register("doctorId")}
           />
 
@@ -140,7 +150,7 @@ export function CreateSchedule({
               Cancel
             </Button>
           ) : null}
-          <Button type="submit" loading={isSubmitting} leftIcon={<Plus className="size-4" />}>
+          <Button type="submit" loading={isSubmitting} disabled={disableSubmit} leftIcon={<Plus className="size-4" />}>
             {submitLabel}
           </Button>
         </div>
