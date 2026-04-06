@@ -19,8 +19,17 @@ const toastBaseStyle = {
 } as const;
 
 const AUTH_TOKEN_KEY = "hospital_token_auth_token";
+const REMOTE_LOG_QUEUE_KEY = "hospital_token_remote_log_queue";
 const REMOTE_LOG_API_URL =
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "") + "/logs";
+
+interface RemoteLogPayload {
+  type: LogLevel;
+  message: string;
+  source?: string;
+  origin: "frontend";
+  data?: unknown;
+}
 
 function showToast(type: LogLevel, message: string, destructive = false) {
   if (type === "success" && !destructive) {
@@ -84,10 +93,112 @@ function sanitizeLogData(data: unknown) {
   }
 
   try {
-    return JSON.parse(JSON.stringify(data));
+    return JSON.parse(
+      JSON.stringify(data, (_key, value) => {
+        if (value instanceof Error) {
+          return {
+            name: value.name,
+            message: value.message,
+            stack: value.stack,
+          };
+        }
+
+        return value;
+      })
+    );
   } catch {
     return String(data);
   }
+}
+
+function getRemoteLogQueue(): RemoteLogPayload[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(REMOTE_LOG_QUEUE_KEY);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setRemoteLogQueue(queue: RemoteLogPayload[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (queue.length === 0) {
+      window.localStorage.removeItem(REMOTE_LOG_QUEUE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(REMOTE_LOG_QUEUE_KEY, JSON.stringify(queue.slice(-100)));
+  } catch {
+    // Ignore queue persistence failures.
+  }
+}
+
+async function postRemoteLog(payload: RemoteLogPayload) {
+  const token = typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(REMOTE_LOG_API_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    keepalive: true,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Remote log request failed with status ${response.status}`);
+  }
+}
+
+async function flushRemoteLogQueue() {
+  const queuedLogs = getRemoteLogQueue();
+  if (queuedLogs.length === 0) {
+    return;
+  }
+
+  const pendingLogs = [...queuedLogs];
+  setRemoteLogQueue([]);
+
+  for (let index = 0; index < pendingLogs.length; index += 1) {
+    const payload = pendingLogs[index];
+
+    try {
+      await postRemoteLog(payload);
+    } catch {
+      setRemoteLogQueue(pendingLogs.slice(index));
+      return;
+    }
+  }
+}
+
+export function flushQueuedRemoteLogs() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (process.env.NEXT_PUBLIC_ENABLE_REMOTE_LOGGER === "false") {
+    return;
+  }
+
+  void flushRemoteLogQueue();
 }
 
 function persistLog(type: LogLevel, message: string, options: LogOptions = {}) {
@@ -99,29 +210,23 @@ function persistLog(type: LogLevel, message: string, options: LogOptions = {}) {
     return;
   }
 
-  const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+  const payload: RemoteLogPayload = {
+    type,
+    message,
+    source: options.source,
+    origin: "frontend",
+    data: sanitizeLogData(options.data),
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  void fetch(REMOTE_LOG_API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      type,
-      message,
-      source: options.source,
-      origin: "frontend",
-      data: sanitizeLogData(options.data),
-    }),
-    keepalive: true,
-  }).catch(() => {
-    // Swallow remote logging failures so UI logging never becomes user-facing.
-  });
+  void flushRemoteLogQueue()
+    .catch(() => {
+      // Ignore queue flush errors and continue with the current log attempt.
+    })
+    .finally(() => {
+      void postRemoteLog(payload).catch(() => {
+        setRemoteLogQueue([...getRemoteLogQueue(), payload]);
+      });
+    });
 }
 
 function add(type: LogLevel, message: string, options: LogOptions = {}) {

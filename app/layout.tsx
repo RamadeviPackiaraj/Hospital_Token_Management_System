@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AuthRoleProvider } from "@/components/auth/AuthRoleContext";
 import { LogViewer } from "@/components/ui";
+import { LoggerRuntimeBridge } from "@/components/utility";
 import { Toaster } from "react-hot-toast";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-time-picker/dist/TimePicker.css";
@@ -27,6 +28,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} bg-[#F8FAFC] text-[#0F172A]`}>
         <AuthRoleProvider>
+          <LoggerRuntimeBridge />
           {children}
           <Toaster
             position="top-right"
