@@ -30,6 +30,7 @@ import {
   updateDoctorSchedule,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
+import { getHospitalDepartmentAssignments } from "@/lib/hospital-department-assignments";
 import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
 import {
   defaultDoctorScheduleValues,
@@ -231,13 +232,29 @@ export default function DoctorSchedulePage() {
     ])
       .then(([bootstrap, scheduleRecords, approvedDoctors]) => {
         if (!active) return;
+        const storedAssignments = getHospitalDepartmentAssignments(currentUser.id);
+        const assignmentMap = new Map(storedAssignments.map((item) => [item.doctorId, item.department] as const));
         const approvedDirectory = buildApprovedDoctorDirectory(
           approvedDoctors.filter((doctor) => doctor.approvalStatus === "approved"),
           (bootstrap.doctors || []).filter((doctor) => doctor.isApproved),
           scheduleRecords
+        ).map((doctor) => ({
+          ...doctor,
+          department: assignmentMap.get(doctor.id) || doctor.department || "",
+        }));
+
+        const assignedDepartments = Array.from(
+          new Set(
+            storedAssignments
+              .map((assignment) => assignment.department)
+              .filter((department) => department && department.trim())
+          )
         );
-        setDepartments(bootstrap.departments || []);
-        setApprovedDoctors(approvedDirectory.filter((doctor) => doctor.isApproved));
+
+        setDepartments(assignedDepartments);
+        setApprovedDoctors(
+          approvedDirectory.filter((doctor) => doctor.isApproved && Boolean(doctor.department?.trim()))
+        );
         setDoctorDirectory(approvedDirectory);
         setSchedules(mergeDoctorNames(scheduleRecords, approvedDirectory));
       })
