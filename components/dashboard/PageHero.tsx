@@ -28,9 +28,9 @@ export function PageHero({
   const [imageFailed, setImageFailed] = React.useState(false);
 
   return (
-    <Card className="mb-6 overflow-hidden">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
-        <div className="space-y-4">
+    <Card className="overflow-hidden">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+        <div className="space-y-6">
           <div className="flex items-center gap-4">
             <div className="flex size-12 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
               {icon}
@@ -44,9 +44,9 @@ export function PageHero({
           {stats.length > 0 ? (
             <div className="flex flex-wrap gap-3">
               {stats.map((stat) => (
-                <Badge key={stat.label} variant="neutral" className="rounded-lg px-3 py-2 text-xs font-medium">
-                  <span className="ui-label">{stat.label}</span>
-                  <span className="ml-2 text-sm font-medium leading-5 text-[#0F172A]">{stat.value}</span>
+                <Badge key={stat.label} variant="neutral" className="rounded-lg px-4 py-2">
+                  <span className="ui-meta">{stat.label}</span>
+                  <span className="ml-2 ui-body">{stat.value}</span>
                 </Badge>
               ))}
             </div>

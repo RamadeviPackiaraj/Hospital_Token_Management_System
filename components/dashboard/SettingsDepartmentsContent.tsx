@@ -7,17 +7,17 @@ import { Button, Card, Input, Select, Table } from "@/components/ui";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
 import {
   addDepartment,
+  deleteHospitalDepartmentAssignment,
   deleteDepartment,
   getApprovedDoctorsForHospital,
   getDepartments,
-  updateDepartment,
-  type DepartmentRecord,
-} from "@/lib/dashboard-data";
-import {
   getHospitalDepartmentAssignments,
-  saveHospitalDepartmentAssignments,
+  updateHospitalDepartmentAssignment,
+  updateDepartment,
+  upsertHospitalDepartmentAssignment,
+  type DepartmentRecord,
   type HospitalDoctorDepartmentAssignment,
-} from "@/lib/hospital-department-assignments";
+} from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
 
 type DepartmentRow = Record<string, unknown> & DepartmentRecord;
@@ -61,23 +61,23 @@ export function SettingsDepartmentsContent() {
       return;
     }
 
-    getApprovedDoctorsForHospital(currentUser.id)
-      .then((data) => {
+    Promise.all([
+      getApprovedDoctorsForHospital(currentUser.id).catch(() => []),
+      getHospitalDepartmentAssignments(currentUser.id).catch(() => []),
+    ])
+      .then(([doctorData, assignmentData]) => {
         setApprovedDoctors(
-          data
+          doctorData
             .filter((doctor) => doctor.approvalStatus === "approved")
             .map((doctor) => ({ id: doctor.id, fullName: doctor.fullName }))
         );
+        setAssignments(assignmentData);
       })
-      .catch(() => setApprovedDoctors([]));
-
-    setAssignments(getHospitalDepartmentAssignments(currentUser.id));
+      .catch(() => {
+        setApprovedDoctors([]);
+        setAssignments([]);
+      });
   }, [currentUser.id, currentUser.role]);
-
-  function saveAssignments(nextAssignments: HospitalDoctorDepartmentAssignment[]) {
-    setAssignments(nextAssignments);
-    saveHospitalDepartmentAssignments(currentUser.id, nextAssignments);
-  }
 
   async function handleAddDepartment() {
     try {
@@ -127,7 +127,9 @@ export function SettingsDepartmentsContent() {
       const updated = await deleteDepartment(deleteTarget.id);
       setDepartments(updated);
       if (currentUser.role === "hospital") {
-        saveAssignments(assignments.filter((assignment) => assignment.department !== deleteTarget.name));
+        setAssignments((current) =>
+          current.filter((assignment) => assignment.department !== deleteTarget.name)
+        );
       }
       logger.warn("Department deleted.", {
         source: "settings.departments",
@@ -145,53 +147,72 @@ export function SettingsDepartmentsContent() {
     }
   }
 
-  function handleAssignDepartment() {
+  async function handleAssignDepartment() {
     if (!doctorId || !selectedDepartment) {
       return;
     }
 
     const doctor = approvedDoctors.find((item) => item.id === doctorId);
-    if (!doctor) {
+    const department = departments.find((item) => item.name === selectedDepartment);
+    if (!doctor || !department) {
       return;
     }
 
-    const nextAssignments = assignments.some((assignment) => assignment.doctorId === doctorId)
-      ? assignments.map((assignment) =>
-          assignment.doctorId === doctorId
-            ? { ...assignment, department: selectedDepartment }
-            : assignment
-        )
-      : [
-          ...assignments,
-          {
-            doctorId,
-            doctorName: doctor.fullName,
-            department: selectedDepartment,
-          },
-        ];
+    try {
+      const assignment = assignments.some((item) => item.doctorId === doctorId)
+        ? await updateHospitalDepartmentAssignment(currentUser.id, doctorId, department.id)
+        : await upsertHospitalDepartmentAssignment(currentUser.id, doctorId, department.id);
 
-    saveAssignments(nextAssignments);
-    setDoctorId("");
-    setSelectedDepartment("");
-    logger.success("Doctor department assigned.", {
-      source: "settings.departments.assignment",
-      data: { doctorId, department: selectedDepartment, hospitalId: currentUser.id },
-      toast: true,
-    });
+      setAssignments((current) => {
+        const hasExisting = current.some((item) => item.doctorId === doctorId);
+        if (hasExisting) {
+          return current.map((item) => (item.doctorId === doctorId ? assignment : item));
+        }
+        return [...current, assignment];
+      });
+      setDoctorId("");
+      setSelectedDepartment("");
+      logger.success("Doctor department assigned.", {
+        source: "settings.departments.assignment",
+        data: { doctorId, department: selectedDepartment, hospitalId: currentUser.id },
+        toast: true,
+      });
+    } catch (error) {
+      logger.error("Unable to assign the doctor department.", {
+        source: "settings.departments.assignment",
+        data: {
+          doctorId,
+          departmentId: department.id,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        toast: true,
+      });
+    }
   }
 
-  function handleRemoveAssignment(doctorIdToRemove: string) {
-    saveAssignments(assignments.filter((assignment) => assignment.doctorId !== doctorIdToRemove));
-    if (editingAssignmentId === doctorIdToRemove) {
-      setEditingAssignmentId(null);
-      setEditingAssignmentDepartment("");
+  async function handleRemoveAssignment(doctorIdToRemove: string) {
+    try {
+      await deleteHospitalDepartmentAssignment(currentUser.id, doctorIdToRemove);
+      setAssignments((current) =>
+        current.filter((assignment) => assignment.doctorId !== doctorIdToRemove)
+      );
+      if (editingAssignmentId === doctorIdToRemove) {
+        setEditingAssignmentId(null);
+        setEditingAssignmentDepartment("");
+      }
+      logger.warn("Doctor department assignment removed.", {
+        source: "settings.departments.assignment",
+        data: { doctorId: doctorIdToRemove, hospitalId: currentUser.id },
+        toast: true,
+        destructive: true,
+      });
+    } catch (error) {
+      logger.error("Unable to remove the doctor department assignment.", {
+        source: "settings.departments.assignment",
+        data: { doctorId: doctorIdToRemove, error: error instanceof Error ? error.message : String(error) },
+        toast: true,
+      });
     }
-    logger.warn("Doctor department assignment removed.", {
-      source: "settings.departments.assignment",
-      data: { doctorId: doctorIdToRemove, hospitalId: currentUser.id },
-      toast: true,
-      destructive: true,
-    });
   }
 
   function handleEditAssignment(assignment: HospitalDoctorDepartmentAssignment) {
@@ -204,24 +225,44 @@ export function SettingsDepartmentsContent() {
     setEditingAssignmentDepartment("");
   }
 
-  function handleSaveAssignmentEdit(doctorIdToUpdate: string) {
+  async function handleSaveAssignmentEdit(doctorIdToUpdate: string) {
     if (!editingAssignmentDepartment) {
       return;
     }
 
-    const nextAssignments = assignments.map((assignment) =>
-      assignment.doctorId === doctorIdToUpdate
-        ? { ...assignment, department: editingAssignmentDepartment }
-        : assignment
-    );
+    const department = departments.find((item) => item.name === editingAssignmentDepartment);
+    if (!department) {
+      return;
+    }
 
-    saveAssignments(nextAssignments);
-    logger.success("Doctor department assignment updated.", {
-      source: "settings.departments.assignment",
-      data: { doctorId: doctorIdToUpdate, department: editingAssignmentDepartment, hospitalId: currentUser.id },
-      toast: true,
-    });
-    handleCancelAssignmentEdit();
+    try {
+      const updatedAssignment = await updateHospitalDepartmentAssignment(
+        currentUser.id,
+        doctorIdToUpdate,
+        department.id
+      );
+      setAssignments((current) =>
+        current.map((assignment) =>
+          assignment.doctorId === doctorIdToUpdate ? updatedAssignment : assignment
+        )
+      );
+      logger.success("Doctor department assignment updated.", {
+        source: "settings.departments.assignment",
+        data: { doctorId: doctorIdToUpdate, department: editingAssignmentDepartment, hospitalId: currentUser.id },
+        toast: true,
+      });
+      handleCancelAssignmentEdit();
+    } catch (error) {
+      logger.error("Unable to update the doctor department assignment.", {
+        source: "settings.departments.assignment",
+        data: {
+          doctorId: doctorIdToUpdate,
+          departmentId: department.id,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        toast: true,
+      });
+    }
   }
 
   const departmentRows: DepartmentRow[] = departments.map((department) => ({ ...department }));
@@ -232,7 +273,7 @@ export function SettingsDepartmentsContent() {
       <div className="space-y-6">
         <PageHero
           title="Departments"
-          description="Assign approved doctors to departments."
+          description="Assign doctor departments."
           icon={<LayoutList className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
           imageAlt="Hospital hallway"
@@ -276,7 +317,7 @@ export function SettingsDepartmentsContent() {
                 fullWidth
                 className="h-10 rounded-md"
                 leftIcon={<Save className="size-4" />}
-                onClick={handleAssignDepartment}
+                onClick={() => void handleAssignDepartment()}
                 disabled={!doctorId || !selectedDepartment}
               >
                 Save
@@ -334,7 +375,7 @@ export function SettingsDepartmentsContent() {
                         size="sm"
                         className="h-10 rounded-lg"
                         leftIcon={<Save className="size-4" />}
-                        onClick={() => handleSaveAssignmentEdit(row.doctorId)}
+                        onClick={() => void handleSaveAssignmentEdit(row.doctorId)}
                         disabled={!editingAssignmentDepartment.trim()}
                       >
                         Save
@@ -362,7 +403,7 @@ export function SettingsDepartmentsContent() {
                       <button
                         type="button"
                         className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
-                        onClick={() => handleRemoveAssignment(row.doctorId)}
+                        onClick={() => void handleRemoveAssignment(row.doctorId)}
                       >
                         <Trash2 className="size-4" />
                         Remove
@@ -399,7 +440,7 @@ export function SettingsDepartmentsContent() {
     <div className="space-y-6">
       <PageHero
         title="Department Management"
-        description="Manage departments"
+        description="Manage departments."
         icon={<LayoutList className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
         imageAlt="Hospital hallway"

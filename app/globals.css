@@ -186,7 +186,7 @@ body {
 
 @layer components {
   .ui-page-title {
-    @apply text-[20px] font-medium leading-7 text-[#0F172A] sm:text-[24px] sm:leading-8;
+    @apply text-[20px] font-medium leading-7 text-[#0F172A] md:text-[24px] md:leading-8;
   }
 
   .ui-page-subtitle {
@@ -210,11 +210,11 @@ body {
   }
 
   .ui-label {
-    @apply text-xs font-medium uppercase tracking-[0.08em] text-[#64748B];
+    @apply text-xs font-medium leading-4 text-[#64748B];
   }
 
   .ui-field-label {
-    @apply text-xs font-medium leading-4 text-[#0F172A];
+    @apply text-xs font-medium leading-4 text-[#64748B];
   }
 
   .ui-meta {
@@ -222,7 +222,7 @@ body {
   }
 
   .ui-table-header {
-    @apply text-xs font-medium uppercase tracking-[0.08em] text-[#64748B];
+    @apply text-xs font-medium leading-4 text-[#64748B];
   }
 
   .ui-card-title {
@@ -243,6 +243,18 @@ body {
 
   .ui-card-muted {
     @apply rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4;
+  }
+
+  .ui-card-interior {
+    @apply rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4;
+  }
+
+  .ui-card-interior-muted {
+    @apply rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4;
+  }
+
+  .ui-card-divider {
+    @apply border-t border-[#E2E8F0];
   }
 
   .ui-card-chip {

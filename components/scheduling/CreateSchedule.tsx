@@ -54,7 +54,7 @@ export function CreateSchedule({
         {submitMessage ? <p className="ui-meta text-[#0EA5A4]">{submitMessage}</p> : null}
       </div>
 
-      <div className="my-4 border-t border-[#E2E8F0]" />
+      <div className="my-4 ui-card-divider" />
 
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
@@ -144,7 +144,7 @@ export function CreateSchedule({
           />
         </div>
 
-        <div className="flex flex-wrap justify-end gap-4">
+        <div className="flex flex-wrap justify-end gap-3">
           {onCancel ? (
             <Button type="button" variant="ghost" onClick={onCancel}>
               Cancel

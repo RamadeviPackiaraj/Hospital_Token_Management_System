@@ -13,7 +13,10 @@ import {
   ScheduleList,
   SlotPreview,
 } from "@/components/scheduling";
-import { getApprovedDoctorsForHospital } from "@/lib/dashboard-data";
+import {
+  getApprovedDoctorsForHospital,
+  getHospitalDepartmentAssignments,
+} from "@/lib/dashboard-data";
 import { ApiRequestError } from "@/lib/api";
 import {
   createDoctorOptions,
@@ -30,7 +33,6 @@ import {
   updateDoctorSchedule,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
-import { getHospitalDepartmentAssignments } from "@/lib/hospital-department-assignments";
 import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
 import {
   defaultDoctorScheduleValues,
@@ -219,6 +221,14 @@ export default function DoctorSchedulePage() {
   );
 
   const showPreview = Boolean(selectedDepartment && selectedDoctorId && selectedDate && startTime && endTime);
+  const totalSlots = React.useMemo(
+    () => schedules.reduce((sum, schedule) => sum + schedule.slots.length, 0),
+    [schedules]
+  );
+  const availableSlots = React.useMemo(
+    () => schedules.reduce((sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length, 0),
+    [schedules]
+  );
 
   React.useEffect(() => {
     if (currentUser.role !== "hospital") return;
@@ -229,10 +239,10 @@ export default function DoctorSchedulePage() {
       getScheduleBootstrap(),
       getDoctorSchedules(),
       getApprovedDoctorsForHospital(currentUser.id).catch(() => []),
+      getHospitalDepartmentAssignments(currentUser.id).catch(() => []),
     ])
-      .then(([bootstrap, scheduleRecords, approvedDoctors]) => {
+      .then(([bootstrap, scheduleRecords, approvedDoctors, storedAssignments]) => {
         if (!active) return;
-        const storedAssignments = getHospitalDepartmentAssignments(currentUser.id);
         const assignmentMap = new Map(storedAssignments.map((item) => [item.doctorId, item.department] as const));
         const approvedDirectory = buildApprovedDoctorDirectory(
           approvedDoctors.filter((doctor) => doctor.approvalStatus === "approved"),
@@ -478,16 +488,64 @@ export default function DoctorSchedulePage() {
     <div className="flex flex-col gap-6">
       <PageHero
         title="Doctor Schedule Board"
-        description="Manage doctor availability"
+        description="Manage doctor availability with a consistent weekly scheduling workflow."
         icon={<CalendarDays className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=900&q=80"
         imageAlt="Doctor schedule workflow"
         stats={[
           { label: "Schedules", value: String(schedules.length) },
-          { label: "Slots", value: String(schedules.reduce((sum, schedule) => sum + schedule.slots.length, 0)) },
-          { label: "Available", value: String(schedules.reduce((sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length, 0)) },
+          { label: "Slots", value: String(totalSlots) },
+          { label: "Available", value: String(availableSlots) },
         ]}
       />
+
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)]">
+        <UiCard>
+          <div className="flex flex-col gap-2">
+            <p className="ui-section-title">Scheduling Overview</p>
+            <p className="ui-body-secondary">
+              Build department-wise schedules, preview slot coverage, and avoid overlapping timings before saving.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="ui-card-interior-muted">
+              <p className="ui-label">Assigned Departments</p>
+              <p className="mt-2 ui-card-title">{departments.length}</p>
+            </div>
+            <div className="ui-card-interior-muted">
+              <p className="ui-label">Approved Doctors</p>
+              <p className="mt-2 ui-card-title">{approvedDoctors.length}</p>
+            </div>
+            <div className="ui-card-interior-muted">
+              <p className="ui-label">Draft Status</p>
+              <p className="mt-2 ui-card-title">{showForm ? "Open" : "Closed"}</p>
+            </div>
+          </div>
+        </UiCard>
+
+        <UiCard>
+          <div className="flex flex-col gap-2">
+            <p className="ui-section-title">Scheduling Rules</p>
+            <p className="ui-body-secondary">
+              Use the standard sequence to keep doctor rosters readable and conflict-free.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3">
+            <div className="ui-card-interior">
+              <p className="ui-label">1. Department</p>
+              <p className="mt-1 ui-card-body">Select a department before choosing a doctor.</p>
+            </div>
+            <div className="ui-card-interior">
+              <p className="ui-label">2. Time Range</p>
+              <p className="mt-1 ui-card-body">Set date, duration, start time, and end time.</p>
+            </div>
+            <div className="ui-card-interior">
+              <p className="ui-label">3. Review</p>
+              <p className="mt-1 ui-card-body">Check preview slots and existing schedules, then save.</p>
+            </div>
+          </div>
+        </UiCard>
+      </section>
 
       <CreateCard
         active={showForm}
@@ -531,12 +589,12 @@ export default function DoctorSchedulePage() {
               }
               tone="primary"
               icon={<Clock3 className="size-5" />}
-              className="transition hover:shadow-sm"
+              className="transition"
             >
               <SlotPreview slots={previewSlots} />
               {selectedDoctorSchedules.length ? (
-                <div className="mt-4 rounded-lg border border-[#E2E8F0] bg-white p-4">
-                  <p className="text-sm font-medium text-[#0F172A]">Existing schedules on this date</p>
+                <div className="mt-4 ui-card-interior">
+                  <p className="ui-card-title">Existing schedules on this date</p>
                   <div className="mt-3 flex flex-col gap-2">
                     {selectedDoctorSchedules.map((schedule) => {
                       const isConflict = conflictingSchedules.some((item) => item.id === schedule.id);
@@ -556,7 +614,7 @@ export default function DoctorSchedulePage() {
                     })}
                   </div>
                   {conflictingSchedules.length ? (
-                    <p className="mt-3 text-sm text-[#B91C1C]">
+                    <p className="mt-3 ui-body text-[#B91C1C]">
                       Warning: this time range overlaps with an existing schedule.
                     </p>
                   ) : null}

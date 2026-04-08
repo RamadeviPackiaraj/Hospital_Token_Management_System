@@ -2,9 +2,7 @@
 
 import * as React from "react";
 import {
-  Building2,
   Check,
-  IndianRupee,
   PencilLine,
   Sparkles,
   Stethoscope,
@@ -15,13 +13,17 @@ import { Button, Card, Input } from "@/components/ui";
 import { PageHero, useDashboardContext } from "@/components/dashboard";
 import {
   getDoctorSubscriptionRecords,
-  saveDoctorSubscriptionRecords,
+  updateDoctorSubscriptionRate,
   type DoctorSubscriptionRecord,
-} from "@/lib/doctor-subscription-mock";
+} from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
 
 function formatFee(value: string) {
   return `Rs ${value}`;
+}
+
+function getHospitalLimit(amount: number) {
+  return Math.max(1, Math.floor(amount / 500));
 }
 
 export function SettingsDoctorSubscriptionsContent() {
@@ -29,7 +31,6 @@ export function SettingsDoctorSubscriptionsContent() {
   const [doctorSubscriptions, setDoctorSubscriptions] = React.useState<DoctorSubscriptionRecord[]>([]);
   const [editingDoctorId, setEditingDoctorId] = React.useState<string | null>(null);
   const [editingDoctorRate, setEditingDoctorRate] = React.useState("");
-  const [editingDoctorHospitals, setEditingDoctorHospitals] = React.useState("");
   const [doctorFeeError, setDoctorFeeError] = React.useState("");
   const [savingDoctorId, setSavingDoctorId] = React.useState<string | null>(null);
   const [filterText, setFilterText] = React.useState("");
@@ -54,12 +55,12 @@ export function SettingsDoctorSubscriptionsContent() {
   }, []);
 
   const totalDoctorSubscriptionValue = doctorSubscriptions.reduce(
-    (sum, doctor) => sum + doctor.hospitalCount * doctor.ratePerHospital,
+    (sum, doctor) => sum + doctor.ratePerHospital,
     0
   );
 
   const filteredDoctorSubscriptions = doctorSubscriptions.filter((doctor) => {
-    const total = doctor.hospitalCount * doctor.ratePerHospital;
+    const total = doctor.ratePerHospital;
     const matchesText = doctor.fullName.toLowerCase().includes(filterText.toLowerCase());
     const matchesMode =
       filterMode === "all" ||
@@ -70,10 +71,9 @@ export function SettingsDoctorSubscriptionsContent() {
 
   async function saveDoctorSubscription(doctorId: string) {
     const ratePerHospital = Number(editingDoctorRate);
-    const hospitalCount = Number(editingDoctorHospitals);
 
-    if (!Number.isFinite(ratePerHospital) || ratePerHospital < 0 || !Number.isFinite(hospitalCount) || hospitalCount < 0) {
-      setDoctorFeeError("Enter valid hospital count and per-hospital fee.");
+    if (!Number.isFinite(ratePerHospital) || ratePerHospital < 500 || ratePerHospital % 500 !== 0) {
+      setDoctorFeeError("Enter an amount in Rs 500 steps.");
       return;
     }
 
@@ -81,24 +81,14 @@ export function SettingsDoctorSubscriptionsContent() {
     setSavingDoctorId(doctorId);
 
     try {
-      const nextRecords = doctorSubscriptions.map((doctor) =>
-        doctor.id === doctorId
-          ? {
-              ...doctor,
-              ratePerHospital,
-              hospitalCount,
-            }
-          : doctor
-      );
-
-      const saved = await saveDoctorSubscriptionRecords(nextRecords);
-      setDoctorSubscriptions(saved);
+      await updateDoctorSubscriptionRate(doctorId, ratePerHospital);
+      const refreshedRecords = await getDoctorSubscriptionRecords();
+      setDoctorSubscriptions(refreshedRecords);
       setEditingDoctorId(null);
       setEditingDoctorRate("");
-      setEditingDoctorHospitals("");
       logger.success("Doctor subscription updated.", {
         source: "settings.subscriptions.doctors",
-        data: { doctorId, ratePerHospital, hospitalCount },
+        data: { doctorId, ratePerHospital },
         toast: true,
       });
     } catch (error) {
@@ -126,14 +116,14 @@ export function SettingsDoctorSubscriptionsContent() {
     <div className="space-y-6">
       <PageHero
         title="Doctor Subscriptions"
-        description="Manage per-hospital doctor pricing on a dedicated page with filters and lower scroll."
+        description="Set plan amount."
         icon={<WalletCards className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
         imageAlt="Billing and payment desk"
         stats={[
           { label: "Doctors", value: String(filteredDoctorSubscriptions.length) },
-          { label: "Per Hospital", value: "Manual" },
-          { label: "Total Value", value: formatFee(String(totalDoctorSubscriptionValue)) },
+          { label: "Base Step", value: "Rs 500" },
+          { label: "Plans", value: formatFee(String(totalDoctorSubscriptionValue)) },
         ]}
       />
 
@@ -171,7 +161,7 @@ export function SettingsDoctorSubscriptionsContent() {
               </span>
               <h2 className="ui-section-title">Doctor Subscription Cards</h2>
             </div>
-            <p className="ui-body-secondary">Manual fee entry per hospital with computed totals.</p>
+            <p className="ui-body-secondary">Rs 500 = 1 hospital.</p>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B]">
@@ -186,7 +176,7 @@ export function SettingsDoctorSubscriptionsContent() {
         <div className="grid gap-4 md:grid-cols-2">
           {filteredDoctorSubscriptions.map((doctor) => {
             const isEditing = editingDoctorId === doctor.id;
-            const doctorTotal = doctor.hospitalCount * doctor.ratePerHospital;
+            const hospitalLimit = getHospitalLimit(doctor.ratePerHospital);
 
             return (
               <Card key={doctor.id} className="flex h-full flex-col p-4 transition hover:border-[#0EA5A4]/40">
@@ -198,7 +188,7 @@ export function SettingsDoctorSubscriptionsContent() {
                     <div className="min-w-0">
                       <h3 className="truncate ui-section-title">{doctor.fullName}</h3>
                       <p className="mt-1 ui-meta">
-                        {doctor.hospitalCount} hospitals x {formatFee(String(doctor.ratePerHospital))} per hospital
+                        Plan {formatFee(String(doctor.ratePerHospital))} • Limit {hospitalLimit} hospitals
                       </p>
                     </div>
                   </div>
@@ -210,7 +200,6 @@ export function SettingsDoctorSubscriptionsContent() {
                       onClick={() => {
                         setEditingDoctorId(doctor.id);
                         setEditingDoctorRate(String(doctor.ratePerHospital));
-                        setEditingDoctorHospitals(String(doctor.hospitalCount));
                         setDoctorFeeError("");
                       }}
                     >
@@ -221,55 +210,42 @@ export function SettingsDoctorSubscriptionsContent() {
                 </div>
 
                 <div className="mt-4 space-y-3 border-t border-[#E2E8F0] pt-4">
-                  <p className="ui-page-title leading-none">{formatFee(String(doctorTotal))}</p>
-                  <div className="inline-flex items-center gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-sm text-[#64748B]">
-                    <Building2 className="size-4 text-[#0EA5A4]" />
-                    <span>{doctor.hospitalCount} linked hospitals</span>
+                  <p className="ui-page-title leading-none">{formatFee(String(doctor.ratePerHospital))}</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg bg-[#F8FAFC] px-3 py-2">
+                      <p className="ui-meta">Hospital Limit</p>
+                      <p className="ui-body">{hospitalLimit}</p>
+                    </div>
+                    <div className="rounded-lg bg-[#F8FAFC] px-3 py-2">
+                      <p className="ui-meta">Used</p>
+                      <p className="ui-body">{doctor.hospitalCount}</p>
+                    </div>
                   </div>
                 </div>
 
                 {isEditing ? (
                   <div className="mt-4 space-y-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="space-y-2">
-                        <span className="ui-meta">Hospitals</span>
-                        <Input
-                          value={editingDoctorHospitals}
-                          type="number"
-                          min="0"
-                          step="1"
-                          inputMode="numeric"
-                          onChange={(event) => {
-                            setEditingDoctorHospitals(event.target.value);
-                            setDoctorFeeError("");
-                          }}
-                          placeholder="Enter hospital count"
-                        />
-                      </label>
-                      <label className="space-y-2">
-                        <span className="ui-meta">Per Hospital Fee</span>
-                        <Input
-                          value={editingDoctorRate}
-                          type="number"
-                          min="0"
-                          step="1"
-                          inputMode="numeric"
-                          onChange={(event) => {
-                            setEditingDoctorRate(event.target.value);
-                            setDoctorFeeError("");
-                          }}
-                          placeholder="Enter per hospital fee"
-                        />
-                      </label>
-                    </div>
+                    <label className="space-y-2">
+                      <span className="ui-meta">Plan Amount</span>
+                      <Input
+                        value={editingDoctorRate}
+                        type="number"
+                        min="500"
+                        step="500"
+                        inputMode="numeric"
+                        onChange={(event) => {
+                          setEditingDoctorRate(event.target.value);
+                          setDoctorFeeError("");
+                        }}
+                        placeholder="Enter amount"
+                      />
+                    </label>
 
-                    <div className="rounded-lg bg-white px-3 py-3 text-sm text-[#64748B]">
-                      Total subscription:
-                      <span className="ml-2 font-medium text-[#0F172A]">
-                        {formatFee(
-                          String((Number(editingDoctorHospitals) || 0) * (Number(editingDoctorRate) || 0))
-                        )}
-                      </span>
+                    <div className="rounded-lg bg-white px-3 py-3">
+                      <p className="ui-meta">Rule</p>
+                      <p className="ui-body">
+                        {formatFee(editingDoctorRate || "500")} allows {getHospitalLimit(Number(editingDoctorRate) || 500)} hospitals.
+                      </p>
                     </div>
 
                     {doctorFeeError ? <p className="text-sm text-[#EF4444]">{doctorFeeError}</p> : null}
@@ -292,7 +268,6 @@ export function SettingsDoctorSubscriptionsContent() {
                         onClick={() => {
                           setEditingDoctorId(null);
                           setEditingDoctorRate("");
-                          setEditingDoctorHospitals("");
                           setDoctorFeeError("");
                         }}
                       >

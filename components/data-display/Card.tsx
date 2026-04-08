@@ -25,7 +25,7 @@ export function Card({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <p className="ui-label">{title}</p>
+          <p className="ui-meta">{title}</p>
           <h3 className="ui-section-title">{value}</h3>
           {description ? <p className="ui-body-secondary">{description}</p> : null}
         </div>

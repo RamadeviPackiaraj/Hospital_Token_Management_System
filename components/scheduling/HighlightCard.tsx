@@ -19,7 +19,6 @@ export const HighlightCard = React.forwardRef<HTMLDivElement, HighlightCardProps
     <Card
       ref={ref}
       className={cn(
-        "rounded-lg p-4",
         tone === "primary" && "border-[#0EA5A4] bg-[#F0FDFA]",
         className
       )}

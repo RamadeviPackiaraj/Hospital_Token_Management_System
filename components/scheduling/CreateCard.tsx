@@ -14,7 +14,7 @@ export function CreateCard({ active = false, onClick }: CreateCardProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        "focus-ring w-full rounded-lg border border-dashed border-[#E2E8F0] bg-white p-4 text-left transition hover:border-[#0EA5A4]",
+        "focus-ring ui-card w-full border-dashed text-left transition hover:border-[#0EA5A4]",
         active && "border-[#0EA5A4] bg-[#F0FDFA]"
       )}
     >
@@ -22,7 +22,7 @@ export function CreateCard({ active = false, onClick }: CreateCardProps) {
         <div className="flex size-11 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
           <Plus className="size-5" />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <p className="ui-card-title">Create New Schedule</p>
           <p className="ui-card-meta">Set doctor availability and generate slots.</p>
         </div>

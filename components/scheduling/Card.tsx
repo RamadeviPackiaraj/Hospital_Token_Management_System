@@ -10,5 +10,5 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
   { className, ...props },
   ref
 ) {
-  return <BaseCard ref={ref} className={cn("rounded-lg p-4 shadow-none", className)} {...props} />;
+  return <BaseCard ref={ref} className={cn(className)} {...props} />;
 });

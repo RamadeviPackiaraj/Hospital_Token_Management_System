@@ -14,6 +14,34 @@ export interface SubscriptionSettings {
   }>;
 }
 
+export interface DoctorSubscriptionRecord {
+  id: string;
+  fullName: string;
+  hospitalCount: number;
+  ratePerHospital: number;
+}
+
+export interface DoctorSubscriptionSummary {
+  doctorId: string;
+  userId: string;
+  fullName: string;
+  ratePerHospital: number;
+  hospitalLimit: number;
+  usedHospitalSlots: number;
+  remainingHospitalSlots: number;
+  approvedHospitalCount: number;
+  pendingHospitalCount: number;
+  rejectedHospitalCount: number;
+  currentTotal: number;
+  projectedTotal: number;
+}
+
+export interface HospitalDoctorDepartmentAssignment {
+  doctorId: string;
+  doctorName: string;
+  department: string;
+}
+
 export interface HospitalSelection {
   id: string;
   doctorId: string;
@@ -265,4 +293,104 @@ export async function getAdminDoctors() {
     `/admin/doctors${buildQuery({ limit: 100 })}`
   );
   return (response.items || []).map(mapAdminEntityToMockUser);
+}
+
+export async function getDoctorSubscriptionRecords() {
+  const response = await apiRequest<{ items: DoctorSubscriptionRecord[] }>(
+    "/admin/doctor-subscriptions"
+  );
+  return response.items || [];
+}
+
+export async function updateDoctorSubscriptionRate(doctorId: string, ratePerHospital: number) {
+  if (!doctorId) {
+    throw new Error("Doctor id is required");
+  }
+  const numericRate = Number(ratePerHospital);
+  if (Number.isNaN(numericRate) || numericRate < 0) {
+    throw new Error("Rate per hospital must be a non-negative number");
+  }
+  return apiRequest<DoctorSubscriptionRecord>(`/admin/doctor-subscriptions/${doctorId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ratePerHospital: numericRate }),
+  });
+}
+
+export async function getDoctorSubscriptionSummary(doctorId: string) {
+  if (!doctorId) {
+    throw new Error("Doctor id is required");
+  }
+
+  return apiRequest<DoctorSubscriptionSummary>(`/doctors/${doctorId}/subscription-summary`);
+}
+
+export async function getHospitalDepartmentAssignments(hospitalId: string) {
+  if (!hospitalId) {
+    throw new Error("Hospital id is required");
+  }
+  const response = await apiRequest<{ items: HospitalDoctorDepartmentAssignment[] }>(
+    `/hospitals/${hospitalId}/department-assignments`
+  );
+  return response.items || [];
+}
+
+export async function upsertHospitalDepartmentAssignment(
+  hospitalId: string,
+  doctorId: string,
+  departmentId: string
+) {
+  if (!hospitalId) {
+    throw new Error("Hospital id is required");
+  }
+  if (!doctorId) {
+    throw new Error("Doctor id is required");
+  }
+  if (!departmentId) {
+    throw new Error("Department id is required");
+  }
+  return apiRequest<HospitalDoctorDepartmentAssignment>(
+    `/hospitals/${hospitalId}/department-assignments`,
+    {
+      method: "POST",
+      body: JSON.stringify({ doctorId, departmentId }),
+    }
+  );
+}
+
+export async function updateHospitalDepartmentAssignment(
+  hospitalId: string,
+  doctorId: string,
+  departmentId: string
+) {
+  if (!hospitalId) {
+    throw new Error("Hospital id is required");
+  }
+  if (!doctorId) {
+    throw new Error("Doctor id is required");
+  }
+  if (!departmentId) {
+    throw new Error("Department id is required");
+  }
+  return apiRequest<HospitalDoctorDepartmentAssignment>(
+    `/hospitals/${hospitalId}/department-assignments/${doctorId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ departmentId }),
+    }
+  );
+}
+
+export async function deleteHospitalDepartmentAssignment(hospitalId: string, doctorId: string) {
+  if (!hospitalId) {
+    throw new Error("Hospital id is required");
+  }
+  if (!doctorId) {
+    throw new Error("Doctor id is required");
+  }
+  return apiRequest<{ success: boolean }>(
+    `/hospitals/${hospitalId}/department-assignments/${doctorId}`,
+    {
+      method: "DELETE",
+    }
+  );
 }

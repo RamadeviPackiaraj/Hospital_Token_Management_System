@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   Building2,
   Check,
   CreditCard,
@@ -192,7 +194,7 @@ export function SettingsHospitalSubscriptionsContent() {
       <div className="space-y-6">
         <PageHero
           title="Hospital Subscription Summary"
-          description="View pricing"
+          description="View fees."
           icon={<WalletCards className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
           imageAlt="Billing and payment desk"
@@ -211,9 +213,17 @@ export function SettingsHospitalSubscriptionsContent() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/dashboard/settings/subscriptions"
+        className="focus-ring inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+      >
+        <ArrowLeft className="size-4" />
+        Back to Subscriptions
+      </Link>
+
       <PageHero
         title="Hospital Subscriptions"
-        description="Set the default hospital fee and manage custom overrides with less scrolling."
+        description="Set hospital fees."
         icon={<WalletCards className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
         imageAlt="Billing and payment desk"
@@ -286,7 +296,7 @@ export function SettingsHospitalSubscriptionsContent() {
               </span>
               <h2 className="ui-section-title">Hospital Overrides</h2>
             </div>
-            <p className="ui-body-secondary">Custom pricing per hospital</p>
+            <p className="ui-body-secondary">Set custom fees.</p>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B]">

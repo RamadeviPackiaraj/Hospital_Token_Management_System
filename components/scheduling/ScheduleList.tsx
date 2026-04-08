@@ -34,7 +34,7 @@ export function ScheduleList({
         </div>
       </div>
 
-      <div className="my-4 border-t border-[#E2E8F0]" />
+      <div className="my-4 ui-card-divider" />
 
       <div className="grid gap-4">
         {schedules.length === 0 ? (
@@ -63,7 +63,7 @@ export function ScheduleList({
           return (
             <div
               key={schedule.id}
-              className="grid gap-4 rounded-lg border border-[#E2E8F0] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#0EA5A4] md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(220px,1.1fr)] md:items-center"
+              className="grid gap-4 rounded-lg border border-[#E2E8F0] bg-white p-4 shadow-panel transition hover:border-[#0EA5A4] md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(220px,1.1fr)] md:items-center"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar

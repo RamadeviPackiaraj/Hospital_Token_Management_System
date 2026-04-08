@@ -8,13 +8,12 @@ export function SettingsSubscriptionsContent() {
     <div className="space-y-6">
       <PageHero
         title="Subscription Workspace"
-        description="Use one entry point, then open hospitals or doctors on separate pages for a cleaner workflow."
+        description="Choose a subscription page."
         icon={<WalletCards className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
         imageAlt="Billing and payment desk"
         stats={[
           { label: "Sections", value: "2" },
-          { label: "Default Hospital Fee", value: "Rs 500" },
         ]}
       />
 
@@ -23,13 +22,13 @@ export function SettingsSubscriptionsContent() {
           href="/dashboard/settings/subscriptions/hospitals"
           icon={<Building2 className="size-5" />}
           title="Hospital Subscriptions"
-          description="Set the default hospital fee, filter hospitals, and manage overrides."
+          description="Set hospital fees."
         />
         <SettingsNavCard
           href="/dashboard/settings/subscriptions/doctors"
           icon={<Stethoscope className="size-5" />}
           title="Doctor Subscriptions"
-          description="Manage doctor subscription totals with hospital count and per-hospital pricing."
+          description="Set doctor plans."
         />
       </section>
     </div>
