@@ -9,6 +9,10 @@ export interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  footerClassName?: string;
+  hideHeader?: boolean;
 }
 
 export function Modal({
@@ -17,7 +21,11 @@ export function Modal({
   description,
   onClose,
   children,
-  footer
+  footer,
+  className,
+  bodyClassName,
+  footerClassName,
+  hideHeader = false,
 }: ModalProps) {
   const titleId = React.useId();
 
@@ -48,15 +56,21 @@ export function Modal({
         onClick={onClose}
         aria-label="Close modal"
       />
-      <div className="relative z-10 w-full max-w-2xl rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-panel">
-        <div className="mb-5">
-          <h2 id={titleId} className="text-xl font-semibold text-slate-950">
+      <div className={`relative z-10 w-full max-w-2xl rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-panel ${className || ""}`}>
+        {!hideHeader ? (
+          <div className="mb-5">
+            <h2 id={titleId} className="ui-section-title">
+              {title}
+            </h2>
+            {description ? <p className="mt-2 ui-body-secondary">{description}</p> : null}
+          </div>
+        ) : (
+          <h2 id={titleId} className="sr-only">
             {title}
           </h2>
-          {description ? <p className="mt-2 text-sm text-slate-500">{description}</p> : null}
-        </div>
-        <div>{children}</div>
-        {footer ? <div className="mt-6 flex flex-wrap justify-end gap-3">{footer}</div> : null}
+        )}
+        <div className={bodyClassName}>{children}</div>
+        {footer ? <div className={`mt-6 flex flex-wrap justify-end gap-3 ${footerClassName || ""}`}>{footer}</div> : null}
       </div>
     </div>
   );

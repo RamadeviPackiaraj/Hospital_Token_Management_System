@@ -1,4 +1,5 @@
 export * from "./DashboardContext";
+export * from "./AdminUserEditModal";
 export * from "./PageHero";
 export * from "./SettingsDepartmentsContent";
 export * from "./SettingsDoctorSubscriptionsContent";

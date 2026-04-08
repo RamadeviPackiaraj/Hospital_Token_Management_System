@@ -264,10 +264,16 @@ export type AdminEntityItem = {
   phone?: string | null;
   gender?: string | null;
   department?: string | null;
+  departmentName?: string | null;
   location?: string | null;
   specialization?: string | null;
   medicalRegistrationId?: string | null;
+  medical_registration_id?: string | null;
   bloodGroup?: string | null;
+  blood_group?: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
   createdAt?: string;
 };
 
@@ -283,12 +289,13 @@ export function mapAdminEntityToMockUser(entity: AdminEntityItem): MockUser {
     hospitalName: role === "hospital" ? entity.name : undefined,
     gender: entity.gender || undefined,
     specialization: entity.specialization || undefined,
-    department: entity.department || undefined,
-    medicalRegistrationId: entity.medicalRegistrationId || undefined,
-    bloodGroup: entity.bloodGroup || undefined,
-    country: locationParts.country,
-    state: locationParts.state,
-    city: locationParts.city,
+    department: entity.department || entity.departmentName || undefined,
+    medicalRegistrationId:
+      entity.medicalRegistrationId || entity.medical_registration_id || undefined,
+    bloodGroup: entity.bloodGroup || entity.blood_group || undefined,
+    country: entity.country || locationParts.country,
+    state: entity.state || locationParts.state,
+    city: entity.city || locationParts.city,
     registrationDate: entity.createdAt || new Date().toISOString().slice(0, 10),
     approvalStatus: normalizeApprovalStatus(entity.status),
   };

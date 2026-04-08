@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
+import { Check, Pencil, Search, ShieldCheck, Trash2, UserRoundCheck, X } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Badge, Button, Card, Input, Select, Table } from "@/components/ui";
-import { useDashboardContext, PageHero } from "@/components/dashboard";
+import { useDashboardContext, PageHero, AdminUserEditModal } from "@/components/dashboard";
 import { formatDisplayDate } from "@/lib/utils";
 import {
   formatApprovalStatus,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
 import { getAdminDoctors } from "@/lib/dashboard-data";
+import { applyAdminUserMocks, deleteAdminUserMock, saveAdminUserMock } from "@/lib/admin-user-mocks";
 import { logger } from "@/lib/logger";
 
 type DoctorRow = Record<string, unknown> & MockUser;
@@ -50,6 +51,8 @@ export default function DoctorsPage() {
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [users, setUsers] = React.useState<MockUser[]>([]);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
+  const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
   const [hospitalRequests, setHospitalRequests] = React.useState<HospitalDoctorRequest[]>([]);
   const [hospitalSearch, setHospitalSearch] = React.useState("");
   const [hospitalStatusFilter, setHospitalStatusFilter] = React.useState("all");
@@ -61,7 +64,7 @@ export default function DoctorsPage() {
     if (currentUser.role !== "admin") return;
 
     getAdminDoctors()
-      .then((data) => setUsers(data))
+      .then((data) => setUsers(applyAdminUserMocks("doctor", data)))
       .catch(() => setUsers([]));
   }, [currentUser.role]);
 
@@ -248,6 +251,33 @@ export default function DoctorsPage() {
     if (!rejectTarget) return;
     void updateStatus(rejectTarget.id, "rejected");
     setRejectTarget(null);
+  }
+
+  function handleSaveDoctor(user: MockUser) {
+    saveAdminUserMock("doctor", user);
+    setUsers((current) => current.map((item) => (item.id === user.id ? user : item)));
+    setEditTarget(null);
+    logger.success("Doctor updated in frontend mock mode.", {
+      source: "doctors.admin",
+      data: { userId: user.id, emailChanged: editTarget?.email !== user.email },
+      toast: true,
+    });
+  }
+
+  function handleDeleteDoctor() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    deleteAdminUserMock("doctor", deleteTarget.id);
+    setUsers((current) => current.filter((item) => item.id !== deleteTarget.id));
+    logger.warn("Doctor deleted in frontend mock mode.", {
+      source: "doctors.admin",
+      data: { userId: deleteTarget.id },
+      toast: true,
+      destructive: true,
+    });
+    setDeleteTarget(null);
   }
 
   if (currentUser.role === "hospital") {
@@ -520,6 +550,24 @@ export default function DoctorsPage() {
                     >
                       Reject
                     </Button>
+                    <button
+                      type="button"
+                      className="ui-icon-button text-[#0EA5A4] hover:text-[#0EA5A4]"
+                      onClick={() => setEditTarget(row)}
+                      aria-label={`Edit ${row.fullName}`}
+                      title="Edit doctor"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="ui-icon-button text-[#EF4444] hover:text-[#EF4444] hover:border-[#EF4444]"
+                      onClick={() => setDeleteTarget(row)}
+                      aria-label={`Delete ${row.fullName}`}
+                      title="Delete doctor"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
                   </div>
                 ),
               },
@@ -539,6 +587,23 @@ export default function DoctorsPage() {
         confirmVariant="danger"
         onConfirm={confirmRejectDoctor}
         onCancel={() => setRejectTarget(null)}
+      />
+      <AdminUserEditModal
+        open={Boolean(editTarget)}
+        role="doctor"
+        user={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSave={handleSaveDoctor}
+      />
+      <ConfirmationDialog
+        open={Boolean(deleteTarget)}
+        title="Delete Doctor"
+        description="This frontend-only delete removes the doctor from the admin table using mock data."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        onConfirm={handleDeleteDoctor}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );
