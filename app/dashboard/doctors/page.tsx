@@ -13,8 +13,7 @@ import {
   type UserApprovalStatus,
 } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
-import { getAdminDoctors } from "@/lib/dashboard-data";
-import { applyAdminUserMocks, deleteAdminUserMock, saveAdminUserMock } from "@/lib/admin-user-mocks";
+import { deleteAdminDoctor, getAdminDoctors, updateAdminDoctorProfile } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
 
 type DoctorRow = Record<string, unknown> & MockUser;
@@ -64,7 +63,7 @@ export default function DoctorsPage() {
     if (currentUser.role !== "admin") return;
 
     getAdminDoctors()
-      .then((data) => setUsers(applyAdminUserMocks("doctor", data)))
+      .then((data) => setUsers(data))
       .catch(() => setUsers([]));
   }, [currentUser.role]);
 
@@ -254,14 +253,34 @@ export default function DoctorsPage() {
   }
 
   function handleSaveDoctor(user: MockUser) {
-    saveAdminUserMock("doctor", user);
-    setUsers((current) => current.map((item) => (item.id === user.id ? user : item)));
-    setEditTarget(null);
-    logger.success("Doctor updated in frontend mock mode.", {
-      source: "doctors.admin",
-      data: { userId: user.id, emailChanged: editTarget?.email !== user.email },
-      toast: true,
-    });
+    void (async () => {
+      try {
+        if (editTarget && user.approvalStatus !== editTarget.approvalStatus) {
+          await apiRequest(`/admin/doctors/${user.id}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: user.approvalStatus }),
+          });
+        }
+
+        await updateAdminDoctorProfile(user);
+        const updated = await getAdminDoctors();
+        setUsers(updated);
+        setEditTarget(null);
+        await refreshSession();
+        logger.success("Doctor updated.", {
+          source: "doctors.admin",
+          data: { userId: user.id, emailChanged: editTarget?.email !== user.email },
+          toast: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to update doctor.";
+        logger.error("Unable to update doctor.", {
+          source: "doctors.admin",
+          data: { userId: user.id, error: message },
+          toast: true,
+        });
+      }
+    })();
   }
 
   function handleDeleteDoctor() {
@@ -269,15 +288,28 @@ export default function DoctorsPage() {
       return;
     }
 
-    deleteAdminUserMock("doctor", deleteTarget.id);
-    setUsers((current) => current.filter((item) => item.id !== deleteTarget.id));
-    logger.warn("Doctor deleted in frontend mock mode.", {
-      source: "doctors.admin",
-      data: { userId: deleteTarget.id },
-      toast: true,
-      destructive: true,
-    });
-    setDeleteTarget(null);
+    void (async () => {
+      try {
+        await deleteAdminDoctor(deleteTarget.id);
+        const updated = await getAdminDoctors();
+        setUsers(updated);
+        logger.warn("Doctor deleted.", {
+          source: "doctors.admin",
+          data: { userId: deleteTarget.id },
+          toast: true,
+          destructive: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to delete doctor.";
+        logger.error("Unable to delete doctor.", {
+          source: "doctors.admin",
+          data: { userId: deleteTarget.id, error: message },
+          toast: true,
+        });
+      } finally {
+        setDeleteTarget(null);
+      }
+    })();
   }
 
   if (currentUser.role === "hospital") {

@@ -14,14 +14,15 @@ import {
   type UserApprovalStatus,
 } from "@/lib/auth-flow";
 import { apiRequest, buildQuery } from "@/lib/api";
-import { applyAdminUserMocks, deleteAdminUserMock, saveAdminUserMock } from "@/lib/admin-user-mocks";
 import {
+  deleteAdminHospital,
   getSelectionsForDoctor,
   getDoctorSubscriptionSummary,
   removeHospitalSelection,
   submitHospitalSelections,
   type HospitalSelection,
   getAdminHospitals,
+  updateAdminHospitalProfile,
   type DoctorSubscriptionSummary,
 } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
@@ -92,7 +93,7 @@ export default function HospitalsPage() {
     if (currentUser.role !== "admin") return;
 
     getAdminHospitals()
-      .then((data) => setUsers(applyAdminUserMocks("hospital", data)))
+      .then((data) => setUsers(data))
       .catch(() => setUsers([]));
   }, [currentUser.role]);
 
@@ -187,14 +188,35 @@ export default function HospitalsPage() {
 
   function handleSaveHospital(user: MockUser) {
     const normalizedUser = { ...user, hospitalName: user.fullName };
-    saveAdminUserMock("hospital", normalizedUser);
-    setUsers((current) => current.map((item) => (item.id === normalizedUser.id ? normalizedUser : item)));
-    setEditTarget(null);
-    logger.success("Hospital updated in frontend mock mode.", {
-      source: "hospitals.admin",
-      data: { userId: normalizedUser.id, emailChanged: editTarget?.email !== normalizedUser.email },
-      toast: true,
-    });
+
+    void (async () => {
+      try {
+        if (editTarget && normalizedUser.approvalStatus !== editTarget.approvalStatus) {
+          await apiRequest(`/admin/hospitals/${normalizedUser.id}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: normalizedUser.approvalStatus }),
+          });
+        }
+
+        await updateAdminHospitalProfile(normalizedUser);
+        const updated = await getAdminHospitals();
+        setUsers(updated);
+        setEditTarget(null);
+        await refreshSession();
+        logger.success("Hospital updated.", {
+          source: "hospitals.admin",
+          data: { userId: normalizedUser.id, emailChanged: editTarget?.email !== normalizedUser.email },
+          toast: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to update hospital.";
+        logger.error("Unable to update hospital.", {
+          source: "hospitals.admin",
+          data: { userId: normalizedUser.id, error: message },
+          toast: true,
+        });
+      }
+    })();
   }
 
   function handleDeleteHospital() {
@@ -202,15 +224,28 @@ export default function HospitalsPage() {
       return;
     }
 
-    deleteAdminUserMock("hospital", deleteTarget.id);
-    setUsers((current) => current.filter((item) => item.id !== deleteTarget.id));
-    logger.warn("Hospital deleted in frontend mock mode.", {
-      source: "hospitals.admin",
-      data: { userId: deleteTarget.id },
-      toast: true,
-      destructive: true,
-    });
-    setDeleteTarget(null);
+    void (async () => {
+      try {
+        await deleteAdminHospital(deleteTarget.id);
+        const updated = await getAdminHospitals();
+        setUsers(updated);
+        logger.warn("Hospital deleted.", {
+          source: "hospitals.admin",
+          data: { userId: deleteTarget.id },
+          toast: true,
+          destructive: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to delete hospital.";
+        logger.error("Unable to delete hospital.", {
+          source: "hospitals.admin",
+          data: { userId: deleteTarget.id, error: message },
+          toast: true,
+        });
+      } finally {
+        setDeleteTarget(null);
+      }
+    })();
   }
 
   async function handleSubmitSelection() {

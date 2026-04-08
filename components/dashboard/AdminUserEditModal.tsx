@@ -7,9 +7,12 @@ import { OTPInput } from "@/components/OTPInput";
 import { Button, Input, Select } from "@/components/ui";
 import { Modal } from "@/components/overlay/Modal";
 import type { MockUser } from "@/lib/auth-flow";
-import { getDepartments, type DepartmentRecord } from "@/lib/dashboard-data";
-
-const MOCK_EMAIL_OTP = "123456";
+import {
+  getDepartments,
+  requestAdminUserEmailChange,
+  verifyAdminUserEmailChange,
+  type DepartmentRecord,
+} from "@/lib/dashboard-data";
 
 type CountryOption = { id: number; name: string };
 type StateOption = { id: number; name: string };
@@ -70,6 +73,8 @@ export function AdminUserEditModal({
   const [draft, setDraft] = React.useState<MockUser | null>(null);
   const [otpCode, setOtpCode] = React.useState("");
   const [otpState, setOtpState] = React.useState<OtpState>("idle");
+  const [sendingOtp, setSendingOtp] = React.useState(false);
+  const [verifyingOtp, setVerifyingOtp] = React.useState(false);
   const [error, setError] = React.useState("");
   const [countries, setCountries] = React.useState<CountryOption[]>([]);
   const [states, setStates] = React.useState<StateOption[]>([]);
@@ -86,6 +91,8 @@ export function AdminUserEditModal({
     setDraft(normalizeDraft(role, user));
     setOtpCode("");
     setOtpState("idle");
+    setSendingOtp(false);
+    setVerifyingOtp(false);
     setError("");
   }, [open, role, user]);
 
@@ -200,9 +207,30 @@ export function AdminUserEditModal({
       return;
     }
 
-    setOtpState("sent");
-    setOtpCode("");
-    setError("");
+    if (!user?.id) {
+      setError("Unable to request OTP. Missing user id.");
+      return;
+    }
+
+    if (sendingOtp) {
+      return;
+    }
+
+    setSendingOtp(true);
+
+    requestAdminUserEmailChange(user.id, draft.email)
+      .then(() => {
+        setOtpState("sent");
+        setOtpCode("");
+        setError("");
+      })
+      .catch((otpError) => {
+        const message = otpError instanceof Error ? otpError.message : "Unable to send OTP.";
+        setError(message);
+      })
+      .finally(() => {
+        setSendingOtp(false);
+      });
   }
 
   React.useEffect(() => {
@@ -219,14 +247,29 @@ export function AdminUserEditModal({
     handleSendOtp();
   }
 
-  function handleVerifyOtp() {
-    if (otpCode.trim() !== MOCK_EMAIL_OTP) {
-      setError("Invalid OTP. Use the mock OTP shown below.");
+  async function handleVerifyOtp() {
+    if (!otpCode.trim()) {
+      setError("OTP is required.");
       return;
     }
 
-    setOtpState("verified");
+    if (!user?.id) {
+      setError("Unable to verify OTP. Missing user id.");
+      return;
+    }
+
+    setVerifyingOtp(true);
     setError("");
+
+    try {
+      await verifyAdminUserEmailChange(user.id, otpCode.trim());
+      setOtpState("verified");
+    } catch (otpError) {
+      const message = otpError instanceof Error ? otpError.message : "Invalid OTP.";
+      setError(message);
+    } finally {
+      setVerifyingOtp(false);
+    }
   }
 
   function handleSave() {
@@ -459,23 +502,29 @@ export function AdminUserEditModal({
                   </div>
 
                   <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-white p-4">
-                    <OTPInput
-                      label="OTP"
-                      value={otpCode}
-                      onChange={(nextValue) => {
-                        setOtpCode(nextValue.replace(/\D/g, "").slice(0, 6));
-                        setError("");
-                      }}
-                      success={otpState === "verified"}
-                      onResend={handleResendOtp}
-                    />
-                    <div className="mt-4 flex justify-end">
-                      <Button type="button" onClick={handleVerifyOtp}>
-                        {otpState === "verified" ? "Verified" : "Verify"}
-                      </Button>
-                    </div>
+                  <OTPInput
+                    label="OTP"
+                    value={otpCode}
+                    onChange={(nextValue) => {
+                      setOtpCode(nextValue.replace(/\D/g, "").slice(0, 6));
+                      setError("");
+                    }}
+                    success={otpState === "verified"}
+                    disabled={sendingOtp || verifyingOtp}
+                    onResend={handleResendOtp}
+                  />
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={() => void handleVerifyOtp()}
+                      loading={verifyingOtp}
+                      disabled={sendingOtp}
+                    >
+                      {otpState === "verified" ? "Verified" : "Verify"}
+                    </Button>
                   </div>
                 </div>
+              </div>
               ) : null}
 
               {!emailChanged && otpState !== "idle" ? (

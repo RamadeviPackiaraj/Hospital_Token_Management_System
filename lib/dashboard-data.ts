@@ -1,5 +1,9 @@
 import { apiRequest, buildQuery } from "@/lib/api";
-import { mapAdminEntityToMockUser, type MockUser } from "@/lib/auth-flow";
+import {
+  mapAdminEntityToMockUser,
+  type AdminEntityItem,
+  type MockUser,
+} from "@/lib/auth-flow";
 
 export interface DepartmentRecord {
   id: string;
@@ -293,6 +297,111 @@ export async function getAdminDoctors() {
     `/admin/doctors${buildQuery({ limit: 100 })}`
   );
   return (response.items || []).map(mapAdminEntityToMockUser);
+}
+
+function setIfNotBlank(payload: Record<string, unknown>, key: string, value: string | undefined) {
+  if (value == null) return;
+  const trimmed = value.trim();
+  if (trimmed) {
+    payload[key] = trimmed;
+  }
+}
+
+function buildLocation(user: MockUser) {
+  const parts = [user.city, user.state, user.country].map((value) => value?.trim()).filter(Boolean);
+  return parts.join(", ");
+}
+
+export async function updateAdminDoctorProfile(user: MockUser) {
+  const payload: Record<string, unknown> = {};
+
+  setIfNotBlank(payload, "name", user.fullName);
+  setIfNotBlank(payload, "phone", user.mobileNumber);
+  setIfNotBlank(payload, "department", user.department);
+  setIfNotBlank(payload, "gender", user.gender);
+  setIfNotBlank(payload, "specialization", user.specialization);
+  setIfNotBlank(payload, "medicalRegistrationId", user.medicalRegistrationId);
+  setIfNotBlank(payload, "blood_group", user.bloodGroup);
+
+  if (Object.keys(payload).length === 0) {
+    return null;
+  }
+
+  const updated = await apiRequest<AdminEntityItem>(`/admin/doctors/${user.id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+  return mapAdminEntityToMockUser(updated);
+}
+
+export async function updateAdminHospitalProfile(user: MockUser) {
+  const payload: Record<string, unknown> = {};
+
+  setIfNotBlank(payload, "name", user.hospitalName || user.fullName);
+  setIfNotBlank(payload, "phone", user.mobileNumber);
+
+  const location = buildLocation(user);
+  if (location) {
+    payload.location = location;
+  }
+
+  if (user.department && user.department.trim()) {
+    payload.departments = [user.department.trim()];
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return null;
+  }
+
+  const updated = await apiRequest<AdminEntityItem>(`/admin/hospitals/${user.id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+  return mapAdminEntityToMockUser(updated);
+}
+
+export async function deleteAdminDoctor(userId: string) {
+  if (!userId) {
+    throw new Error("Doctor id is required");
+  }
+  await apiRequest(`/admin/doctors/${userId}`, { method: "DELETE" });
+}
+
+export async function deleteAdminHospital(userId: string) {
+  if (!userId) {
+    throw new Error("Hospital id is required");
+  }
+  await apiRequest(`/admin/hospitals/${userId}`, { method: "DELETE" });
+}
+
+export async function requestAdminUserEmailChange(userId: string, email: string) {
+  const trimmed = email.trim();
+  if (!userId) {
+    throw new Error("User id is required");
+  }
+  if (!trimmed) {
+    throw new Error("Email is required");
+  }
+  await apiRequest(`/admin/users/${userId}/email-change`, {
+    method: "POST",
+    body: JSON.stringify({ email: trimmed }),
+  });
+}
+
+export async function verifyAdminUserEmailChange(userId: string, otp: string) {
+  const trimmed = otp.trim();
+  if (!userId) {
+    throw new Error("User id is required");
+  }
+  if (!trimmed) {
+    throw new Error("OTP is required");
+  }
+  return apiRequest<{ id: string; email: string }>(`/admin/users/${userId}/email-change/verify`, {
+    method: "POST",
+    body: JSON.stringify({ otp: trimmed }),
+  });
 }
 
 export async function getDoctorSubscriptionRecords() {
