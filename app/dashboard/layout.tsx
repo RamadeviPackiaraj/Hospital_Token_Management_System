@@ -29,6 +29,7 @@ import type { SidebarItem } from "@/components/layout/Sidebar";
 const menuItems: SidebarItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="size-4" /> },
   { label: "Doctors", href: "/dashboard/doctors", icon: <Stethoscope className="size-4" /> },
+  { label: "Departments", href: "/dashboard/departments", icon: <Building2 className="size-4" /> },
   { label: "Doctor Schedule", href: "/dashboard/doctor-schedule", icon: <CalendarClock className="size-4" /> },
   { label: "Patient Entry", href: "/dashboard/patient-entry", icon: <Ticket className="size-4" /> },
   { label: "Hospitals", href: "/dashboard/hospitals", icon: <Building2 className="size-4" /> },
@@ -67,7 +68,7 @@ function pageMeta(pathname: string, role: MockUser["role"]) {
   if (pathname === "/dashboard/settings/departments" || pathname === "/dashboard/departments") {
     return {
       title: "Departments",
-      subtitle: "Manage departments"
+      subtitle: "Assign approved doctors to departments before scheduling"
     };
   }
 
@@ -206,6 +207,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
 
     if (currentUser.role === "doctor") {
       return (
+        item.href !== "/dashboard/departments" &&
         item.href !== "/dashboard/doctors" &&
         item.href !== "/dashboard/doctor-schedule" &&
         item.href !== "/dashboard/patient-entry" &&
@@ -215,6 +217,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
 
     if (currentUser.role === "admin") {
       return (
+        item.href !== "/dashboard/departments" &&
         item.href !== "/dashboard/doctor-schedule" &&
         item.href !== "/dashboard/patient-entry"
       );
@@ -249,6 +252,8 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
             ...item,
             active:
               pathname === item.href ||
+              (item.href === "/dashboard/departments" &&
+                (pathname === "/dashboard/departments" || pathname === "/dashboard/settings/departments")) ||
               (item.href === "/dashboard/settings" && pathname.startsWith("/dashboard/settings"))
           }))
         }}

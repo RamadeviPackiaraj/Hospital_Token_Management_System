@@ -22,6 +22,11 @@ import { logger } from "@/lib/logger";
 
 type DepartmentRow = Record<string, unknown> & DepartmentRecord;
 type AssignmentRow = Record<string, unknown> & HospitalDoctorDepartmentAssignment;
+type AssignmentDeleteTarget = {
+  doctorId: string;
+  doctorName: string;
+  department: string;
+};
 
 export function SettingsDepartmentsContent() {
   const { currentUser } = useDashboardContext();
@@ -36,6 +41,7 @@ export function SettingsDepartmentsContent() {
   const [assignments, setAssignments] = React.useState<HospitalDoctorDepartmentAssignment[]>([]);
   const [editingAssignmentId, setEditingAssignmentId] = React.useState<string | null>(null);
   const [editingAssignmentDepartment, setEditingAssignmentDepartment] = React.useState("");
+  const [assignmentDeleteTarget, setAssignmentDeleteTarget] = React.useState<AssignmentDeleteTarget | null>(null);
 
   React.useEffect(() => {
     getDepartments()
@@ -203,8 +209,6 @@ export function SettingsDepartmentsContent() {
       logger.warn("Doctor department assignment removed.", {
         source: "settings.departments.assignment",
         data: { doctorId: doctorIdToRemove, hospitalId: currentUser.id },
-        toast: true,
-        destructive: true,
       });
     } catch (error) {
       logger.error("Unable to remove the doctor department assignment.", {
@@ -213,6 +217,15 @@ export function SettingsDepartmentsContent() {
         toast: true,
       });
     }
+  }
+
+  async function handleConfirmRemoveAssignment() {
+    if (!assignmentDeleteTarget) {
+      return;
+    }
+
+    await handleRemoveAssignment(assignmentDeleteTarget.doctorId);
+    setAssignmentDeleteTarget(null);
   }
 
   function handleEditAssignment(assignment: HospitalDoctorDepartmentAssignment) {
@@ -273,7 +286,7 @@ export function SettingsDepartmentsContent() {
       <div className="space-y-6">
         <PageHero
           title="Departments"
-          description="Assign doctor departments."
+          description="Map approved doctors to their own or other departments before doctor schedule allocation."
           icon={<LayoutList className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
           imageAlt="Hospital hallway"
@@ -285,6 +298,9 @@ export function SettingsDepartmentsContent() {
         />
 
         <Card className="p-4">
+          <p className="mb-4 text-sm text-[#64748B]">
+            Choose an approved doctor and assign the department that should be used for schedule allocation.
+          </p>
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_160px]">
             <label className="grid gap-2 text-sm text-[#0F172A]">
               Doctor
@@ -403,7 +419,13 @@ export function SettingsDepartmentsContent() {
                       <button
                         type="button"
                         className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
-                        onClick={() => void handleRemoveAssignment(row.doctorId)}
+                        onClick={() =>
+                          setAssignmentDeleteTarget({
+                            doctorId: row.doctorId,
+                            doctorName: row.doctorName,
+                            department: row.department,
+                          })
+                        }
                       >
                         <Trash2 className="size-4" />
                         Remove
@@ -417,6 +439,21 @@ export function SettingsDepartmentsContent() {
             emptyMessage="No doctor departments assigned yet."
           />
         </Card>
+
+        <ConfirmationDialog
+          open={Boolean(assignmentDeleteTarget)}
+          title="Remove Assignment"
+          description={
+            assignmentDeleteTarget
+              ? `Remove ${assignmentDeleteTarget.doctorName} from ${assignmentDeleteTarget.department}?`
+              : "Remove this doctor department assignment?"
+          }
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmVariant="danger"
+          onConfirm={() => void handleConfirmRemoveAssignment()}
+          onCancel={() => setAssignmentDeleteTarget(null)}
+        />
       </div>
     );
   }

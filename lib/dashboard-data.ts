@@ -225,7 +225,7 @@ export async function getApprovedDoctorsForHospital(hospitalId: string) {
 
   return (approvedData.doctors || []).map(
     (doctor): MockUser => ({
-      id: doctor.userId,
+      id: String(doctor.id || doctor._id || doctor.userId || ""),
       role: "doctor",
       fullName: doctor.name,
       mobileNumber: doctor.phone,

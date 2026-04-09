@@ -499,54 +499,6 @@ export default function DoctorSchedulePage() {
         ]}
       />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)]">
-        <UiCard>
-          <div className="flex flex-col gap-2">
-            <p className="ui-section-title">Scheduling Overview</p>
-            <p className="ui-body-secondary">
-              Build department-wise schedules, preview slot coverage, and avoid overlapping timings before saving.
-            </p>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="ui-card-interior-muted">
-              <p className="ui-label">Assigned Departments</p>
-              <p className="mt-2 ui-card-title">{departments.length}</p>
-            </div>
-            <div className="ui-card-interior-muted">
-              <p className="ui-label">Approved Doctors</p>
-              <p className="mt-2 ui-card-title">{approvedDoctors.length}</p>
-            </div>
-            <div className="ui-card-interior-muted">
-              <p className="ui-label">Draft Status</p>
-              <p className="mt-2 ui-card-title">{showForm ? "Open" : "Closed"}</p>
-            </div>
-          </div>
-        </UiCard>
-
-        <UiCard>
-          <div className="flex flex-col gap-2">
-            <p className="ui-section-title">Scheduling Rules</p>
-            <p className="ui-body-secondary">
-              Use the standard sequence to keep doctor rosters readable and conflict-free.
-            </p>
-          </div>
-          <div className="mt-4 grid gap-3">
-            <div className="ui-card-interior">
-              <p className="ui-label">1. Department</p>
-              <p className="mt-1 ui-card-body">Select a department before choosing a doctor.</p>
-            </div>
-            <div className="ui-card-interior">
-              <p className="ui-label">2. Time Range</p>
-              <p className="mt-1 ui-card-body">Set date, duration, start time, and end time.</p>
-            </div>
-            <div className="ui-card-interior">
-              <p className="ui-label">3. Review</p>
-              <p className="mt-1 ui-card-body">Check preview slots and existing schedules, then save.</p>
-            </div>
-          </div>
-        </UiCard>
-      </section>
-
       <CreateCard
         active={showForm}
         onClick={() => {
