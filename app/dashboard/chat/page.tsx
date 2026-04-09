@@ -94,6 +94,9 @@ export default function DashboardChatPage() {
   const editMessage = useChatStore((state) => state.editMessage);
   const deleteMessage = useChatStore((state) => state.deleteMessage);
   const markConversationAsRead = useChatStore((state) => state.markConversationAsRead);
+  const fetchMessages = useChatStore((state) => state.fetchMessages);
+  const sendMessageApi = useChatStore((state) => state.sendMessageApi);
+  const updateMessageApi = useChatStore((state) => state.updateMessageApi);
 
   const role: Exclude<AuthRole, "admin"> | null = currentUser.role === "admin" ? null : currentUser.role;
   const selectedParticipant = participants.find((participant) => participant.id === selectedParticipantId) ?? null;
@@ -191,16 +194,13 @@ export default function DashboardChatPage() {
   }, [currentUser.id, role]);
 
   React.useEffect(() => {
-    if (!role || !participants.length) return;
+    if (!role || !selectedParticipant || selectedParticipant.status !== "approved") return;
 
-    setSelectedParticipantId((current) => {
-      if (current && participants.some((participant) => participant.id === current)) {
-        return current;
-      }
+    const doctorId = role === "doctor" ? currentUser.id : selectedParticipant.id;
+    const hospitalId = role === "doctor" ? selectedParticipant.id : currentUser.id;
 
-      return participants[0]?.id || "";
-    });
-  }, [participants, role]);
+    void fetchMessages(doctorId, hospitalId, selectedConversationId);
+  }, [selectedParticipant, role, currentUser.id, fetchMessages, selectedConversationId]);
 
   const currentMessages = React.useMemo(() => {
     if (!selectedConversationId) return [];
@@ -215,12 +215,10 @@ export default function DashboardChatPage() {
   function sendMessage(message: string, type: "quick" | "manual") {
     if (!role || !selectedParticipant || !message.trim() || !isApprovedParticipant(selectedParticipant)) return;
 
-    addMessage({
-      conversationId: selectedConversationId,
-      sender: role,
-      message: message.trim(),
-      type,
-    });
+    const doctorId = role === "doctor" ? currentUser.id : selectedParticipant.id;
+    const hospitalId = role === "doctor" ? selectedParticipant.id : currentUser.id;
+
+    void sendMessageApi({ doctorId, hospitalId, message: message.trim(), type });
     setDraft("");
   }
 
@@ -231,7 +229,7 @@ export default function DashboardChatPage() {
   }
 
   function handleSaveEdit(messageId: string, value: string) {
-    editMessage(messageId, value);
+    void updateMessageApi(messageId, value);
   }
 
   if (!role) {
