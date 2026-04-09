@@ -238,11 +238,11 @@ body {
   }
 
   .ui-card {
-    @apply rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel;
+    @apply rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel;
   }
 
   .ui-card-muted {
-    @apply rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4;
+    @apply rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4;
   }
 
   .ui-card-interior {
@@ -262,7 +262,7 @@ body {
   }
 
   .ui-interactive-card {
-    @apply rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel transition hover:border-[#0EA5A4];
+    @apply rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel transition hover:border-[#0EA5A4];
   }
 
   .ui-icon-button {

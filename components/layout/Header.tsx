@@ -50,7 +50,7 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden min-w-0 items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 py-2 sm:flex">
+          <div className="hidden min-w-0 items-center gap-3 rounded-lg border border-white/20 bg-white/10 px-3 py-2 sm:flex">
             <Avatar name={user.name} src={user.imageSrc} size="sm" />
             <div className="min-w-0">
               <p className="ui-body truncate font-medium text-white">{user.name}</p>

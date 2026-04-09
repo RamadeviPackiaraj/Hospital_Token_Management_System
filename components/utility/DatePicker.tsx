@@ -69,7 +69,7 @@ export function DatePicker({
         name={name}
         required={required}
         className={cn(
-          "focus-ring w-full rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] py-2.5 pl-3.5 pr-11 text-sm text-[#0F172A] placeholder:text-[#64748B] transition hover:border-[#0EA5A4]",
+          "focus-ring w-full rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] py-2 pl-3 pr-11 text-sm text-[#0F172A] placeholder:text-[#64748B] transition hover:border-[#0EA5A4]",
           className
         )}
         calendarClassName="!border-0"

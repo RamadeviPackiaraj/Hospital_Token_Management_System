@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarClock,
   LayoutDashboard,
+  MessageSquareMore,
   Ticket,
   Settings,
   Stethoscope,
@@ -33,6 +34,7 @@ const menuItems: SidebarItem[] = [
   { label: "Doctor Schedule", href: "/dashboard/doctor-schedule", icon: <CalendarClock className="size-4" /> },
   { label: "Patient Entry", href: "/dashboard/patient-entry", icon: <Ticket className="size-4" /> },
   { label: "Hospitals", href: "/dashboard/hospitals", icon: <Building2 className="size-4" /> },
+  { label: "Chat", href: "/dashboard/chat", icon: <MessageSquareMore className="size-4" /> },
   { label: "Settings", href: "/dashboard/settings", icon: <Settings className="size-4" /> }
 ] as const;
 
@@ -62,6 +64,13 @@ function pageMeta(pathname: string, role: MockUser["role"]) {
     return {
       title: "Patient Entry",
       subtitle: "Allocate tokens from available schedules"
+    };
+  }
+
+  if (pathname === "/dashboard/chat") {
+    return {
+      title: role === "doctor" ? "Doctor Chat" : "Hospital Chat",
+      subtitle: role === "doctor" ? "Send quick and manual messages to hospitals" : "Send quick and manual messages to doctors"
     };
   }
 
@@ -162,7 +171,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
             <div className="mt-4 flex justify-center gap-3">
               <Link
                 href="/signin"
-                className="focus-ring inline-flex h-11 items-center justify-center rounded-xl border border-[#0EA5A4] bg-[#0EA5A4] px-4 text-sm font-medium text-white"
+                className="focus-ring inline-flex h-11 items-center justify-center rounded-lg border border-[#0EA5A4] bg-[#0EA5A4] px-4 text-sm font-medium text-white"
               >
                 Sign In
               </Link>
@@ -184,7 +193,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
             <div className="mt-4 flex justify-center gap-3">
               <button
                 type="button"
-                className="focus-ring inline-flex h-11 items-center justify-center rounded-xl border border-[#0EA5A4] bg-[#0EA5A4] px-4 text-sm font-medium text-white"
+                className="focus-ring inline-flex h-11 items-center justify-center rounded-lg border border-[#0EA5A4] bg-[#0EA5A4] px-4 text-sm font-medium text-white"
                 onClick={signOut}
               >
                 Return to Sign In
@@ -219,7 +228,8 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
       return (
         item.href !== "/dashboard/departments" &&
         item.href !== "/dashboard/doctor-schedule" &&
-        item.href !== "/dashboard/patient-entry"
+        item.href !== "/dashboard/patient-entry" &&
+        item.href !== "/dashboard/chat"
       );
     }
 
@@ -239,7 +249,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
         sidebar={{
           brand: (
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <Building2 className="size-5" />
               </div>
               <div>

@@ -65,7 +65,7 @@ function SidebarPanel({
               <Link
                 href={item.href}
                 className={cn(
-                  "focus-ring flex min-h-11 flex-1 items-center gap-3 rounded-xl border-r-2 px-3 py-3 text-sm font-medium transition-all duration-200",
+                  "focus-ring flex min-h-11 flex-1 items-center gap-3 rounded-lg border-r-2 px-3 py-3 text-sm font-medium transition-all duration-200",
                   item.active
                     ? "border-[#BEEFEB] border-r-[#0EA5A4] bg-[#F0FDFA] text-[#0EA5A4]"
                     : "border-transparent text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
