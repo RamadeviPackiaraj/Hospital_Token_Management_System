@@ -7,6 +7,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { MessageList } from "@/components/chat/MessageList";
 import { QuickMessagePanel } from "@/components/chat/QuickMessagePanel";
 import type { ChatMessage, ChatSender } from "@/lib/chat";
+import type { ChatSocketStatus } from "@/lib/chat-realtime";
 
 interface ChatContainerProps {
   title: string;
@@ -27,6 +28,9 @@ interface ChatContainerProps {
   disabled?: boolean;
   disabledMessage?: string;
   unreadCount: number;
+  socketStatus?: ChatSocketStatus;
+  onClear?: () => void;
+  clearDisabled?: boolean;
 }
 
 export function ChatContainer({
@@ -48,6 +52,9 @@ export function ChatContainer({
   disabled = false,
   disabledMessage,
   unreadCount,
+  socketStatus = "idle",
+  onClear,
+  clearDisabled = false,
 }: ChatContainerProps) {
   return (
     <Card className="p-4">
@@ -61,6 +68,9 @@ export function ChatContainer({
           onFilterChange={onFilterChange}
           resultCount={messages.length}
           unreadCount={unreadCount}
+          socketStatus={socketStatus}
+          onClear={onClear}
+          clearDisabled={clearDisabled}
         />
 
         <MessageList

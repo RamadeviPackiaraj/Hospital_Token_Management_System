@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { Controller } from "react-hook-form";
 import { Button } from "@/components/ui";
 import { Card, DatePicker, Input, Select } from "@/components/scheduling";
+import { SectionTitle, BodySecondary, Label } from "@/components/ui/Typography";
 import { createSelectOptions, formatScheduleDate } from "@/lib/scheduling";
 import { bloodGroupOptions } from "@/lib/scheduling-types";
 import type { PatientEntryFormValues } from "@/utils/schedulingSchemas";
@@ -34,15 +35,15 @@ export function PatientEntryForm({
 }: PatientEntryFormProps) {
   return (
     <Card className="w-full">
-      <div className="flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="ui-section-title">Enter Patient Details</h2>
-          <p className="mt-1 ui-body-secondary">Fill in the patient details to generate the next available token.</p>
+          <SectionTitle>Enter Patient Details</SectionTitle>
+          <BodySecondary className="mt-2 text-[14px]">Fill in the patient details to generate the next available token.</BodySecondary>
         </div>
-        <p className="ui-meta">{formatScheduleDate(visitDate)}</p>
+        <Label className="text-[12px] text-[#0EA5A4] font-semibold">{formatScheduleDate(visitDate)}</Label>
       </div>
 
-      {message ? <p className="mt-3 ui-body-secondary">{message}</p> : null}
+      {message ? <BodySecondary className="mt-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-[13px]">{message}</BodySecondary> : null}
 
       <div className="my-4 border-t border-[#E2E8F0]" />
 
@@ -115,17 +116,17 @@ export function PatientEntryForm({
           />
         </div>
 
-        <div className="flex flex-wrap justify-end gap-4">
+        <div className="mt-2 flex flex-wrap justify-end gap-4">
           <Button
             type="button"
-            variant="secondary"
-            className="border-[#E2E8F0] text-[#64748B] hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
-            leftIcon={<X className="size-4" />}
+            variant="ghost"
+            className="text-[#64748B] hover:text-[#0EA5A4]"
+            leftIcon={<X className="h-4 w-4" />}
             onClick={onCancel}
           >
             Cancel
           </Button>
-          <Button type="submit" loading={isSubmitting} leftIcon={<Search className="size-4" />}>
+          <Button type="submit" loading={isSubmitting} leftIcon={<Search className="h-4 w-4" />}>
             Generate Token
           </Button>
         </div>

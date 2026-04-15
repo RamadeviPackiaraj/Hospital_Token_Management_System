@@ -2,72 +2,75 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { ChatMessage, ChatMessageType, ChatSender } from "@/lib/chat";
-import { createMessage } from "@/lib/chat";
+import type { ChatMessage, ChatSender } from "@/lib/chat";
 import { apiRequest } from "@/lib/api";
+import { mapChatMessageFromApi } from "@/lib/chat";
 
 type ChatStoreState = {
   messages: ChatMessage[];
-  addMessage: (input: {
-    conversationId: string;
-    sender: ChatSender;
-    message: string;
-    type: ChatMessageType;
-  }) => void;
-  editMessage: (id: string, updatedText: string) => void;
-  deleteMessage: (id: string) => void;
-  markAsRead: (id: string) => void;
-  markConversationAsRead: (conversationId: string, viewer: ChatSender) => void;
+  replaceConversationMessages: (conversationId: string, nextMessages: ChatMessage[]) => void;
+  upsertMessage: (message: ChatMessage) => void;
+  removeMessage: (id: string) => void;
+  markConversationAsRead: (conversationId: string, readerRole: ChatSender, readAt?: number | null) => void;
   clearConversation: (conversationId: string) => void;
   fetchMessages: (doctorId: string, hospitalId: string, conversationId?: string) => Promise<void>;
-  sendMessageApi: (input: {
-    doctorId: string;
-    hospitalId: string;
-    message: string;
-    type: ChatMessageType;
-  }) => Promise<void>;
-  updateMessageApi: (id: string, message: string) => Promise<void>;
 };
+
+function sortMessages(messages: ChatMessage[]) {
+  return [...messages].sort((left, right) => {
+    if (left.createdAt === right.createdAt) {
+      return left.id.localeCompare(right.id);
+    }
+
+    return left.createdAt - right.createdAt;
+  });
+}
+
+function mergeMessages(existing: ChatMessage[], incoming: ChatMessage[]) {
+  const byId = new Map(existing.map((message) => [message.id, message]));
+
+  for (const message of incoming) {
+    byId.set(message.id, {
+      ...byId.get(message.id),
+      ...message,
+    });
+  }
+
+  return sortMessages(Array.from(byId.values()));
+}
 
 export const CHAT_STORAGE_KEY = "chat-storage";
 
 export const useChatStore = create<ChatStoreState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       messages: [],
-      addMessage: ({ conversationId, sender, message, type }) =>
+      replaceConversationMessages: (conversationId, nextMessages) =>
+        set((state) => {
+          const otherMessages = state.messages.filter((message) => message.conversationId !== conversationId);
+          return {
+            messages: sortMessages([...otherMessages, ...nextMessages]),
+          };
+        }),
+      upsertMessage: (message) =>
         set((state) => ({
-          messages: [
-            ...state.messages,
-            createMessage(sender, message, type, conversationId, false),
-          ],
+          messages: mergeMessages(state.messages, [message]),
         })),
-      editMessage: (id, updatedText) =>
-        set((state) => ({
-          messages: state.messages.map((message) =>
-            message.id === id ? { ...message, message: updatedText } : message
-          ),
-        })),
-      deleteMessage: (id) =>
+      removeMessage: (id) =>
         set((state) => ({
           messages: state.messages.filter((message) => message.id !== id),
         })),
-      markAsRead: (id) =>
-        set((state) => ({
-          messages: state.messages.map((message) =>
-            message.id === id ? { ...message, isRead: true } : message
-          ),
-        })),
-      markConversationAsRead: (conversationId, viewer) =>
+      markConversationAsRead: (conversationId, readerRole, readAt = Date.now()) =>
         set((state) => {
           let changed = false;
+
           const nextMessages = state.messages.map((message) => {
-            if (message.conversationId !== conversationId || message.sender === viewer || message.isRead) {
+            if (message.conversationId !== conversationId || message.sender === readerRole || message.isRead) {
               return message;
             }
 
             changed = true;
-            return { ...message, isRead: true };
+            return { ...message, isRead: true, readAt };
           });
 
           return changed ? { messages: nextMessages } : state;
@@ -78,63 +81,21 @@ export const useChatStore = create<ChatStoreState>()(
         })),
       fetchMessages: async (doctorId, hospitalId, conversationId) => {
         try {
-          const query = new URLSearchParams({ doctorId, hospitalId, limit: '100' });
-          if (conversationId) query.set('conversationId', conversationId);
+          const query = new URLSearchParams({ doctorId, hospitalId, limit: "100" });
+          if (conversationId) query.set("conversationId", conversationId);
           const response = await apiRequest<{ items: any[] }>(`/chat/messages?${query.toString()}`);
-          const apiMessages = response.items.map((msg: any) => ({
-            id: msg.id,
-            conversationId: msg.conversationId,
-            sender: msg.sender,
-            message: msg.message,
-            type: msg.type,
-            createdAt: new Date(msg.createdAt).getTime(),
-            isRead: msg.isRead,
-          }));
-          set((state) => {
-            // Merge with existing messages, preferring API data
-            const existingIds = new Set(apiMessages.map(m => m.id));
-            const localMessages = state.messages.filter(m => !existingIds.has(m.id) && (!conversationId || m.conversationId === conversationId));
-            return { messages: [...localMessages, ...apiMessages] };
-          });
-        } catch (error) {
-          console.error('Failed to fetch messages:', error);
-        }
-      },
-      sendMessageApi: async ({ doctorId, hospitalId, message, type }) => {
-        try {
-          const response = await apiRequest('/chat/messages', {
-            method: 'POST',
-            body: JSON.stringify({ doctorId, hospitalId, message, type }),
-          });
-          const apiMessage = {
-            id: response.id,
-            conversationId: response.conversationId,
-            sender: response.sender,
-            message: response.message,
-            type: response.type,
-            createdAt: new Date(response.createdAt).getTime(),
-            isRead: response.isRead,
-          };
+          const apiMessages = response.items.map((message) => mapChatMessageFromApi(message));
+
           set((state) => ({
-            messages: [...state.messages, apiMessage],
+            messages: conversationId
+              ? sortMessages([
+                  ...state.messages.filter((message) => message.conversationId !== conversationId),
+                  ...apiMessages,
+                ])
+              : mergeMessages(state.messages, apiMessages),
           }));
         } catch (error) {
-          console.error('Failed to send message:', error);
-        }
-      },
-      updateMessageApi: async (id, message) => {
-        try {
-          await apiRequest(`/chat/messages/${id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ message }),
-          });
-          set((state) => ({
-            messages: state.messages.map((msg) =>
-              msg.id === id ? { ...msg, message } : msg
-            ),
-          }));
-        } catch (error) {
-          console.error('Failed to update message:', error);
+          console.error("Failed to fetch messages:", error);
         }
       },
     }),

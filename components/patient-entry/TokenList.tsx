@@ -4,6 +4,7 @@ import * as React from "react";
 import { CalendarDays } from "lucide-react";
 import { Card } from "@/components/scheduling";
 import { Select } from "@/components/ui";
+import { SectionTitle, BodySecondary, Label } from "@/components/ui/Typography";
 import { type PatientTokenRecord, type PatientTokenStatus } from "@/lib/scheduling-types";
 import { TokenCard } from "./TokenCard";
 
@@ -45,18 +46,18 @@ export function TokenList({
 
   return (
     <Card className="p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="ui-section-title">Generated Tokens</h2>
-          <p className="mt-1 ui-body-secondary">All patient tokens created during this session.</p>
+          <SectionTitle>Generated Tokens</SectionTitle>
+          <BodySecondary className="mt-2">All patient tokens created during this session.</BodySecondary>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex flex-col gap-3 rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
           <div className="min-w-0">
-            <p className="ui-label text-[#0EA5A4]">Department Filter</p>
-            <p className="mt-1 ui-body-secondary">
+            <Label>Department Filter</Label>
+            <BodySecondary className="mt-1 text-[13px]">
               {selectedDepartment === "all" ? "Showing tokens from every department" : `Showing ${selectedDepartment} tokens`}
-            </p>
+            </BodySecondary>
           </div>
 
           <div className="flex items-center gap-3">
@@ -68,7 +69,7 @@ export function TokenList({
                 className="border-[#E2E8F0] bg-white hover:border-[#0EA5A4]"
               />
             </div>
-            <div className="ui-card-chip text-[#0EA5A4]">
+            <div className="inline-flex min-w-fit items-center rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] px-4 py-2 text-[12px] font-semibold text-[#0EA5A4]">
               {filteredTokens.length} {filteredTokens.length === 1 ? "token" : "tokens"}
             </div>
           </div>
@@ -76,19 +77,19 @@ export function TokenList({
       </div>
 
       {filteredTokens.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] text-[#0EA5A4]">
-            <CalendarDays className="size-5" />
+        <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] text-[#0EA5A4]">
+            <CalendarDays className="h-5 w-5" />
           </div>
-          <h3 className="mt-4 ui-card-title">No Tokens Found</h3>
-          <p className="mt-1 ui-body-secondary">
+          <SectionTitle className="text-[16px]">No Tokens Found</SectionTitle>
+          <BodySecondary className="mt-2 text-[14px]">
             {selectedDepartment === "all"
               ? "Create a new patient entry to see generated tokens appear here instantly."
               : `No tokens found for ${selectedDepartment}.`}
-          </p>
+          </BodySecondary>
         </div>
       ) : (
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredTokens.map((token) => (
             <TokenCard
               key={token.id}

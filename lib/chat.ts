@@ -12,6 +12,13 @@ export interface ChatMessage {
   type: ChatMessageType;
   createdAt: number;
   isRead: boolean;
+  editedAt?: number | null;
+  readAt?: number | null;
+  doctorId?: string;
+  hospitalId?: string;
+  doctorUserId?: string;
+  hospitalUserId?: string;
+  senderUserId?: string;
 }
 
 export interface ChatParticipant {
@@ -105,6 +112,40 @@ export function createMessage(
     type,
     createdAt: Date.now(),
     isRead,
+  };
+}
+
+export function mapChatMessageFromApi(message: {
+  id: string;
+  conversationId: string;
+  sender: ChatSender;
+  message: string;
+  type: ChatMessageType;
+  createdAt: string | number | Date;
+  isRead: boolean;
+  editedAt?: string | number | Date | null;
+  readAt?: string | number | Date | null;
+  doctorId?: string;
+  hospitalId?: string;
+  doctorUserId?: string;
+  hospitalUserId?: string;
+  senderUserId?: string;
+}): ChatMessage {
+  return {
+    id: message.id,
+    conversationId: message.conversationId,
+    sender: message.sender,
+    message: message.message,
+    type: message.type,
+    createdAt: new Date(message.createdAt).getTime(),
+    isRead: message.isRead,
+    editedAt: message.editedAt ? new Date(message.editedAt).getTime() : null,
+    readAt: message.readAt ? new Date(message.readAt).getTime() : null,
+    doctorId: message.doctorId,
+    hospitalId: message.hospitalId,
+    doctorUserId: message.doctorUserId,
+    hospitalUserId: message.hospitalUserId,
+    senderUserId: message.senderUserId,
   };
 }
 

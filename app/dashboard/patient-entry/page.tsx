@@ -10,6 +10,7 @@ import {
   CreateEntryCard,
   PatientEntryForm,
   TokenList,
+  LinearProgressDisplay,
 } from "@/components/patient-entry";
 import {
   formatScheduleDate,
@@ -57,8 +58,8 @@ export default function PatientEntryPage() {
   if (currentUser.role !== "hospital") {
     return (
       <UiCard className="p-4">
-        <h2 className="text-base font-medium text-[#0F172A]">Patient Entry</h2>
-        <p className="mt-1 text-sm text-[#64748B]">Only hospital users can access patient entry and token generation.</p>
+        <h2 className="text-[16px] font-medium text-[#0F172A]">Patient Entry</h2>
+        <p className="mt-2 text-[14px] text-[#64748B]">Only hospital users can access patient entry and token generation.</p>
       </UiCard>
     );
   }
@@ -97,6 +98,9 @@ export default function PatientEntryPage() {
     (sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length,
     0
   );
+
+  // Get the current active token (CALLING status, or first token)
+  const activeToken = tokens.find((token) => token.status === "CALLING") || tokens[0] || null;
 
   async function onSubmit(values: PatientEntryFormValues) {
     try {
@@ -175,6 +179,14 @@ export default function PatientEntryPage() {
           { label: "Generated", value: String(tokens.length) },
           { label: "Open Slots", value: String(todayAvailable) },
         ]}
+      />
+
+      {/* Live Rotating Token Display */}
+      <LinearProgressDisplay
+        currentToken={activeToken?.tokenNumber || null}
+        status={activeToken?.status || null}
+        patientName={activeToken?.patientName}
+        doctorName={activeToken?.doctorName}
       />
 
       <CreateEntryCard

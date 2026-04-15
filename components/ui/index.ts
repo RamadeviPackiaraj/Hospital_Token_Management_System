@@ -8,3 +8,4 @@ export * from "./Radio";
 export * from "./Select";
 export * from "./Table";
 export * from "./Textarea";
+export * from "./Typography";

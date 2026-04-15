@@ -76,7 +76,7 @@ export default function DoctorSchedulePage() {
   const consultationTime = watch("consultationTime");
 
   const filteredDoctors = React.useMemo(() => {
-    const approvedOnly = approvedDoctors.filter((doctor) => doctor.isApproved);
+    const approvedOnly = approvedDoctors.filter((doctor) => doctor.isApproved && doctor.department?.trim());
 
     if (!selectedDepartment) {
       return approvedOnly;
@@ -335,11 +335,25 @@ export default function DoctorSchedulePage() {
   async function onSubmit(values: DoctorScheduleFormValues) {
     const doctor = approvedDoctors.find((item) => item.id === values.doctorId);
     if (!doctor) {
-      const message = "No approved doctors available";
+      const message = "Selected doctor not found or is not approved";
       setSubmitMessage(message);
       logger.error(message, {
         source: "doctor-schedule",
         data: { doctorId: values.doctorId, department: values.department },
+        toast: true,
+      });
+      return;
+    }
+
+    // Validate doctor is assigned to the selected department
+    if (!doctor.department || doctor.department !== values.department) {
+      const message = doctor.department
+        ? `Doctor is not assigned to the ${values.department} department. Doctor is assigned to: ${doctor.department}`
+        : `Doctor is not assigned to any department. Please assign the doctor to a department first.`;
+      setSubmitMessage(message);
+      logger.error(message, {
+        source: "doctor-schedule",
+        data: { doctorId: values.doctorId, assignedDept: doctor.department, selectedDept: values.department },
         toast: true,
       });
       return;
@@ -400,7 +414,7 @@ export default function DoctorSchedulePage() {
           slots: response.slots.length,
         },
         toast: true,
-        });
+      });
     } catch (error) {
       const message = getApiErrorMessage(error);
       const errorData =
@@ -520,7 +534,14 @@ export default function DoctorSchedulePage() {
             errors={errors}
             departmentOptions={createSelectOptions(departments)}
             doctorOptions={createDoctorOptions(filteredDoctors)}
-            doctorEmptyMessage={!filteredDoctors.length ? "No approved doctors available" : undefined}
+            doctorEmptyMessage={
+              !selectedDepartment
+                ? "Select a department first"
+                : !filteredDoctors.length
+                  ? "No doctors assigned to this department. Assign doctors in the Departments settings."
+                  : undefined
+            }
+            doctorHint={filteredDoctors.length > 0 ? `${filteredDoctors.length} doctor(s) available` : undefined}
             submitMessage={submitMessage}
             isSubmitting={isSubmitting}
             minDate={new Date().toISOString().slice(0, 10)}

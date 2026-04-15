@@ -7,14 +7,26 @@ import { useDashboardContext } from "@/components/dashboard";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Badge, Card } from "@/components/ui";
 import { apiRequest, buildQuery } from "@/lib/api";
+import {
+  CHAT_SOCKET_EVENTS,
+  clearSocketConversation,
+  connectChatSocket,
+  createSocketMessage,
+  deleteSocketMessage,
+  mapSocketMessage,
+  markSocketConversationRead,
+  subscribeToConversation,
+  unsubscribeFromConversation,
+  updateSocketMessage,
+  type ChatClearedPayload,
+  type ChatConversationContext,
+  type ChatMessagePayload,
+  type ChatReadPayload,
+  type ChatSocketStatus,
+} from "@/lib/chat-realtime";
 import { CHAT_STORAGE_KEY, useChatStore } from "@/lib/chat-store";
 import { getSelectionsForDoctor } from "@/lib/dashboard-data";
-import {
-  QUICK_MESSAGES,
-  getFallbackParticipants,
-  getSharedConversationId,
-  type ChatParticipant,
-} from "@/lib/chat";
+import { QUICK_MESSAGES, type ChatParticipant } from "@/lib/chat";
 import type { AuthRole, MockUser } from "@/lib/auth-flow";
 
 type ChatParticipantView = ChatParticipant;
@@ -35,12 +47,8 @@ type HospitalDoctorRequest = {
 
 function getRoleCopy(role: Exclude<AuthRole, "admin">) {
   return role === "doctor"
-    ? {
-        empty: "No hospitals linked yet. Showing mock chat data until backend chat is connected.",
-      }
-    : {
-        empty: "No doctors linked yet. Showing mock chat data until backend chat is connected.",
-      };
+    ? { empty: "No approved hospital connections are available yet." }
+    : { empty: "No approved doctor connections are available yet." };
 }
 
 function getStatusVariant(status: ChatParticipant["status"]) {
@@ -51,33 +59,66 @@ function getStatusVariant(status: ChatParticipant["status"]) {
 }
 
 function formatParticipantSubtitle(participant: ChatParticipant) {
-  if (participant.status === "mock") return participant.subtitle;
   return `${participant.role === "doctor" ? "Doctor" : "Hospital"} | ${participant.subtitle}`;
 }
 
 function isApprovedParticipant(participant: ChatParticipant | null) {
-  return participant?.status === "approved" || participant?.status === "mock";
+  return participant?.status === "approved";
 }
 
-function getActorDisplayName(role: Exclude<AuthRole, "admin">, currentUser: MockUser) {
-  if (role === "hospital") {
-    return currentUser.hospitalName || currentUser.fullName || currentUser.id;
-  }
-
-  return currentUser.fullName || currentUser.id;
-}
-
-function getConversationKey(
+function getChatContext(
   role: Exclude<AuthRole, "admin">,
   currentUser: MockUser,
   participant: ChatParticipantView
+): ChatConversationContext {
+  return {
+    doctorId: role === "doctor" ? currentUser.id : participant.id,
+    hospitalId: role === "doctor" ? participant.id : currentUser.id,
+  };
+}
+
+function createConversationPayload(
+  context: ChatConversationContext,
+  conversationId?: string
+): ChatConversationContext {
+  return {
+    doctorId: context.doctorId,
+    hospitalId: context.hospitalId,
+    conversationId,
+  };
+}
+
+function createSubscriptionPayload(
+  context: ChatConversationContext,
+  conversationId?: string
+): ChatConversationContext & { query?: Record<string, unknown> } {
+  return {
+    doctorId: context.doctorId,
+    hospitalId: context.hospitalId,
+    conversationId,
+    query: {
+      conversationId,
+      limit: 100,
+    },
+  };
+}
+
+function messageMatchesContext(
+  message: {
+    conversationId: string;
+    doctorId?: string;
+    hospitalId?: string;
+    doctorUserId?: string;
+    hospitalUserId?: string;
+  },
+  context: ChatConversationContext
 ) {
-  return getSharedConversationId(
-    role,
-    getActorDisplayName(role, currentUser),
-    participant.role,
-    participant.name || participant.id
-  );
+  const doctorMatches =
+    message.doctorId === context.doctorId || message.doctorUserId === context.doctorId;
+  const hospitalMatches =
+    message.hospitalId === context.hospitalId || message.hospitalUserId === context.hospitalId;
+
+  return doctorMatches && hospitalMatches;
 }
 
 export default function DashboardChatPage() {
@@ -88,20 +129,30 @@ export default function DashboardChatPage() {
   const [search, setSearch] = React.useState("");
   const [filter, setFilter] = React.useState<"all" | "read" | "unread">("all");
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+  const [clearRequested, setClearRequested] = React.useState(false);
+  const [socketStatus, setSocketStatus] = React.useState<ChatSocketStatus>("idle");
 
   const messages = useChatStore((state) => state.messages);
-  const addMessage = useChatStore((state) => state.addMessage);
-  const editMessage = useChatStore((state) => state.editMessage);
-  const deleteMessage = useChatStore((state) => state.deleteMessage);
+  const replaceConversationMessages = useChatStore((state) => state.replaceConversationMessages);
+  const upsertMessage = useChatStore((state) => state.upsertMessage);
+  const removeMessage = useChatStore((state) => state.removeMessage);
   const markConversationAsRead = useChatStore((state) => state.markConversationAsRead);
-  const fetchMessages = useChatStore((state) => state.fetchMessages);
-  const sendMessageApi = useChatStore((state) => state.sendMessageApi);
-  const updateMessageApi = useChatStore((state) => state.updateMessageApi);
+  const clearConversation = useChatStore((state) => state.clearConversation);
 
   const role: Exclude<AuthRole, "admin"> | null = currentUser.role === "admin" ? null : currentUser.role;
   const selectedParticipant = participants.find((participant) => participant.id === selectedParticipantId) ?? null;
-  const selectedConversationId =
-    role && selectedParticipant ? getConversationKey(role, currentUser, selectedParticipant) : "";
+  const selectedContext =
+    role && selectedParticipant && isApprovedParticipant(selectedParticipant)
+      ? getChatContext(role, currentUser, selectedParticipant)
+      : null;
+
+  const currentMessages = React.useMemo(() => {
+    if (!selectedContext) return [];
+
+    return messages.filter((message) => messageMatchesContext(message, selectedContext));
+  }, [messages, selectedContext]);
+
+  const selectedConversationId = currentMessages[0]?.conversationId || "";
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -140,7 +191,9 @@ export default function DashboardChatPage() {
       try {
         if (activeRole === "doctor") {
           const [directory, selections] = await Promise.all([
-            apiRequest<{ items: HospitalDirectoryItem[] }>(`/hospitals${buildQuery({ status: "approved", limit: 100 })}`),
+            apiRequest<{ items: HospitalDirectoryItem[] }>(
+              `/hospitals${buildQuery({ status: "approved", limit: 100 })}`
+            ),
             getSelectionsForDoctor(currentUser.id),
           ]);
 
@@ -162,7 +215,7 @@ export default function DashboardChatPage() {
             }));
 
           if (!active) return;
-          setParticipants(approvedParticipants.length ? approvedParticipants : getFallbackParticipants(activeRole));
+          setParticipants(approvedParticipants);
           return;
         }
 
@@ -171,7 +224,7 @@ export default function DashboardChatPage() {
         );
 
         const approvedParticipants = (approvedResponse.doctors || []).map((doctor) => ({
-          id: doctor.userId || doctor.id || doctor.name,
+          id: doctor.id || doctor.userId || doctor.name,
           name: doctor.name,
           role: "doctor" as const,
           subtitle: doctor.department || "Connected doctor",
@@ -179,10 +232,10 @@ export default function DashboardChatPage() {
         }));
 
         if (!active) return;
-        setParticipants(approvedParticipants.length ? approvedParticipants : getFallbackParticipants(activeRole));
+        setParticipants(approvedParticipants);
       } catch {
         if (!active) return;
-        setParticipants(getFallbackParticipants(activeRole));
+        setParticipants([]);
       }
     }
 
@@ -194,42 +247,164 @@ export default function DashboardChatPage() {
   }, [currentUser.id, role]);
 
   React.useEffect(() => {
-    if (!role || !selectedParticipant || selectedParticipant.status !== "approved") return;
+    if (!participants.length) {
+      setSelectedParticipantId("");
+      return;
+    }
 
-    const doctorId = role === "doctor" ? currentUser.id : selectedParticipant.id;
-    const hospitalId = role === "doctor" ? selectedParticipant.id : currentUser.id;
-
-    void fetchMessages(doctorId, hospitalId, selectedConversationId);
-  }, [selectedParticipant, role, currentUser.id, fetchMessages, selectedConversationId]);
-
-  const currentMessages = React.useMemo(() => {
-    if (!selectedConversationId) return [];
-    return messages.filter((message) => message.conversationId === selectedConversationId);
-  }, [messages, selectedConversationId]);
+    const selectedExists = participants.some((participant) => participant.id === selectedParticipantId);
+    if (!selectedExists) {
+      setSelectedParticipantId(participants[0]?.id || "");
+    }
+  }, [participants, selectedParticipantId]);
 
   React.useEffect(() => {
-    if (!role || !selectedConversationId) return;
-    markConversationAsRead(selectedConversationId, role);
-  }, [currentMessages, markConversationAsRead, role, selectedConversationId]);
+    if (!role) return;
+
+    const socket = connectChatSocket();
+    if (!socket) return;
+
+    const handleConnect = () => setSocketStatus("connected");
+    const handleDisconnect = () => setSocketStatus("disconnected");
+    const handleError = () => setSocketStatus("error");
+    const handleMessageCreated = (payload: ChatMessagePayload) => upsertMessage(mapSocketMessage(payload));
+    const handleMessageUpdated = (payload: ChatMessagePayload) => upsertMessage(mapSocketMessage(payload));
+    const handleMessageDeleted = (payload: { id: string }) => removeMessage(payload.id);
+    const handleReadUpdated = (payload: ChatReadPayload) => {
+      markConversationAsRead(
+        payload.conversationId,
+        payload.readerRole,
+        payload.readAt ? new Date(payload.readAt).getTime() : Date.now()
+      );
+    };
+    const handleConversationCleared = (payload: ChatClearedPayload) => {
+      clearConversation(payload.conversationId);
+    };
+
+    setSocketStatus(socket.connected ? "connected" : "connecting");
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleError);
+    socket.on(CHAT_SOCKET_EVENTS.ERROR, handleError);
+    socket.on(CHAT_SOCKET_EVENTS.MESSAGE_CREATED, handleMessageCreated);
+    socket.on(CHAT_SOCKET_EVENTS.MESSAGE_UPDATED, handleMessageUpdated);
+    socket.on(CHAT_SOCKET_EVENTS.MESSAGE_DELETED, handleMessageDeleted);
+    socket.on(CHAT_SOCKET_EVENTS.CONVERSATION_READ_UPDATED, handleReadUpdated);
+    socket.on(CHAT_SOCKET_EVENTS.CONVERSATION_CLEARED, handleConversationCleared);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleError);
+      socket.off(CHAT_SOCKET_EVENTS.ERROR, handleError);
+      socket.off(CHAT_SOCKET_EVENTS.MESSAGE_CREATED, handleMessageCreated);
+      socket.off(CHAT_SOCKET_EVENTS.MESSAGE_UPDATED, handleMessageUpdated);
+      socket.off(CHAT_SOCKET_EVENTS.MESSAGE_DELETED, handleMessageDeleted);
+      socket.off(CHAT_SOCKET_EVENTS.CONVERSATION_READ_UPDATED, handleReadUpdated);
+      socket.off(CHAT_SOCKET_EVENTS.CONVERSATION_CLEARED, handleConversationCleared);
+    };
+  }, [clearConversation, markConversationAsRead, removeMessage, role, upsertMessage]);
+
+  React.useEffect(() => {
+    if (!selectedContext || !selectedParticipant || !isApprovedParticipant(selectedParticipant)) return;
+
+    const context: ChatConversationContext = {
+      doctorId: selectedContext.doctorId,
+      hospitalId: selectedContext.hospitalId,
+    };
+    let active = true;
+    const socket = connectChatSocket();
+    if (!socket) return;
+
+    async function subscribe() {
+      try {
+        setSocketStatus((current) => (current === "connected" ? current : "connecting"));
+        const payload = createSubscriptionPayload(context, selectedConversationId || undefined);
+        const data = await subscribeToConversation(payload);
+
+        if (!active) return;
+        replaceConversationMessages(
+          data.conversationId,
+          data.items.map((item) => mapSocketMessage(item))
+        );
+      } catch (error) {
+        console.error("Failed to subscribe to conversation:", error);
+        setSocketStatus("error");
+      }
+    }
+
+    const handleConnect = () => {
+      void subscribe();
+    };
+
+    socket.on("connect", handleConnect);
+    if (socket.connected) {
+      void subscribe();
+    }
+
+    return () => {
+      active = false;
+      socket.off("connect", handleConnect);
+      const payload = createConversationPayload(context, selectedConversationId || undefined);
+      void unsubscribeFromConversation(payload).catch(() => undefined);
+    };
+  }, [replaceConversationMessages, selectedContext, selectedConversationId, selectedParticipant]);
+
+  React.useEffect(() => {
+    if (!role || !selectedContext || !selectedConversationId) return;
+
+    const context = createConversationPayload(selectedContext, selectedConversationId);
+    const hasUnreadIncoming = currentMessages.some((message) => message.sender !== role && !message.isRead);
+    if (!hasUnreadIncoming) return;
+
+    void markSocketConversationRead(context).catch((error) => {
+      console.error("Failed to mark conversation as read:", error);
+    });
+  }, [currentMessages, role, selectedContext, selectedConversationId]);
 
   function sendMessage(message: string, type: "quick" | "manual") {
-    if (!role || !selectedParticipant || !message.trim() || !isApprovedParticipant(selectedParticipant)) return;
+    if (!selectedContext || !selectedParticipant || !message.trim() || !isApprovedParticipant(selectedParticipant)) {
+      return;
+    }
 
-    const doctorId = role === "doctor" ? currentUser.id : selectedParticipant.id;
-    const hospitalId = role === "doctor" ? selectedParticipant.id : currentUser.id;
+    const context = createConversationPayload(selectedContext, selectedConversationId || undefined);
 
-    void sendMessageApi({ doctorId, hospitalId, message: message.trim(), type });
+    void createSocketMessage({
+      ...context,
+      message: message.trim(),
+      type,
+    }).catch((error) => {
+      console.error("Failed to send message:", error);
+    });
+
     setDraft("");
   }
 
   function handleDeleteConfirm() {
     if (!deleteTargetId) return;
-    deleteMessage(deleteTargetId);
+
+    void deleteSocketMessage({ id: deleteTargetId }).catch((error) => {
+      console.error("Failed to delete message:", error);
+    });
     setDeleteTargetId(null);
   }
 
   function handleSaveEdit(messageId: string, value: string) {
-    void updateMessageApi(messageId, value);
+    void updateSocketMessage({ id: messageId, message: value }).catch((error) => {
+      console.error("Failed to update message:", error);
+    });
+  }
+
+  function handleClearConversation() {
+    if (!selectedContext || !selectedConversationId) return;
+
+    const context = createConversationPayload(selectedContext, selectedConversationId);
+
+    void clearSocketConversation(context).catch((error) => {
+      console.error("Failed to clear conversation:", error);
+    });
+
+    setClearRequested(false);
   }
 
   if (!role) {
@@ -242,10 +417,8 @@ export default function DashboardChatPage() {
   }
 
   const visibleMessages = currentMessages.filter((message) => {
-    const matchesFilter =
-      filter === "all" || (filter === "read" ? message.isRead : !message.isRead);
+    const matchesFilter = filter === "all" || (filter === "read" ? message.isRead : !message.isRead);
     const matchesSearch = !search.trim() || message.message.toLowerCase().includes(search.toLowerCase());
-
     return matchesFilter && matchesSearch;
   });
 
@@ -253,9 +426,7 @@ export default function DashboardChatPage() {
   const isApproved = isApprovedParticipant(selectedParticipant);
   const unreadCount = currentMessages.filter((message) => message.sender !== role && !message.isRead).length;
   const disableReason =
-    !isApproved && selectedParticipant
-      ? "Messaging is enabled only when the hospital connection is approved."
-      : "";
+    !isApproved && selectedParticipant ? "Messaging is enabled only when the connection is approved." : "";
 
   return (
     <>
@@ -273,10 +444,10 @@ export default function DashboardChatPage() {
 
           <div className="mt-3 flex flex-col gap-2">
             {participants.map((participant) => {
-              const participantConversationId = role ? getConversationKey(role, currentUser, participant) : "";
+              const participantContext = getChatContext(role, currentUser, participant);
               const participantUnreadCount = messages.filter(
                 (message) =>
-                  message.conversationId === participantConversationId &&
+                  messageMatchesContext(message, participantContext) &&
                   message.sender !== role &&
                   !message.isRead
               ).length;
@@ -318,7 +489,7 @@ export default function DashboardChatPage() {
         {selectedParticipant ? (
           <ChatContainer
             title={`${currentUser.role === "doctor" ? "Doctor" : "Hospital"} Activity Log`}
-            subtitle={`Shared frontend chat with ${selectedParticipant.name}`}
+            subtitle={`Realtime chat with ${selectedParticipant.name}`}
             messages={visibleMessages}
             quickMessages={QUICK_MESSAGES[role]}
             currentSender={role}
@@ -335,6 +506,9 @@ export default function DashboardChatPage() {
             disabled={!isApproved}
             disabledMessage={disableReason}
             unreadCount={unreadCount}
+            socketStatus={socketStatus}
+            onClear={selectedConversationId ? () => setClearRequested(true) : undefined}
+            clearDisabled={!selectedConversationId || !currentMessages.length}
           />
         ) : (
           <Card className="flex min-h-[560px] items-center justify-center p-4">
@@ -346,12 +520,23 @@ export default function DashboardChatPage() {
       <ConfirmationDialog
         open={Boolean(deleteTargetId)}
         title="Delete Message"
-        description="This frontend-only delete removes the message from the shared chat store."
+        description="This will delete the message in the backend conversation."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         confirmVariant="danger"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTargetId(null)}
+      />
+
+      <ConfirmationDialog
+        open={clearRequested}
+        title="Clear Conversation"
+        description="This will remove all messages in the current doctor-hospital conversation."
+        confirmLabel="Clear chat"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        onConfirm={handleClearConversation}
+        onCancel={() => setClearRequested(false)}
       />
     </>
   );

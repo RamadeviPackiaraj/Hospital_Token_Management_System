@@ -25,6 +25,11 @@ interface ScheduleBootstrapResponse {
   departments: string[];
   doctors: ScheduleDoctorDirectoryItem[];
   consultationTimeOptions: number[];
+  doctorAssignments?: Array<{
+    doctorId: string;
+    doctorName: string;
+    department: string;
+  }>;
 }
 
 interface BackendScheduleRecord {

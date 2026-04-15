@@ -8,16 +8,17 @@ export default function HomePage() {
     <main className="min-h-screen bg-[#F8FAFC]">
       <AuthTopbar />
 
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center px-4 py-8 sm:px-6 lg:px-8">
+      <section className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-6xl items-center px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,460px)] lg:items-center">
           <div className="max-w-2xl space-y-6">
             <div className="space-y-3">
-              <p className="ui-label tracking-[0.2em]">
+              <p className="ui-label block leading-4 tracking-[0.2em]">
                 Hospital Token Management
               </p>
-              <h1 className="ui-page-title">
-                Hospital token management for doctors, hospitals, and admins.
-              </h1>
+            <h1 className="ui-page-title text-balance">
+              Hospital token management for doctors, hospitals, <br></br>and admins.
+            </h1>
+
               <p className="max-w-xl ui-body-secondary">
                 Manage patient tokens, staff access, and daily queue flow in one simple hospital token management system.
               </p>
@@ -45,7 +46,7 @@ export default function HomePage() {
                 { label: "Departments", value: "18", icon: <Building2 className="size-4" /> },
                 { label: "Doctors", value: "45+", icon: <Stethoscope className="size-4" /> }
               ].map((item) => (
-                <Card key={item.label}>
+                <Card key={item.label} className="min-h-[114px]">
                   <div className="flex items-center justify-between gap-3">
                     <p className="ui-meta">{item.label}</p>
                     <div className="flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
@@ -63,18 +64,18 @@ export default function HomePage() {
               <img
                 src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80"
                 alt="Hospital corridor with medical staff"
-                className="h-[260px] w-full object-cover sm:h-[320px] lg:h-[420px]"
+                className="block h-[260px] w-full object-cover sm:h-[320px] lg:h-[420px]"
               />
             </div>
 
             <div className="grid gap-3 border-t border-[#E2E8F0] px-2 pb-2 pt-4 sm:grid-cols-2">
-              <div className="rounded-lg bg-[#F8FAFC] p-4">
+              <div className="min-h-[152px] rounded-lg bg-[#F8FAFC] p-4">
                 <p className="ui-meta">Fast patient flow</p>
                 <p className="mt-2 ui-body">
                   Organize queues, departments, and doctor availability from one dashboard.
                 </p>
               </div>
-              <div className="rounded-lg bg-[#F8FAFC] p-4">
+              <div className="min-h-[152px] rounded-lg bg-[#F8FAFC] p-4">
                 <p className="ui-meta">Simple access</p>
                 <p className="mt-2 ui-body">
                   Separate access for hospital staff, doctors, and admins with clean sign-in flow.
