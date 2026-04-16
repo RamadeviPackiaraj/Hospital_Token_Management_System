@@ -15,6 +15,7 @@ interface PageHeroProps {
   imageSrc: string;
   imageAlt: string;
   stats?: PageHeroStat[];
+  supplementaryContent?: React.ReactNode;
 }
 
 export function PageHero({
@@ -23,13 +24,24 @@ export function PageHero({
   icon,
   imageSrc,
   imageAlt,
-  stats = []
+  stats = [],
+  supplementaryContent,
 }: PageHeroProps) {
   const [imageFailed, setImageFailed] = React.useState(false);
+  const hasSupplementaryContent = Boolean(supplementaryContent);
+  const imageFrameClass = hasSupplementaryContent
+    ? "h-[136px] w-[220px] shrink-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]"
+    : "overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]";
 
   return (
     <Card className="overflow-hidden">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+      <div
+        className={
+          hasSupplementaryContent
+            ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,440px)] lg:items-center"
+            : "grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center"
+        }
+      >
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <div className="flex size-12 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
@@ -51,28 +63,55 @@ export function PageHero({
               ))}
             </div>
           ) : null}
+
+          {supplementaryContent ? <div className="lg:hidden">{supplementaryContent}</div> : null}
         </div>
 
         <div className="hidden lg:block">
-          <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-            {imageFailed ? (
-              <div className="flex h-[136px] w-full items-center justify-center bg-[#F8FAFC] p-4 text-center">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-white text-[#0EA5A4]">
-                    {icon}
+          {hasSupplementaryContent ? (
+            <div className="flex items-stretch gap-4">
+              <div className="flex min-w-0 flex-1 items-stretch">{supplementaryContent}</div>
+              <div className={imageFrameClass}>
+                {imageFailed ? (
+                  <div className="flex h-[136px] w-full items-center justify-center bg-[#F8FAFC] p-4 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-white text-[#0EA5A4]">
+                        {icon}
+                      </div>
+                      <p className="ui-meta">{imageAlt}</p>
+                    </div>
                   </div>
-                  <p className="ui-meta">{imageAlt}</p>
-                </div>
+                ) : (
+                  <img
+                    src={imageSrc}
+                    alt={imageAlt}
+                    className="h-full w-full object-cover"
+                    onError={() => setImageFailed(true)}
+                  />
+                )}
               </div>
-            ) : (
-              <img
-                src={imageSrc}
-                alt={imageAlt}
-                className="h-[136px] w-full object-cover"
-                onError={() => setImageFailed(true)}
-              />
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className={imageFrameClass}>
+              {imageFailed ? (
+                <div className="flex h-[136px] w-full items-center justify-center bg-[#F8FAFC] p-4 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-white text-[#0EA5A4]">
+                      {icon}
+                    </div>
+                    <p className="ui-meta">{imageAlt}</p>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={imageSrc}
+                  alt={imageAlt}
+                  className="h-[136px] w-full object-cover"
+                  onError={() => setImageFailed(true)}
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Card>

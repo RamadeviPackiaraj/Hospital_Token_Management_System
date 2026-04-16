@@ -1,11 +1,11 @@
 "use client";
 
 import { CalendarDays, Clock3 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { CardTitle, CardBody, Label } from "@/components/ui/Typography";
-import type { PatientTokenRecord, PatientTokenStatus } from "@/lib/scheduling-types";
+import { Button } from "@/components/ui/Button";
+import { CardBody, CardTitle, Label } from "@/components/ui/Typography";
 import { formatScheduleDate, formatTimeTo12Hour } from "@/lib/scheduling";
+import type { PatientTokenRecord, PatientTokenStatus } from "@/lib/scheduling-types";
 import { cn } from "@/lib/utils";
 
 interface TokenCardProps {
@@ -18,28 +18,37 @@ function getCardStyles(status: PatientTokenStatus) {
   switch (status) {
     case "CALLING":
       return {
-        card: "border-2 border-[#0F172A] bg-gradient-to-br from-[#F0FDFA] to-[#FFFFFF] scale-[1.02] shadow-md",
-        tokenBg: "bg-[#0EA5A4]",
-        tokenText: "text-white",
-        badge: "bg-[#DCFCE7] text-[#15803D]",
-        blinkDot: true,
+        card: "border-[#BBF7D0] bg-[#FFFFFF]",
+        topLine: "bg-[#22C55E]",
+        halo: "bg-[#DCFCE7]",
+        ring: "border-[#22C55E]",
+        tokenCore: "border-[#22C55E] bg-[#F0FDF4] text-[#15803D]",
+        badgeTone: "success" as const,
+        badgeClass: "bg-[#DCFCE7] text-[#15803D] ring-[#BBF7D0]",
+        deptClass: "bg-[#F0FDF4] text-[#15803D] ring-[#BBF7D0]",
       };
     case "COMPLETED":
       return {
-        card: "border-2 border-[#0F172A] bg-[#FFFBFB] opacity-80",
-        tokenBg: "bg-[#FEA8A8]",
-        tokenText: "text-white",
-        badge: "bg-[#FEE2E2] text-[#DC2626]",
-        blinkDot: false,
+        card: "border-[#FECACA] bg-[#FFFFFF]",
+        topLine: "bg-[#EF4444]",
+        halo: "bg-[#FEE2E2]",
+        ring: "border-[#EF4444]",
+        tokenCore: "border-[#EF4444] bg-[#FEF2F2] text-[#DC2626]",
+        badgeTone: "error" as const,
+        badgeClass: "bg-[#FEE2E2] text-[#DC2626] ring-[#FECACA]",
+        deptClass: "bg-[#FFF5F5] text-[#DC2626] ring-[#FECACA]",
       };
     case "NOT_STARTED":
     default:
       return {
-        card: "border-2 border-[#0F172A] bg-[#FFFFFF] hover:border-[#0EA5A4] hover:shadow-md",
-        tokenBg: "bg-[#CBD5E1]",
-        tokenText: "text-white",
-        badge: "bg-[#F0FDFA] text-[#0EA5A4]",
-        blinkDot: false,
+        card: "border-[#CBD5E1] bg-[#FFFFFF]",
+        topLine: "bg-[#0EA5A4]",
+        halo: "bg-[#F0FDFA]",
+        ring: "border-[#CBD5E1]",
+        tokenCore: "border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A]",
+        badgeTone: "info" as const,
+        badgeClass: "bg-[#F0FDFA] text-[#0EA5A4] ring-[#99F6E4]",
+        deptClass: "bg-[#F8FAFC] text-[#64748B] ring-[#E2E8F0]",
       };
   }
 }
@@ -50,171 +59,139 @@ export function TokenCard({
   onStatusChange,
 }: TokenCardProps) {
   const styles = getCardStyles(token.status);
-  const hasActiveToken = token.status === "CALLING";
+  const isCalling = token.status === "CALLING";
 
   return (
     <article
-      className={cn(
-        "relative overflow-hidden rounded-lg p-4 shadow-sm transition-all duration-300 ease-in-out",
-        styles.card
-      )}
+      className={cn("relative overflow-hidden rounded-2xl border bg-[#FFFFFF] shadow-panel transition-all duration-200", styles.card)}
     >
-      {/* Header with Circular Token and Patient Info */}
-      <div className="mb-4 flex items-start gap-4">
-        {/* Circular Token Number */}
-        <div className="relative flex-shrink-0">
-          {/* Animated Ring - Only for active tokens */}
-          {hasActiveToken && (
-            <>
+      <div className={cn("h-1.5 w-full", styles.topLine)} aria-hidden="true" />
+      <div className={cn("absolute right-[-32px] top-10 h-28 w-28 rounded-full opacity-80 blur-3xl", styles.halo)} aria-hidden="true" />
+      <div className={cn("absolute left-10 top-16 h-16 w-16 rounded-full opacity-50 blur-2xl", styles.halo)} aria-hidden="true" />
+
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <div className="relative flex h-16 w-16 items-center justify-center">
               <div
-                className="absolute inset-0 rounded-full bg-[#0EA5A4] opacity-10 animate-pulse"
+                className={cn(
+                  "absolute inset-0 rounded-full border-2 border-dashed opacity-80",
+                  styles.ring,
+                  isCalling ? "animate-spin" : ""
+                )}
+                style={isCalling ? { animationDuration: "7s" } : undefined}
                 aria-hidden="true"
               />
               <div
-                className="absolute inset-0 rounded-full border border-[#0EA5A4] opacity-20 animate-pulse"
+                className={cn(
+                  "absolute inset-[6px] rounded-full border opacity-50",
+                  styles.ring,
+                  isCalling ? "animate-pulse" : ""
+                )}
                 aria-hidden="true"
               />
-            </>
-          )}
-
-          {/* Main Token Circle */}
-          <div
-            className={cn(
-              "relative flex h-16 w-16 items-center justify-center rounded-full font-medium transition-all duration-300",
-              styles.tokenBg
-            )}
-            role="img"
-            aria-label={`Token ${token.tokenNumber}`}
-          >
-            <span className={cn("text-[28px] font-bold", styles.tokenText)}>
-              {token.tokenNumber}
-            </span>
+              {isCalling ? (
+                <div className="absolute inset-[-6px] rounded-full border border-[#22C55E]/20 animate-ping" aria-hidden="true" />
+              ) : null}
+              <div
+                className={cn("relative flex h-12 w-12 items-center justify-center rounded-full border", styles.tokenCore)}
+                role="img"
+                aria-label={`Token ${token.tokenNumber}`}
+              >
+                <span className="text-[18px] font-medium leading-none">{token.tokenNumber}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Pulsing Green Dot for Active Token */}
-          {hasActiveToken && (
-            <div className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center">
-              <div className="absolute inline-flex h-3 w-3 animate-pulse rounded-full bg-[#22c55e] opacity-75" />
-              <div className="relative inline-flex h-3 w-3 rounded-full bg-[#22c55e]" />
-            </div>
-          )}
-        </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="truncate">{token.patientName}</CardTitle>
+                <CardBody className="mt-1 truncate text-[#64748B]">Dr. {token.doctorName}</CardBody>
+              </div>
 
-        {/* Patient Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
-              <CardTitle className="text-[16px] font-medium text-[#0F172A]">
-                {token.patientName}
-              </CardTitle>
-              <CardBody className="mt-1 text-[13px] text-[#64748B]">
-                Dr. {token.doctorName}
-              </CardBody>
+              <Badge status={styles.badgeTone} className={cn("shrink-0 rounded-full px-3 py-1 text-[12px]", styles.badgeClass)}>
+                {token.status === "NOT_STARTED" ? "Pending" : token.status === "CALLING" ? "Calling" : "Completed"}
+              </Badge>
             </div>
 
-            {/* Status Badge */}
-            <Badge
-              status={
-                token.status === "CALLING"
-                  ? "success"
-                  : token.status === "COMPLETED"
-                    ? "error"
-                    : "neutral"
-              }
-              className={cn("px-2 py-1 text-[11px] font-semibold ring-0 flex-shrink-0", styles.badge)}
-            >
-              {token.status === "NOT_STARTED"
-                ? "Pending"
-                : token.status === "CALLING"
-                  ? "In Progress"
-                  : "Completed"}
-            </Badge>
-          </div>
-
-          {/* Department Badge */}
-          <div className="mt-2">
-            <Badge
-              status="info"
-              className={cn("px-2 py-1 text-[10px] font-medium ring-0", styles.badge)}
-            >
+            <Badge status="neutral" className={cn("rounded-full px-3 py-1 text-[12px]", styles.deptClass)}>
               {token.department}
             </Badge>
           </div>
         </div>
-      </div>
 
-      {/* Divider */}
-      <div className="my-3 border-t border-[#E2E8F0] opacity-50" />
+        <div className="my-5 ui-card-divider" />
 
-      {/* Date & Time */}
-      <div className="mb-3 grid grid-cols-2 gap-3">
-        <div className="flex items-start gap-2">
-          <CalendarDays className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#0EA5A4]" />
-          <div className="min-w-0">
-            <Label className="text-[11px] text-[#64748B]">Date</Label>
-            <CardBody className="mt-0.5 text-[12px]">
-              {formatScheduleDate(token.date)}
-            </CardBody>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 transition-transform duration-200 hover:-translate-y-0.5">
+            <div className="flex items-start gap-2">
+              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#0EA5A4]" />
+              <div className="min-w-0">
+                <Label>Date</Label>
+                <CardBody className="mt-1">{formatScheduleDate(token.date)}</CardBody>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 transition-transform duration-200 hover:-translate-y-0.5">
+            <div className="flex items-start gap-2">
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#0EA5A4]" />
+              <div className="min-w-0">
+                <Label>Time</Label>
+                <CardBody className="mt-1">{formatTimeTo12Hour(token.time)}</CardBody>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex items-start gap-2">
-          <Clock3 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#0EA5A4]" />
-          <div className="min-w-0">
-            <Label className="text-[11px] text-[#64748B]">Time</Label>
-            <CardBody className="mt-0.5 text-[12px]">
-              {formatTimeTo12Hour(token.time)}
-            </CardBody>
-          </div>
-        </div>
-      </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        {token.status === "NOT_STARTED" ? (
-          <Button
-            size="sm"
-            onClick={() => void onStatusChange(token.id, "CALLING")}
-            loading={isUpdating}
-            className="flex-1 text-[13px]"
-          >
-            Call Patient
-          </Button>
-        ) : null}
-
-        {token.status === "CALLING" ? (
-          <>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {token.status === "NOT_STARTED" ? (
             <Button
               size="sm"
-              variant="success"
-              onClick={() => void onStatusChange(token.id, "COMPLETED")}
+              onClick={() => void onStatusChange(token.id, "CALLING")}
               loading={isUpdating}
-              className="flex-1 text-[13px]"
+              className="flex-1 rounded-xl"
             >
-              End Call
+              Call Patient
             </Button>
+          ) : null}
+
+          {token.status === "CALLING" ? (
+            <>
+              <Button
+                size="sm"
+                variant="success"
+                onClick={() => void onStatusChange(token.id, "COMPLETED")}
+                loading={isUpdating}
+                className="flex-1 rounded-xl"
+              >
+                End Call
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void onStatusChange(token.id, "NOT_STARTED")}
+                loading={isUpdating}
+                className="flex-1 rounded-xl border border-[#CBD5E1] bg-white"
+              >
+                Reset
+              </Button>
+            </>
+          ) : null}
+
+          {token.status === "COMPLETED" ? (
             <Button
               size="sm"
               variant="ghost"
               onClick={() => void onStatusChange(token.id, "NOT_STARTED")}
               loading={isUpdating}
-              className="flex-1 text-[13px]"
+              className="flex-1 rounded-xl border border-[#CBD5E1] bg-white"
             >
               Reset
             </Button>
-          </>
-        ) : null}
-
-        {token.status === "COMPLETED" ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void onStatusChange(token.id, "NOT_STARTED")}
-            loading={isUpdating}
-            className="flex-1 text-[13px]"
-          >
-            Reset
-          </Button>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </article>
   );

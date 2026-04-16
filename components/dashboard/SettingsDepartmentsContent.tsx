@@ -298,13 +298,6 @@ export function SettingsDepartmentsContent() {
         />
 
         <Card className="p-4">
-          <div className="mb-4 space-y-2">
-            <p className="text-sm font-medium text-[#0F172A]">Assign Doctors to Departments</p>
-            <p className="text-sm text-[#64748B]">
-              Required: Choose an approved doctor and assign the department that should be used for schedule allocation.
-              Doctors cannot be scheduled unless they are assigned to a department.
-            </p>
-          </div>
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_160px]">
             <label className="grid gap-2 text-sm text-[#0F172A]">
               Doctor

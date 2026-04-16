@@ -52,10 +52,10 @@ export function TokenList({
           <BodySecondary className="mt-2">All patient tokens created during this session.</BodySecondary>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+        <div className="flex flex-col gap-3 rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel sm:flex-row sm:items-center sm:justify-end sm:gap-4">
           <div className="min-w-0">
-            <Label>Department Filter</Label>
-            <BodySecondary className="mt-1 text-[13px]">
+            <Label className="text-[#0EA5A4]">Department Filter</Label>
+            <BodySecondary className="mt-1">
               {selectedDepartment === "all" ? "Showing tokens from every department" : `Showing ${selectedDepartment} tokens`}
             </BodySecondary>
           </div>
@@ -69,7 +69,7 @@ export function TokenList({
                 className="border-[#E2E8F0] bg-white hover:border-[#0EA5A4]"
               />
             </div>
-            <div className="inline-flex min-w-fit items-center rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] px-4 py-2 text-[12px] font-semibold text-[#0EA5A4]">
+            <div className="inline-flex min-w-fit items-center rounded-lg border border-[#CBD5E1] bg-[#FFFFFF] px-4 py-2 text-[12px] font-medium text-[#0EA5A4]">
               {filteredTokens.length} {filteredTokens.length === 1 ? "token" : "tokens"}
             </div>
           </div>
@@ -81,8 +81,8 @@ export function TokenList({
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] text-[#0EA5A4]">
             <CalendarDays className="h-5 w-5" />
           </div>
-          <SectionTitle className="text-[16px]">No Tokens Found</SectionTitle>
-          <BodySecondary className="mt-2 text-[14px]">
+          <SectionTitle>No Tokens Found</SectionTitle>
+          <BodySecondary className="mt-2">
             {selectedDepartment === "all"
               ? "Create a new patient entry to see generated tokens appear here instantly."
               : `No tokens found for ${selectedDepartment}.`}

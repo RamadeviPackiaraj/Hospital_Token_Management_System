@@ -316,4 +316,40 @@ svg {
   .ui-icon-button {
     @apply focus-ring inline-flex size-9 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] text-[#64748B] shadow-panel transition hover:border-[#0EA5A4] hover:text-[#0EA5A4];
   }
+
+  .tv-card {
+    @apply rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-sm;
+  }
+
+  .tv-header-title {
+    @apply text-[16px] font-medium leading-6 text-[#0F172A];
+  }
+
+  .tv-section-title {
+    @apply text-[16px] font-medium leading-6 text-[#0F172A];
+  }
+
+  .tv-body {
+    @apply text-[14px] font-normal leading-5 text-[#0F172A];
+  }
+
+  .tv-body-secondary {
+    @apply text-[14px] font-normal leading-5 text-[#64748B];
+  }
+
+  .tv-label {
+    @apply text-[12px] font-medium leading-4 uppercase tracking-[0.08em] text-[#64748B];
+  }
+
+  .tv-token-display {
+    @apply text-[64px] font-medium leading-none text-[#0F172A] xl:text-[80px];
+  }
+
+  .tv-patient-display {
+    @apply text-[24px] font-medium leading-8 text-[#0F172A];
+  }
+
+  .tv-timer {
+    @apply text-[20px] font-medium leading-7 text-[#0F172A];
+  }
 }

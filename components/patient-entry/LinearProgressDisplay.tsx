@@ -1,132 +1,98 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui";
 import type { PatientTokenStatus } from "@/lib/scheduling-types";
+import { cn } from "@/lib/utils";
 
 interface LinearProgressDisplayProps {
   currentToken: number | null;
   status: PatientTokenStatus | null;
-  patientName?: string;
-  doctorName?: string;
+  compact?: boolean;
 }
 
-/**
- * LinearProgressDisplay - Rotating live token display with rolling design
- * 
- * Hospital queue interface with:
- * - Rotating/spinning circular token number (56-64px)
- * - Pulsing outer ring animation
- * - Clean, centered layout
- * - Status indication
- */
+function getStatusStyles(status: PatientTokenStatus | null) {
+  if (status === "CALLING") {
+    return {
+      panel: "border-[#BBF7D0] bg-[#F0FDF4]",
+      ring: "border-[#22C55E]",
+      core: "border-[#22C55E] bg-[#DCFCE7] text-[#15803D]",
+      badge: "success" as const,
+      label: "Now Calling",
+      animate: true,
+    };
+  }
+
+  return {
+    panel: "border-[#E2E8F0] bg-[#F8FAFC]",
+    ring: "border-[#CBD5E1]",
+    core: "border-[#CBD5E1] bg-[#FFFFFF] text-[#0F172A]",
+    badge: "neutral" as const,
+    label: "Waiting",
+    animate: false,
+  };
+}
+
 export function LinearProgressDisplay({
   currentToken,
   status,
-  patientName = "",
-  doctorName = "",
+  compact = false,
 }: LinearProgressDisplayProps) {
-  const hasActiveToken = currentToken !== null && status === "CALLING";
+  const styles = getStatusStyles(status);
+  const tokenValue = currentToken !== null ? currentToken : "--";
 
-  return (
-    <div className="w-full rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-8 shadow-sm">
-      {/* Header Label */}
-      <div className="mb-6 text-center">
-        <p className="text-[12px] font-medium text-[#64748B]">CURRENT PROCESSING</p>
-      </div>
+  const tokenView = (
+    <div
+      className={cn(
+        "rounded-2xl border p-4",
+        styles.panel,
+        compact ? "flex h-[136px] w-[164px] items-center justify-center px-3 py-2" : "w-full"
+      )}
+    >
+      <div className="flex flex-col items-center gap-2 text-center">
+        <div className="ui-meta uppercase tracking-[0.08em]">{styles.label}</div>
 
-      {/* Rotating Token Number Display */}
-      <div className="flex flex-col items-center gap-6">
-        <div className="relative h-32 w-32">
-          {/* Outer Rotating Ring - Continuous rotation */}
-          {hasActiveToken && (
-            <div
-              className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#0EA5A4] border-r-[#0EA5A4] border-b-[#E2E8F0] border-l-[#E2E8F0] animate-spin"
-              style={{ animationDuration: "2s" }}
-              aria-hidden="true"
-            />
-          )}
-
-          {/* Middle Pulsing Ring */}
-          {hasActiveToken && (
-            <div
-              className="absolute inset-2 rounded-full border border-[#0EA5A4] opacity-30 animate-pulse"
-              aria-hidden="true"
-            />
-          )}
-
-          {/* Inner Circle - Main Token Display */}
+        <div className="relative flex h-20 w-20 items-center justify-center">
           <div
             className={cn(
-              "absolute inset-0 flex items-center justify-center rounded-full font-bold transition-all duration-300",
-              hasActiveToken
-                ? "bg-[#0EA5A4] text-white shadow-lg"
-                : "bg-[#F8FAFC] text-[#0F172A] border-2 border-[#E2E8F0]"
+              "absolute inset-0 rounded-full border-2 border-dashed",
+              styles.ring,
+              styles.animate ? "animate-spin" : ""
             )}
+            style={styles.animate ? { animationDuration: "7s" } : undefined}
+            aria-hidden="true"
+          />
+          <div
+            className={cn(
+              "absolute inset-[7px] rounded-full border opacity-50",
+              styles.ring,
+              styles.animate ? "animate-pulse" : ""
+            )}
+            aria-hidden="true"
+          />
+          <div
+            className={cn(
+              "relative flex h-14 w-14 items-center justify-center rounded-full border text-[20px] font-medium leading-none",
+              styles.core
+            )}
+            aria-label={currentToken !== null ? `Token ${currentToken}` : "No active token"}
           >
-            <span className="text-[56px] font-bold">
-              {currentToken !== null ? currentToken : "—"}
-            </span>
+            {tokenValue}
           </div>
-
-          {/* Pulsing Green Dot - Only for active */}
-          {hasActiveToken && (
-            <div className="absolute -right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center">
-              <div className="absolute inline-flex h-4 w-4 animate-pulse rounded-full bg-[#22c55e] opacity-75" />
-              <div className="relative inline-flex h-4 w-4 rounded-full bg-[#22c55e]" />
-            </div>
-          )}
+          {styles.animate ? (
+            <div className="absolute inset-[-8px] rounded-full border border-[#22C55E]/20 animate-ping" aria-hidden="true" />
+          ) : null}
         </div>
 
-        {/* Patient & Doctor Info */}
-        {currentToken !== null && (
-          <div className="text-center">
-            {patientName && (
-              <p className="text-[18px] font-bold text-[#0F172A]">{patientName}</p>
-            )}
-            {doctorName && (
-              <p className="mt-2 text-[14px] font-medium text-[#64748B]">
-                Dr. {doctorName}
-              </p>
-            )}
-
-            {/* Status Indicator */}
-            {status && (
-              <div className="mt-4">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold",
-                    status === "CALLING"
-                      ? "bg-[#DCFCE7] text-[#15803D]"
-                      : status === "COMPLETED"
-                        ? "bg-[#FEE2E2] text-[#DC2626]"
-                        : "bg-[#F0FDFA] text-[#0EA5A4]"
-                  )}
-                >
-                  {status === "CALLING" && (
-                    <span className="relative inline-flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-[#22c55e] opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22c55e]" />
-                    </span>
-                  )}
-                  {status === "CALLING"
-                    ? "In Progress"
-                    : status === "COMPLETED"
-                      ? "Completed"
-                      : "Not Started"}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {currentToken === null && (
-          <div className="text-center">
-            <p className="text-[14px] font-medium text-[#64748B]">No active token</p>
-            <p className="mt-1 text-[12px] text-[#94A3B8]">Start processing patients</p>
-          </div>
-        )}
+        <Badge status={styles.badge} className="rounded-full px-3 py-1 text-[12px]">
+          {currentToken !== null ? `Token ${tokenValue}` : "No Active Token"}
+        </Badge>
       </div>
     </div>
   );
+
+  if (compact) {
+    return <div className="min-w-0">{tokenView}</div>;
+  }
+
+  return <div className="ui-card">{tokenView}</div>;
 }
