@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { BellRing, CheckCircle2, ClipboardList, Hourglass, Stethoscope, UserRound } from "lucide-react";
 import type { PatientTokenRecord } from "@/lib/scheduling-types";
 
 interface QueueListProps {
@@ -27,6 +28,12 @@ function getStatusClasses(status: PatientTokenRecord["status"]) {
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
+function getStatusIcon(status: PatientTokenRecord["status"]) {
+  if (status === "CALLING") return BellRing;
+  if (status === "COMPLETED") return CheckCircle2;
+  return Hourglass;
+}
+
 export function QueueList({ tokens }: QueueListProps) {
   return (
     <motion.section
@@ -40,7 +47,10 @@ export function QueueList({ tokens }: QueueListProps) {
 
       <div className="relative flex items-center justify-between">
         <div>
-          <p className="text-[16px] font-medium text-slate-900">Queue List</p>
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-teal-600" />
+            <p className="text-[16px] font-medium text-slate-900">Queue List</p>
+          </div>
           <p className="mt-2 text-[14px] text-slate-500">Upcoming hospital tokens with live queue movement.</p>
         </div>
 
@@ -52,6 +62,7 @@ export function QueueList({ tokens }: QueueListProps) {
       <div className="mt-6 flex flex-col gap-4">
         {tokens.map((token, index) => {
           const isCalling = token.status === "CALLING";
+          const StatusIcon = getStatusIcon(token.status);
 
           return (
             <motion.div
@@ -68,24 +79,39 @@ export function QueueList({ tokens }: QueueListProps) {
               }`}
             >
               <div>
-                <p className={`text-[16px] font-medium ${isCalling ? "text-teal-700" : "text-slate-900"}`}>
-                  {formatTokenNumber(token.tokenNumber)}
-                </p>
+                <div className="inline-flex items-center gap-3">
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                      isCalling ? "bg-teal-500 text-white" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    <ClipboardList className="h-5 w-5" />
+                  </div>
+                  <p className={`text-[16px] font-medium ${isCalling ? "text-teal-700" : "text-slate-900"}`}>
+                    {formatTokenNumber(token.tokenNumber)}
+                  </p>
+                </div>
               </div>
 
               <div className="min-w-0">
-                <p className="truncate text-[14px] text-slate-900">{token.patientName}</p>
+                <div className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 shrink-0 text-slate-400" />
+                  <p className="truncate text-[14px] text-slate-900">{token.patientName}</p>
+                </div>
               </div>
 
               <div className="min-w-0">
-                <p className="truncate text-[14px] text-slate-500">{token.department}</p>
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4 shrink-0 text-slate-400" />
+                  <p className="truncate text-[14px] text-slate-500">{token.department}</p>
+                </div>
               </div>
 
               <div>
                 <span
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[12px] font-medium ${getStatusClasses(token.status)}`}
                 >
-                  {isCalling ? <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" /> : null}
+                  <StatusIcon className={`h-3.5 w-3.5 ${isCalling ? "animate-pulse" : ""}`} />
                   {getStatusLabel(token.status)}
                 </span>
               </div>

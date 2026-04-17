@@ -286,19 +286,19 @@ svg {
   }
 
   .ui-card {
-    @apply rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel;
+    @apply rounded-[10px] border border-[#E2E8F0] bg-[#FFFFFF] p-4 shadow-panel;
   }
 
   .ui-card-muted {
-    @apply rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4;
+    @apply rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] p-4;
   }
 
   .ui-card-interior {
-    @apply rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] p-4;
+    @apply rounded-[10px] border border-[#E2E8F0] bg-[#FFFFFF] p-4;
   }
 
   .ui-card-interior-muted {
-    @apply rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4;
+    @apply rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] p-4;
   }
 
   .ui-card-divider {

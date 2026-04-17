@@ -43,13 +43,13 @@ export function LinearProgressDisplay({
   const tokenView = (
     <div
       className={cn(
-        "rounded-2xl border p-4",
+        "rounded-[10px] border p-4",
         styles.panel,
         compact ? "flex h-[136px] w-[164px] items-center justify-center px-3 py-2" : "w-full"
       )}
     >
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="ui-meta uppercase tracking-[0.08em]">{styles.label}</div>
+        <div className="ui-meta">{styles.label}</div>
 
         <div className="relative flex h-20 w-20 items-center justify-center">
           <div
@@ -71,7 +71,7 @@ export function LinearProgressDisplay({
           />
           <div
             className={cn(
-              "relative flex h-14 w-14 items-center justify-center rounded-full border text-[20px] font-medium leading-none",
+              "relative flex h-14 w-14 items-center justify-center rounded-full border ui-page-title leading-none",
               styles.core
             )}
             aria-label={currentToken !== null ? `Token ${currentToken}` : "No active token"}
@@ -83,7 +83,7 @@ export function LinearProgressDisplay({
           ) : null}
         </div>
 
-        <Badge status={styles.badge} className="rounded-full px-3 py-1 text-[12px]">
+        <Badge status={styles.badge} className="rounded-lg px-3 py-1 ui-meta">
           {currentToken !== null ? `Token ${tokenValue}` : "No Active Token"}
         </Badge>
       </div>

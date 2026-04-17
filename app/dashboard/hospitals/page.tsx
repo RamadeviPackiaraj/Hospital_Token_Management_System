@@ -1,7 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Building2, Check, Mail, MapPin, Pencil, RotateCcw, Search, ShieldCheck, Trash2, WalletCards, X } from "lucide-react";
+import {
+  Building2,
+  Check,
+  CircleCheckBig,
+  ClipboardList,
+  Clock3,
+  Mail,
+  MapPin,
+  Pencil,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  Trash2,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
@@ -329,6 +344,21 @@ export default function HospitalsPage() {
     });
     const subscriptionAmount = subscriptionSummary?.ratePerHospital ?? 500;
     const selectionLimitReached = selectedHospitalIds.length >= remainingSlots;
+    function updateHospitalSelection(hospitalId: string, nextChecked: boolean) {
+      setSelectedHospitalIds((current) => {
+        const alreadySelected = current.includes(hospitalId);
+
+        if (!nextChecked) {
+          return current.filter((id) => id !== hospitalId);
+        }
+
+        if (alreadySelected || current.length >= remainingSlots) {
+          return current;
+        }
+
+        return [...current, hospitalId];
+      });
+    }
 
     return (
       <div className="space-y-6">
@@ -346,7 +376,7 @@ export default function HospitalsPage() {
         />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-4 border-[#DDEAF0] bg-[linear-gradient(180deg,#FFFFFF_0%,#FCFEFF_100%)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <WalletCards className="size-5" />
@@ -358,16 +388,25 @@ export default function HospitalsPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                <p className="ui-meta">Approved</p>
+              <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)] p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="ui-meta">Approved</p>
+                  <CircleCheckBig className="size-4 text-[#22C55E]" />
+                </div>
                 <p className="mt-1 ui-section-title leading-none">{approvedRequests.length}</p>
               </div>
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                <p className="ui-meta">Pending</p>
+              <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#FFFBEA_100%)] p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="ui-meta">Pending</p>
+                  <Clock3 className="size-4 text-[#F59E0B]" />
+                </div>
                 <p className="mt-1 ui-section-title leading-none">{pendingRequests.length}</p>
               </div>
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
-                <p className="ui-meta">Selected</p>
+              <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDFA_100%)] p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="ui-meta">Selected</p>
+                  <Building2 className="size-4 text-[#0EA5A4]" />
+                </div>
                 <p className="mt-1 ui-section-title leading-none">{selectedHospitalIds.length}</p>
               </div>
             </div>
@@ -379,7 +418,7 @@ export default function HospitalsPage() {
                   value={doctorSearch}
                   onChange={(event) => setDoctorSearch(event.target.value)}
                   placeholder="Search hospital by name or email"
-                  className="pl-10"
+                  className="border-[#D7E3EA] bg-white pl-10 shadow-sm"
                 />
               </div>
 
@@ -395,23 +434,41 @@ export default function HospitalsPage() {
                   const disableSelection = !checked && (submittingSelection || selectionLimitReached);
 
                   return (
-                    <label
+                    <div
                       key={hospital.id}
-                      className={`flex cursor-pointer gap-4 rounded-lg border bg-white p-4 transition ${checked ? "border-[#0EA5A4]" : "border-[#E2E8F0] hover:border-[#0EA5A4]/50"} ${disableSelection ? "cursor-not-allowed opacity-70" : ""}`}
+                      role="checkbox"
+                      aria-checked={checked}
+                      aria-disabled={disableSelection}
+                      tabIndex={disableSelection ? -1 : 0}
+                      onClick={() => {
+                        if (disableSelection && !checked) return;
+                        updateHospitalSelection(hospital.id, !checked);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        if (disableSelection && !checked) return;
+                        updateHospitalSelection(hospital.id, !checked);
+                      }}
+                      className={`group relative flex cursor-pointer gap-4 overflow-hidden rounded-lg border bg-white p-4 transition ${checked ? "border-[#0EA5A4] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDFA_100%)] shadow-[0_12px_28px_rgba(14,165,164,0.10)]" : "border-[#E2E8F0] hover:border-[#0EA5A4]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.05)]"} ${disableSelection ? "cursor-not-allowed opacity-70" : ""}`}
                     >
+                      <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 rounded-l-lg ${checked ? "bg-[#0EA5A4]" : "bg-transparent group-hover:bg-[#99F6E4]"}`} />
                       <Checkbox
                         checked={checked}
                         disabled={disableSelection}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={(event) => {
-                          const nextChecked = event.target.checked;
-                          setSelectedHospitalIds((current) =>
-                            nextChecked ? [...current, hospital.id] : current.filter((id) => id !== hospital.id)
-                          );
+                          updateHospitalSelection(hospital.id, event.target.checked);
                         }}
                       />
                       <div className="min-w-0 flex-1 space-y-3">
                         <div className="min-w-0">
-                          <p className="truncate ui-card-title">{hospital.name}</p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
+                              <Building2 className="size-4" />
+                            </div>
+                            <p className="truncate ui-card-title">{hospital.name}</p>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-start gap-2">
@@ -430,7 +487,7 @@ export default function HospitalsPage() {
                           </div>
                         </div>
                       </div>
-                    </label>
+                    </div>
                   );
                 })}
               </div>
@@ -452,9 +509,14 @@ export default function HospitalsPage() {
             </div>
           </Card>
 
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-4 border-[#DDEAF0] bg-[linear-gradient(180deg,#FFFFFF_0%,#FCFEFF_100%)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
             <div className="space-y-1">
-              <h2 className="ui-section-title">Current Requests</h2>
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
+                  <ClipboardList className="size-4" />
+                </div>
+                <h2 className="ui-section-title">Current Requests</h2>
+              </div>
               <p className="ui-body-secondary">View current status.</p>
               <p className="ui-meta">{approvedRequests.length} approved / {pendingRequests.length} pending</p>
             </div>
@@ -462,14 +524,25 @@ export default function HospitalsPage() {
             <div className="space-y-3">
               {requests.map((request) => {
                 const hospital = availableHospitals.find((item) => item.id === request.hospitalId) || null;
+                const isApproved = request.status === "approved";
+                const requestAccentClass = isApproved
+                  ? "bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)]"
+                  : request.status === "pending"
+                    ? "bg-[linear-gradient(135deg,#FFFFFF_0%,#FFFBEA_100%)]"
+                    : "bg-[linear-gradient(135deg,#FFFFFF_0%,#FEF2F2_100%)]";
 
                 return (
-                  <div key={request.id} className="rounded-lg border border-[#E2E8F0] bg-white p-4">
+                  <div key={request.id} className={`rounded-lg border border-[#E2E8F0] ${requestAccentClass} p-4 shadow-sm`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-2">
-                        <p className="truncate ui-section-title">
-                          {hospital?.name || request.hospitalName || "Hospital request"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-[#0EA5A4] shadow-sm">
+                            <Building2 className="size-4" />
+                          </div>
+                          <p className="truncate ui-section-title">
+                            {hospital?.name || request.hospitalName || "Hospital request"}
+                          </p>
+                        </div>
                         <p className="ui-meta">Requested {getRequestDateLabel(request.requestedAt)}</p>
                         <p className="ui-meta">
                           {request.status === "approved" ? "1 slot used" : "Waiting for review"}

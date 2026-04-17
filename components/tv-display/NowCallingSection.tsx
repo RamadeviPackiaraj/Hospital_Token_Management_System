@@ -1,4 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  BellRing,
+  CircleAlert,
+  Clock3,
+  HeartPulse,
+  Microscope,
+  ScanLine,
+  Stethoscope,
+  UserRound,
+} from "lucide-react";
 import type { PatientTokenRecord } from "@/lib/scheduling-types";
 import { useTimer } from "./useTimer";
 
@@ -21,9 +31,20 @@ function getInitials(name: string) {
     .join("");
 }
 
+function getDepartmentIcon(department?: string | null) {
+  const value = department?.toLowerCase() ?? "";
+
+  if (value.includes("cardio")) return HeartPulse;
+  if (value.includes("derma") || value.includes("ent")) return Microscope;
+
+  return Stethoscope;
+}
+
 export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSectionProps) {
   const { formatted } = useTimer(token?.id ?? null, token?.status === "CALLING");
   const isActive = token?.status === "CALLING";
+  const DepartmentIcon = getDepartmentIcon(token?.department);
+  const NextDepartmentIcon = getDepartmentIcon(nextToken?.department);
 
   return (
     <section className="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1.6fr)_minmax(320px,0.7fr)] gap-6">
@@ -41,15 +62,15 @@ export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSe
         <div className="relative flex h-full flex-col justify-between px-10 py-10">
           <div className="flex items-center justify-between">
             <div className="inline-flex items-center gap-3 rounded-full border border-teal-200 bg-teal-50 px-5 py-3">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-70" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-teal-400" />
-              </span>
+              <BellRing className="h-4 w-4 text-teal-600" />
               <span className="text-[16px] font-medium text-teal-700">Now Calling</span>
             </div>
 
             <div className="rounded-full border border-slate-200 bg-white/75 px-4 py-2">
-              <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-slate-500">Smart Display</p>
+              <div className="flex items-center gap-2">
+                <ScanLine className="h-4 w-4 text-slate-500" />
+                <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-slate-500">Smart Display</p>
+              </div>
             </div>
           </div>
 
@@ -72,6 +93,36 @@ export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSe
                     {token ? formatTokenNumber(token.tokenNumber) : "TOKEN #---"}
                   </motion.h1>
 
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    <div className="rounded-[20px] border border-white/80 bg-white/75 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <UserRound className="h-4 w-4 text-teal-600" />
+                        <p className="text-[11px] font-medium uppercase tracking-[0.22em]">Patient</p>
+                      </div>
+                      <p className="mt-3 text-[18px] font-semibold text-slate-900">
+                        {token?.patientName ?? "Waiting"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[20px] border border-white/80 bg-white/75 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <DepartmentIcon className="h-4 w-4 text-cyan-600" />
+                        <p className="text-[11px] font-medium uppercase tracking-[0.22em]">Department</p>
+                      </div>
+                      <p className="mt-3 text-[18px] font-semibold text-slate-900">
+                        {token?.department ?? "Pending"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[20px] border border-white/80 bg-white/75 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <Clock3 className="h-4 w-4 text-emerald-600" />
+                        <p className="text-[11px] font-medium uppercase tracking-[0.22em]">Call Timer</p>
+                      </div>
+                      <p className="mt-3 text-[18px] font-semibold tabular-nums text-slate-900">{formatted}</p>
+                    </div>
+                  </div>
+
                   <div className="mt-10 grid grid-cols-[minmax(0,1fr)_240px] gap-8">
                     <div className="space-y-4">
                       <p className="text-[24px] font-medium text-slate-900">
@@ -86,7 +137,10 @@ export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSe
                     </div>
 
                     <div className="rounded-[24px] border border-white/80 bg-white/72 p-5 backdrop-blur-xl">
-                      <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-slate-500">Up Next</p>
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <NextDepartmentIcon className="h-4 w-4 text-amber-600" />
+                        <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-slate-500">Up Next</p>
+                      </div>
                       <p className="mt-4 text-[24px] font-medium text-teal-700">
                         {nextToken ? `#${String(nextToken.tokenNumber).padStart(3, "0")}` : "--"}
                       </p>
@@ -114,7 +168,10 @@ export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSe
 
         <div className="relative flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-[16px] font-medium text-slate-900">Doctor Panel</p>
+            <div className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-teal-600" />
+              <p className="text-[16px] font-medium text-slate-900">Doctor Panel</p>
+            </div>
             <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/75 px-3 py-2">
               <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-rose-400"}`} />
               <span className="text-[12px] font-medium uppercase tracking-[0.2em] text-slate-600">
@@ -155,7 +212,10 @@ export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSe
           </div>
 
           <div className="mt-auto rounded-[24px] border border-amber-200 bg-amber-50/90 p-5">
-            <p className="text-[12px] font-medium uppercase tracking-[0.24em] text-amber-700">Status</p>
+            <div className="flex items-center gap-2 text-amber-700">
+              <CircleAlert className="h-4 w-4" />
+              <p className="text-[12px] font-medium uppercase tracking-[0.24em]">Status</p>
+            </div>
             <p className="mt-3 text-[14px] text-amber-900">
               {token ? "Patient should proceed to the consultation room when called." : "Waiting for the next live token."}
             </p>

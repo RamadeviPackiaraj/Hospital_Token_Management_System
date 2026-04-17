@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { LayoutList, PencilLine, Save, Trash2, UserRoundCheck } from "lucide-react";
+import {
+  Building2,
+  FolderCog,
+  LayoutList,
+  PencilLine,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+  UserRoundCheck,
+  X,
+} from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Button, Card, Input, Select, Table } from "@/components/ui";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
@@ -487,7 +498,12 @@ export function SettingsDepartmentsContent() {
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
           <label className="grid gap-2 text-sm text-[#0F172A]">
-            Department Name
+            <span className="inline-flex items-center gap-2 font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
+                <Building2 className="size-4" />
+              </span>
+              Department Name
+            </span>
             <Input
               value={departmentName}
               onChange={(event) => setDepartmentName(event.target.value)}
@@ -496,7 +512,13 @@ export function SettingsDepartmentsContent() {
           </label>
 
           <div className="flex items-end">
-            <Button fullWidth className="h-10 rounded-md" onClick={() => void handleAddDepartment()} disabled={!departmentName.trim()}>
+            <Button
+              fullWidth
+              className="h-10 rounded-md"
+              leftIcon={<Plus className="size-4" />}
+              onClick={() => void handleAddDepartment()}
+              disabled={!departmentName.trim()}
+            >
               Add Department
             </Button>
           </div>
@@ -504,6 +526,12 @@ export function SettingsDepartmentsContent() {
       </Card>
 
       <Card className="p-4">
+        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-[#0F172A]">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
+            <FolderCog className="size-4" />
+          </span>
+          Department Directory
+        </div>
         <Table<DepartmentRow>
           columns={[
             {
@@ -513,7 +541,18 @@ export function SettingsDepartmentsContent() {
                 editingId === row.id ? (
                   <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} />
                 ) : (
-                  row.name
+                  <div className="flex items-center gap-3 text-[#0F172A]">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-[#ECFEFF] text-[#0EA5A4] shadow-sm">
+                      <FolderCog className="size-4" />
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{row.name}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#F0FDFA] px-2 py-1 text-xs font-medium text-[#0F766E]">
+                        <Sparkles className="size-3.5" />
+                        Active
+                      </span>
+                    </div>
+                  </div>
                 ),
             },
             {
@@ -523,10 +562,10 @@ export function SettingsDepartmentsContent() {
               render: (row) =>
                 editingId === row.id ? (
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" className="h-10 rounded-lg" leftIcon={<PencilLine className="size-4" />} onClick={() => void handleSaveDepartment(row.id)}>
+                    <Button size="sm" className="h-10 rounded-lg" leftIcon={<Save className="size-4" />} onClick={() => void handleSaveDepartment(row.id)}>
                       Save
                     </Button>
-                    <Button size="sm" variant="secondary" className="h-10 rounded-lg" onClick={() => setEditingId(null)}>
+                    <Button size="sm" variant="secondary" className="h-10 rounded-lg" leftIcon={<X className="size-4" />} onClick={() => setEditingId(null)}>
                       Cancel
                     </Button>
                   </div>
