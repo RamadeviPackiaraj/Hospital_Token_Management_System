@@ -119,6 +119,15 @@ export interface UpdatePatientTokenStatusPayload {
   status: PatientTokenStatus;
 }
 
+export interface UpdatePatientTokenPayload {
+  tokenId: string;
+  patientName: string;
+  dob: string;
+  bloodGroup: string;
+  aadhaar: string;
+  contact: string;
+}
+
 function normalizePatientTokenStatus(status?: string): PatientTokenStatus {
   if (status === "CALLING" || status === "COMPLETED") {
     return status;
@@ -256,4 +265,28 @@ export async function updatePatientTokenStatus(payload: UpdatePatientTokenStatus
   );
 
   return mapToken(data);
+}
+
+export async function updatePatientToken(payload: UpdatePatientTokenPayload) {
+  const data = await apiRequest<BackendPatientTokenRecord>(
+    `/doctor-schedules/tokens/${payload.tokenId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        patientName: payload.patientName,
+        dob: payload.dob,
+        bloodGroup: payload.bloodGroup,
+        aadhaar: payload.aadhaar,
+        contact: payload.contact,
+      }),
+    }
+  );
+
+  return mapToken(data);
+}
+
+export async function deletePatientToken(tokenId: string) {
+  return apiRequest<{ id: string }>(`/doctor-schedules/tokens/${tokenId}`, {
+    method: "DELETE",
+  });
 }

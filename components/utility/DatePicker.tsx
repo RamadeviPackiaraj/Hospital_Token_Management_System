@@ -52,7 +52,7 @@ export function DatePicker({
   }, [value]);
 
   return (
-        <div className="relative">
+    <div className="relative">
       <ReactDatePicker
         selected={selectedDate ?? undefined}
         onChange={(date: Date | null) => {
@@ -69,13 +69,16 @@ export function DatePicker({
         name={name}
         required={required}
         className={cn(
-          "focus-ring w-full rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] py-2 pl-3 pr-11 text-sm text-[#0F172A] placeholder:text-[#64748B] transition hover:border-[#0EA5A4]",
+          "focus-ring min-h-11 w-full rounded-[16px] border border-[#D7E2EE] bg-[#FFFFFF] px-4 py-3 pr-12 text-[15px] text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-[#94A3B8] transition hover:border-[#0EA5A4]",
           className
         )}
         calendarClassName="!border-0"
+        popperClassName="react-datepicker-site-popper"
+        popperPlacement="bottom-start"
+        showPopperArrow={false}
         autoComplete="off"
       />
-      <CalendarDays className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
+      <CalendarDays className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
     </div>
   );
 }

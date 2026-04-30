@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock3, Stethoscope, Ticket, UserRound } from "lucide-react";
+import { CalendarDays, Clock3, Pencil, Stethoscope, Ticket, Trash2, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { CardBody, CardTitle, Label } from "@/components/ui/Typography";
@@ -12,6 +12,8 @@ interface TokenCardProps {
   token: PatientTokenRecord;
   isUpdating?: boolean;
   onStatusChange: (tokenId: string, status: PatientTokenStatus) => void | Promise<void>;
+  onEdit: (tokenId: string) => void | Promise<void>;
+  onDelete: (tokenId: string) => void | Promise<void>;
 }
 
 function getCardStyles(status: PatientTokenStatus) {
@@ -75,8 +77,18 @@ export function TokenCard({
   token,
   isUpdating = false,
   onStatusChange,
+  onEdit,
+  onDelete,
 }: TokenCardProps) {
   const styles = getCardStyles(token.status);
+  const actionButtonClass = cn(
+    "inline-flex h-8 w-8 items-center justify-center rounded-md border bg-white/90 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60",
+    token.status === "COMPLETED"
+      ? "border-[#FCA5A5] text-[#DC2626] hover:bg-[#FEF2F2]"
+      : token.status === "CALLING"
+        ? "border-[#86EFAC] text-[#15803D] hover:bg-[#F0FDF4]"
+        : "border-[#99F6E4] text-[#0EA5A4] hover:bg-[#F0FDFA]"
+  );
 
   return (
     <article className={cn("group relative overflow-hidden rounded-[14px] border shadow-panel transition-transform duration-200 hover:-translate-y-1", styles.card)}>
@@ -95,25 +107,46 @@ export function TokenCard({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <UserRound className={cn("h-4 w-4", styles.icon)} />
-                  <CardTitle className="truncate">{token.patientName}</CardTitle>
+                  <UserRound className={cn("h-3.5 w-3.5", styles.icon)} />
+                  <CardTitle className="truncate text-[15px]">{token.patientName}</CardTitle>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <Stethoscope className={cn("h-4 w-4", styles.icon)} />
-                  <CardBody className="truncate text-[#64748B]">Dr. {token.doctorName}</CardBody>
+                  <Stethoscope className={cn("h-3.5 w-3.5", styles.icon)} />
+                  <CardBody className="truncate text-[13px] text-[#64748B]">Dr. {token.doctorName}</CardBody>
                 </div>
               </div>
-
-              <Badge
-                status={styles.badgeTone}
-                className={cn("shrink-0 rounded-lg border px-3 py-1 ui-meta", styles.badgeClass)}
-              >
-                {getStatusLabel(token.status)}
-              </Badge>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge
+                  status={styles.badgeTone}
+                  className={cn("rounded-lg border px-2.5 py-1 text-[11px] font-semibold", styles.badgeClass)}
+                >
+                  {getStatusLabel(token.status)}
+                </Badge>
+                <button
+                  type="button"
+                  onClick={() => void onEdit(token.id)}
+                  disabled={isUpdating}
+                  aria-label={`Edit token ${token.tokenNumber}`}
+                  title="Edit token"
+                  className={actionButtonClass}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onDelete(token.id)}
+                  disabled={isUpdating}
+                  aria-label={`Delete token ${token.tokenNumber}`}
+                  title="Delete token"
+                  className={actionButtonClass}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
 
-            <div className={cn("inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 ui-meta", styles.departmentClass)}>
-              <Ticket className={cn("h-4 w-4", styles.icon)} />
+            <div className={cn("inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[12px] font-medium", styles.departmentClass)}>
+              <Ticket className={cn("h-3.5 w-3.5", styles.icon)} />
               {token.department}
             </div>
           </div>

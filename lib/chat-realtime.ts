@@ -108,7 +108,12 @@ function createSocket() {
   return io(getSocketBaseUrl(), {
     autoConnect: false,
     reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000,
     transports: ["websocket", "polling"],
+    withCredentials: true,
     auth: token ? { token: `Bearer ${token}` } : undefined,
   });
 }
@@ -131,6 +136,9 @@ export function getChatSocket() {
 export function connectChatSocket() {
   const socket = getChatSocket();
   if (!socket) return null;
+
+  const token = getAuthToken();
+  socket.auth = token ? { token: `Bearer ${token}` } : {};
 
   if (!socket.connected) {
     socket.connect();

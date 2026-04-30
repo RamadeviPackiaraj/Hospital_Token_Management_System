@@ -1,14 +1,17 @@
 "use client";
 
+import * as React from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Card } from "@/components/scheduling/Card";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/utility";
 import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
 import { formatScheduleDate, formatScheduleTime, getScheduleCounts } from "@/lib/scheduling";
 
 interface ScheduleListProps {
   schedules: DoctorScheduleRecord[];
+  pageSize?: number;
   editingScheduleId?: string | null;
   deletingScheduleId?: string | null;
   onEdit?: (schedule: DoctorScheduleRecord) => void;
@@ -17,11 +20,28 @@ interface ScheduleListProps {
 
 export function ScheduleList({
   schedules,
+  pageSize = 5,
   editingScheduleId = null,
   deletingScheduleId = null,
   onEdit,
   onDelete,
 }: ScheduleListProps) {
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.max(1, Math.ceil(schedules.length / pageSize));
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  const paginatedSchedules = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return schedules.slice(startIndex, startIndex + pageSize);
+  }, [currentPage, pageSize, schedules]);
+
+  const startRecord = schedules.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endRecord = Math.min(currentPage * pageSize, schedules.length);
+  const showPagination = schedules.length > pageSize;
+
   return (
     <Card>
       <div className="flex items-center justify-between gap-4">
@@ -54,7 +74,7 @@ export function ScheduleList({
           </div>
         ) : null}
 
-        {schedules.map((schedule) => {
+        {paginatedSchedules.map((schedule) => {
           const counts = getScheduleCounts(schedule);
           const startTime = schedule.startTime ?? schedule.slots[0]?.time ?? "--";
           const endTime =
@@ -123,6 +143,19 @@ export function ScheduleList({
             </div>
           );
         })}
+
+        {showPagination ? (
+          <div className="flex flex-col gap-3 border-t border-[#E2E8F0] pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="ui-body-secondary">
+              Showing {startRecord}-{endRecord} of {schedules.length} records
+            </p>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        ) : null}
       </div>
     </Card>
   );

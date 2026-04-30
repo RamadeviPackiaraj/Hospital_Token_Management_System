@@ -13,6 +13,8 @@ interface TokenListProps {
   departments?: string[];
   updatingTokenId?: string | null;
   onStatusChange: (tokenId: string, status: PatientTokenStatus) => void | Promise<void>;
+  onEdit: (tokenId: string) => void | Promise<void>;
+  onDelete: (tokenId: string) => void | Promise<void>;
 }
 
 export function TokenList({
@@ -20,6 +22,8 @@ export function TokenList({
   departments = [],
   updatingTokenId = null,
   onStatusChange,
+  onEdit,
+  onDelete,
 }: TokenListProps) {
   const [selectedDepartment, setSelectedDepartment] = React.useState("all");
 
@@ -112,6 +116,8 @@ export function TokenList({
                 token={token}
                 isUpdating={updatingTokenId === token.id}
                 onStatusChange={onStatusChange}
+                onEdit={onEdit}
+                onDelete={onDelete}
               />
             ))}
           </div>
