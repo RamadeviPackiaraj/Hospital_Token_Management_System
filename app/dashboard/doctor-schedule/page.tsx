@@ -13,6 +13,7 @@ import {
   ScheduleList,
   SlotPreview,
 } from "@/components/scheduling";
+import { useI18n } from "@/components/i18n";
 import {
   getApprovedDoctorsForHospital,
   getHospitalDepartmentAssignments,
@@ -42,9 +43,11 @@ import {
 
 export default function DoctorSchedulePage() {
   const { currentUser } = useDashboardContext();
+  const { t } = useI18n();
   const [showForm, setShowForm] = React.useState(false);
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
   const [departments, setDepartments] = React.useState<string[]>([]);
+  const [departmentDisplayByValue, setDepartmentDisplayByValue] = React.useState<Record<string, string>>({});
   const [doctorDirectory, setDoctorDirectory] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
   const [approvedDoctors, setApprovedDoctors] = React.useState<ScheduleDoctorDirectoryItem[]>([]);
   const [submitMessage, setSubmitMessage] = React.useState("");
@@ -185,9 +188,21 @@ export default function DoctorSchedulePage() {
             doctor.fullName ||
             scheduledDoctor?.doctorName ||
             "Doctor",
+          displayName:
+            bootstrapDoctor?.displayName ||
+            doctor.fullName ||
+            scheduledDoctor?.displayDoctorName ||
+            scheduledDoctor?.doctorName ||
+            "Doctor",
           department:
             bootstrapDoctor?.department ||
             doctor.department ||
+            scheduledDoctor?.department ||
+            "",
+          displayDepartment:
+            bootstrapDoctor?.displayDepartment ||
+            doctor.department ||
+            scheduledDoctor?.displayDepartment ||
             scheduledDoctor?.department ||
             "",
           email: bootstrapDoctor?.email || doctor.email || "",
@@ -207,7 +222,9 @@ export default function DoctorSchedulePage() {
           id: schedule.doctorId,
           userId: schedule.doctorId,
           name: bootstrapDoctor?.name || schedule.doctorName || "Doctor",
+          displayName: bootstrapDoctor?.displayName || schedule.displayDoctorName || schedule.doctorName || "Doctor",
           department: bootstrapDoctor?.department || schedule.department || "",
+          displayDepartment: bootstrapDoctor?.displayDepartment || schedule.displayDepartment || schedule.department || "",
           email: bootstrapDoctor?.email || "",
           phone: bootstrapDoctor?.phone || "",
           status: "approved",
@@ -260,8 +277,23 @@ export default function DoctorSchedulePage() {
               .filter((department) => department && department.trim())
           )
         );
+        const displayByValue = Object.fromEntries([
+          ...(bootstrap.departments || []).map((department, index) => [
+            department,
+            bootstrap.displayDepartments?.[index] || department,
+          ] as const),
+          ...storedAssignments.map((assignment) => [
+            assignment.department,
+            assignment.displayDepartment || assignment.department,
+          ] as const),
+          ...approvedDirectory.map((doctor) => [
+            doctor.department,
+            doctor.displayDepartment || doctor.department,
+          ] as const),
+        ].filter(([department]) => Boolean(department?.trim())));
 
         setDepartments(assignedDepartments);
+        setDepartmentDisplayByValue(displayByValue);
         setApprovedDoctors(
           approvedDirectory.filter((doctor) => doctor.isApproved && Boolean(doctor.department?.trim()))
         );
@@ -271,6 +303,7 @@ export default function DoctorSchedulePage() {
       .catch((error) => {
         if (!active) return;
         setDepartments([]);
+        setDepartmentDisplayByValue({});
         setApprovedDoctors([]);
         setDoctorDirectory([]);
         setSchedules([]);
@@ -314,8 +347,8 @@ export default function DoctorSchedulePage() {
   if (currentUser.role !== "hospital") {
     return (
       <UiCard className="p-4">
-        <h2 className="ui-section-title">Doctor Schedule</h2>
-        <p className="mt-1 ui-body-secondary">Only hospital users can access doctor schedule management.</p>
+        <h2 className="ui-section-title">{t("schedule.boardTitle")}</h2>
+        <p className="mt-1 ui-body-secondary">{t("dashboard.header.accessRestricted")}</p>
       </UiCard>
     );
   }
@@ -501,15 +534,15 @@ export default function DoctorSchedulePage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        title="Doctor Schedule Board"
-        description="Manage doctor availability with a consistent weekly scheduling workflow."
+        title={t("schedule.boardTitle")}
+        description={t("schedule.boardDescription")}
         icon={<CalendarDays className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=900&q=80"
         imageAlt="Doctor schedule workflow"
         stats={[
-          { label: "Schedules", value: String(schedules.length) },
-          { label: "Slots", value: String(totalSlots) },
-          { label: "Available", value: String(availableSlots) },
+          { label: t("schedule.schedules"), value: String(schedules.length) },
+          { label: t("schedule.slots"), value: String(totalSlots) },
+          { label: t("schedule.available"), value: String(availableSlots) },
         ]}
       />
 
@@ -532,20 +565,20 @@ export default function DoctorSchedulePage() {
             control={control}
             register={register}
             errors={errors}
-            departmentOptions={createSelectOptions(departments)}
+            departmentOptions={createSelectOptions(departments, departmentDisplayByValue)}
             doctorOptions={createDoctorOptions(filteredDoctors)}
             doctorEmptyMessage={
               !selectedDepartment
-                ? "Select a department first"
+                ? t("schedule.selectDepartment")
                 : !filteredDoctors.length
-                  ? "No doctors assigned to this department. Assign doctors in the Departments settings."
+                  ? t("departmentsFeature.noAssignments")
                   : undefined
             }
-            doctorHint={filteredDoctors.length > 0 ? `${filteredDoctors.length} doctor(s) available` : undefined}
+            doctorHint={filteredDoctors.length > 0 ? `${filteredDoctors.length} ${t("schedule.available")}` : undefined}
             submitMessage={submitMessage}
             isSubmitting={isSubmitting}
             minDate={new Date().toISOString().slice(0, 10)}
-            submitLabel={editingScheduleId ? "Update Schedule" : "Save Schedule"}
+            submitLabel={editingScheduleId ? t("schedule.updateSchedule") : t("schedule.saveSchedule")}
             disableDoctorSelection={!selectedDepartment || !hasApprovedDoctors}
             disableSubmit={!canSaveSchedule || isSubmitting}
             onCancel={handleCancelForm}

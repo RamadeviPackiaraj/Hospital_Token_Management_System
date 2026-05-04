@@ -3,6 +3,7 @@
 import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
 import { Plus } from "lucide-react";
 import { Controller } from "react-hook-form";
+import { useI18n } from "@/components/i18n";
 import { Button } from "@/components/ui";
 import { Card } from "@/components/scheduling/Card";
 import { DatePicker } from "@/components/scheduling/DatePicker";
@@ -46,11 +47,13 @@ export function CreateSchedule({
   onCancel,
   onSubmit,
 }: CreateScheduleProps) {
+  const { t } = useI18n();
+
   return (
     <Card className="w-full">
       <div className="flex flex-col gap-2">
-        <h2 className="ui-section-title">Schedule Form</h2>
-        <p className="ui-body-secondary">Select doctor availability and review slots before saving.</p>
+        <h2 className="ui-section-title">{t("schedule.formTitle")}</h2>
+        <p className="ui-body-secondary">{t("schedule.formDescription")}</p>
         {submitMessage ? <p className="ui-meta text-[#0EA5A4]">{submitMessage}</p> : null}
       </div>
 
@@ -60,8 +63,8 @@ export function CreateSchedule({
         <div className="grid gap-4 md:grid-cols-2">
           <Select
             id="department"
-            label="Department"
-            placeholder="Select department"
+            label={t("schedule.department")}
+            placeholder={t("schedule.selectDepartment")}
             options={departmentOptions}
             error={errors.department?.message}
             required
@@ -71,8 +74,8 @@ export function CreateSchedule({
 
           <Select
             id="doctorId"
-            label="Doctor"
-            placeholder="Select doctor"
+            label={t("schedule.doctor")}
+            placeholder={t("schedule.selectDoctor")}
             options={doctorOptions}
             error={errors.doctorId?.message}
             hint={doctorEmptyMessage || doctorHint}
@@ -88,7 +91,7 @@ export function CreateSchedule({
             render={({ field }) => (
               <DatePicker
                 id="date"
-                label="Date"
+                label={t("schedule.date")}
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -101,8 +104,8 @@ export function CreateSchedule({
 
           <Input
             id="consultationTime"
-            label="Consultation Time"
-            placeholder="Enter minutes"
+            label={t("schedule.consultationTime")}
+            placeholder={t("schedule.enterMinutes")}
             error={errors.consultationTime?.message}
             required
             inputMode="numeric"
@@ -115,7 +118,7 @@ export function CreateSchedule({
             render={({ field }) => (
               <TimePicker
                 id="startTime"
-                label="Start Time"
+                label={t("schedule.startTime")}
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -132,7 +135,7 @@ export function CreateSchedule({
             render={({ field }) => (
               <TimePicker
                 id="endTime"
-                label="End Time"
+                label={t("schedule.endTime")}
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -147,7 +150,7 @@ export function CreateSchedule({
         <div className="flex flex-wrap justify-end gap-3">
           {onCancel ? (
             <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
+              {t("common.actions.cancel")}
             </Button>
           ) : null}
           <Button type="submit" loading={isSubmitting} disabled={disableSubmit} leftIcon={<Plus className="size-4" />}>

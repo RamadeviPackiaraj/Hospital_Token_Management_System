@@ -8,6 +8,7 @@ import {
 export interface DepartmentRecord {
   id: string;
   name: string;
+  displayName?: string;
 }
 
 export interface SubscriptionSettings {

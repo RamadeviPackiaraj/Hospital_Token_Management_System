@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Button, Card, Input, Select, Table } from "@/components/ui";
+import { useI18n } from "@/components/i18n";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
 import {
   addDepartment,
@@ -41,6 +42,7 @@ type AssignmentDeleteTarget = {
 
 export function SettingsDepartmentsContent() {
   const { currentUser } = useDashboardContext();
+  const { t } = useI18n();
   const [departmentName, setDepartmentName] = React.useState("");
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editingName, setEditingName] = React.useState("");
@@ -296,22 +298,22 @@ export function SettingsDepartmentsContent() {
     return (
       <div className="space-y-6">
         <PageHero
-          title="Departments"
-          description="Map approved doctors to their own or other departments before doctor schedule allocation."
+          title={t("departmentsFeature.title")}
+          description={t("departmentsFeature.description")}
           icon={<LayoutList className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
           imageAlt="Hospital hallway"
           stats={[
-            { label: "Departments", value: String(departments.length) },
-            { label: "Approved Doctors", value: String(approvedDoctors.length) },
-            { label: "Assigned", value: String(assignments.length) },
+            { label: t("departmentsFeature.title"), value: String(departments.length) },
+            { label: t("departmentsFeature.approvedDoctors"), value: String(approvedDoctors.length) },
+            { label: t("departmentsFeature.assigned"), value: String(assignments.length) },
           ]}
         />
 
         <Card className="p-4">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_160px]">
             <label className="grid gap-2 text-sm text-[#0F172A]">
-              Doctor
+              {t("doctors.doctor")}
               <Select
                 value={doctorId}
                 onChange={(event) => setDoctorId(event.target.value)}
@@ -319,20 +321,20 @@ export function SettingsDepartmentsContent() {
                   label: doctor.fullName,
                   value: doctor.id,
                 }))}
-                placeholder="Select approved doctor"
+                placeholder={t("departmentsFeature.selectApprovedDoctor")}
               />
             </label>
 
             <label className="grid gap-2 text-sm text-[#0F172A]">
-              Department
+              {t("schedule.department")}
               <Select
                 value={selectedDepartment}
                 onChange={(event) => setSelectedDepartment(event.target.value)}
                 options={departments.map((department) => ({
-                  label: department.name,
+                  label: department.displayName || department.name,
                   value: department.name,
                 }))}
-                placeholder="Select department"
+                placeholder={t("departmentsFeature.selectDepartment")}
               />
             </label>
 
@@ -344,7 +346,7 @@ export function SettingsDepartmentsContent() {
                 onClick={() => void handleAssignDepartment()}
                 disabled={!doctorId || !selectedDepartment}
               >
-                Save
+                {t("common.actions.save")}
               </Button>
             </div>
           </div>
@@ -355,7 +357,7 @@ export function SettingsDepartmentsContent() {
             columns={[
               {
                 key: "doctorName",
-                header: "Doctor",
+                header: t("doctors.doctor"),
                 render: (row) => (
                   <div className="flex items-center gap-2 text-[#0F172A]">
                     <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
@@ -367,17 +369,17 @@ export function SettingsDepartmentsContent() {
               },
               {
                 key: "department",
-                header: "Department",
+                header: t("schedule.department"),
                 render: (row) =>
                   editingAssignmentId === row.doctorId ? (
                     <Select
                       value={editingAssignmentDepartment}
                       onChange={(event) => setEditingAssignmentDepartment(event.target.value)}
                       options={departments.map((department) => ({
-                        label: department.name,
+                        label: department.displayName || department.name,
                         value: department.name,
                       }))}
-                      placeholder="Select department"
+                      placeholder={t("departmentsFeature.selectDepartment")}
                     />
                   ) : (
                     <div className="flex items-center gap-2 text-[#0F172A]">
@@ -390,7 +392,7 @@ export function SettingsDepartmentsContent() {
               },
               {
                 key: "actions",
-                header: "Actions",
+                header: t("doctors.actions"),
                 className: "w-[220px]",
                 render: (row) =>
                   editingAssignmentId === row.doctorId ? (
@@ -402,7 +404,7 @@ export function SettingsDepartmentsContent() {
                         onClick={() => void handleSaveAssignmentEdit(row.doctorId)}
                         disabled={!editingAssignmentDepartment.trim()}
                       >
-                        Save
+                        {t("common.actions.save")}
                       </Button>
                       <Button
                         size="sm"
@@ -411,7 +413,7 @@ export function SettingsDepartmentsContent() {
                         leftIcon={<Trash2 className="size-4" />}
                         onClick={handleCancelAssignmentEdit}
                       >
-                        Cancel
+                        {t("common.actions.cancel")}
                       </Button>
                     </div>
                   ) : (
@@ -422,7 +424,7 @@ export function SettingsDepartmentsContent() {
                         onClick={() => handleEditAssignment(row)}
                       >
                         <PencilLine className="size-4" />
-                        Edit
+                        {t("common.actions.edit")}
                       </button>
                       <button
                         type="button"
@@ -436,7 +438,7 @@ export function SettingsDepartmentsContent() {
                         }
                       >
                         <Trash2 className="size-4" />
-                        Remove
+                        {t("common.actions.remove")}
                       </button>
                     </div>
                   ),
@@ -444,20 +446,23 @@ export function SettingsDepartmentsContent() {
             ]}
             data={assignmentRows}
             pageSize={6}
-            emptyMessage="No doctor departments assigned yet."
+            emptyMessage={t("departmentsFeature.noAssignments")}
           />
         </Card>
 
         <ConfirmationDialog
           open={Boolean(assignmentDeleteTarget)}
-          title="Remove Assignment"
+          title={t("departmentsFeature.removeAssignment")}
           description={
             assignmentDeleteTarget
-              ? `Remove ${assignmentDeleteTarget.doctorName} from ${assignmentDeleteTarget.department}?`
-              : "Remove this doctor department assignment?"
+              ? t("departmentsFeature.removeAssignmentDescription", {
+                  doctor: assignmentDeleteTarget.doctorName,
+                  department: assignmentDeleteTarget.department,
+                })
+              : t("departmentsFeature.removeAssignment")
           }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("common.actions.delete")}
+          cancelLabel={t("common.actions.cancel")}
           confirmVariant="danger"
           onConfirm={() => void handleConfirmRemoveAssignment()}
           onCancel={() => setAssignmentDeleteTarget(null)}
@@ -469,11 +474,11 @@ export function SettingsDepartmentsContent() {
   if (currentUser.role !== "admin") {
     return (
       <Card className="p-4">
-        <h2 className="text-base font-medium text-[#0F172A]">Department list</h2>
+        <h2 className="text-base font-medium text-[#0F172A]">{t("departmentsFeature.departmentList")}</h2>
         <div className="mt-4 space-y-3">
           {departments.map((department) => (
             <div key={department.id} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-              <p className="text-sm font-medium text-[#0F172A]">{department.name}</p>
+              <p className="text-sm font-medium text-[#0F172A]">{department.displayName || department.name}</p>
             </div>
           ))}
         </div>
@@ -484,14 +489,14 @@ export function SettingsDepartmentsContent() {
   return (
     <div className="space-y-6">
       <PageHero
-        title="Department Management"
-        description="Manage departments."
+        title={t("departmentsFeature.managementTitle")}
+        description={t("departmentsFeature.managementDescription")}
         icon={<LayoutList className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
         imageAlt="Hospital hallway"
         stats={[
-          { label: "Departments", value: String(departments.length) },
-          { label: "Editable", value: "Yes" },
+          { label: t("departmentsFeature.title"), value: String(departments.length) },
+          { label: t("common.editable"), value: t("common.yes") },
         ]}
       />
 
@@ -502,12 +507,12 @@ export function SettingsDepartmentsContent() {
               <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
                 <Building2 className="size-4" />
               </span>
-              Department Name
+              {t("departmentsFeature.departmentName")}
             </span>
             <Input
               value={departmentName}
               onChange={(event) => setDepartmentName(event.target.value)}
-              placeholder="Enter department name"
+              placeholder={t("departmentsFeature.enterDepartmentName")}
             />
           </label>
 
@@ -519,7 +524,7 @@ export function SettingsDepartmentsContent() {
               onClick={() => void handleAddDepartment()}
               disabled={!departmentName.trim()}
             >
-              Add Department
+              {t("departmentsFeature.addDepartment")}
             </Button>
           </div>
         </div>
@@ -530,13 +535,13 @@ export function SettingsDepartmentsContent() {
           <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
             <FolderCog className="size-4" />
           </span>
-          Department Directory
+          {t("departmentsFeature.directory")}
         </div>
         <Table<DepartmentRow>
           columns={[
             {
               key: "name",
-              header: "Department Name",
+              header: t("departmentsFeature.departmentName"),
               render: (row) =>
                 editingId === row.id ? (
                   <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} />
@@ -546,10 +551,10 @@ export function SettingsDepartmentsContent() {
                       <FolderCog className="size-4" />
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{row.name}</span>
+                      <span className="font-medium">{row.displayName || row.name}</span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#F0FDFA] px-2 py-1 text-xs font-medium text-[#0F766E]">
                         <Sparkles className="size-3.5" />
-                        Active
+                        {t("departmentsFeature.active")}
                       </span>
                     </div>
                   </div>
@@ -557,16 +562,16 @@ export function SettingsDepartmentsContent() {
             },
             {
               key: "actions",
-              header: "Actions",
+              header: t("doctors.actions"),
               className: "w-[220px]",
               render: (row) =>
                 editingId === row.id ? (
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" className="h-10 rounded-lg" leftIcon={<Save className="size-4" />} onClick={() => void handleSaveDepartment(row.id)}>
-                      Save
+                      {t("common.actions.save")}
                     </Button>
                     <Button size="sm" variant="secondary" className="h-10 rounded-lg" leftIcon={<X className="size-4" />} onClick={() => setEditingId(null)}>
-                      Cancel
+                      {t("common.actions.cancel")}
                     </Button>
                   </div>
                 ) : (
@@ -580,7 +585,7 @@ export function SettingsDepartmentsContent() {
                       }}
                     >
                       <PencilLine className="size-4" />
-                      Edit
+                      {t("common.actions.edit")}
                     </button>
                     <button
                       type="button"
@@ -588,7 +593,7 @@ export function SettingsDepartmentsContent() {
                       onClick={() => setDeleteTarget({ id: row.id, name: row.name })}
                     >
                       <Trash2 className="size-4" />
-                      Delete
+                      {t("common.actions.delete")}
                     </button>
                   </div>
                 ),
@@ -596,16 +601,16 @@ export function SettingsDepartmentsContent() {
           ]}
           data={departmentRows}
           pageSize={6}
-          emptyMessage="No departments have been added yet."
+          emptyMessage={t("departmentsFeature.noDepartments")}
         />
       </Card>
 
       <ConfirmationDialog
         open={Boolean(deleteTarget)}
-        title="Delete Department"
-        description="Are you sure you want to delete this department? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t("departmentsFeature.deleteDepartment")}
+        description={t("departmentsFeature.deleteDepartmentDescription")}
+        confirmLabel={t("common.actions.delete")}
+        cancelLabel={t("common.actions.cancel")}
         onConfirm={() => void handleDeleteDepartment()}
         onCancel={() => setDeleteTarget(null)}
       />

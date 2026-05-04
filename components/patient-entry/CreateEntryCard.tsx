@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { SectionTitle, BodySecondary } from "@/components/ui/Typography";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,8 @@ interface CreateEntryCardProps {
 }
 
 export function CreateEntryCard({ active = false, onClick }: CreateEntryCardProps) {
+  const { t } = useI18n();
+
   return (
     <button
       type="button"
@@ -24,8 +27,8 @@ export function CreateEntryCard({ active = false, onClick }: CreateEntryCardProp
           <Plus className="h-5 w-5" />
         </div>
         <div className="min-w-0 text-left">
-          <SectionTitle>+ New Patient Entry</SectionTitle>
-          <BodySecondary className="mt-1">Create a patient token from today&apos;s available schedules.</BodySecondary>
+          <SectionTitle>{t("patientEntry.newEntry")}</SectionTitle>
+          <BodySecondary className="mt-1">{t("patientEntry.newEntryDescription")}</BodySecondary>
         </div>
       </div>
     </button>

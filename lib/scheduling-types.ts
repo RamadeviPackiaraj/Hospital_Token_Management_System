@@ -1,7 +1,9 @@
 export interface DoctorDirectoryItem {
   id: string;
   name: string;
+  displayName?: string;
   department: string;
+  displayDepartment?: string;
   isApproved?: boolean;
 }
 
@@ -14,7 +16,9 @@ export interface DoctorScheduleRecord {
   id: string;
   doctorId: string;
   doctorName: string;
+  displayDoctorName?: string;
   department: string;
+  displayDepartment?: string;
   date: string;
   consultationTime: number;
   startTime?: string;

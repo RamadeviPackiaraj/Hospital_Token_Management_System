@@ -3,6 +3,7 @@
 import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
 import { Search, X } from "lucide-react";
 import { Controller } from "react-hook-form";
+import { useI18n } from "@/components/i18n";
 import { Button } from "@/components/ui";
 import { Card, DatePicker, Input, Select } from "@/components/scheduling";
 import { SectionTitle, BodySecondary, Label } from "@/components/ui/Typography";
@@ -18,6 +19,7 @@ interface PatientEntryFormProps {
   visitDate: string;
   message: string;
   departments: string[];
+  departmentDisplayByValue?: Record<string, string>;
   onSubmit: () => void;
   onCancel: () => void;
 }
@@ -30,15 +32,18 @@ export function PatientEntryForm({
   visitDate,
   message,
   departments,
+  departmentDisplayByValue = {},
   onSubmit,
   onCancel,
 }: PatientEntryFormProps) {
+  const { t } = useI18n();
+
   return (
     <Card className="w-full">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <SectionTitle>Enter Patient Details</SectionTitle>
-          <BodySecondary className="mt-2 text-[14px]">Fill in the patient details to generate the next available token.</BodySecondary>
+          <SectionTitle>{t("patientEntry.formTitle")}</SectionTitle>
+          <BodySecondary className="mt-2 text-[14px]">{t("patientEntry.formDescription")}</BodySecondary>
         </div>
         <Label className="text-[12px] text-[#0EA5A4] font-semibold">{formatScheduleDate(visitDate)}</Label>
       </div>
@@ -51,8 +56,8 @@ export function PatientEntryForm({
         <div className="grid gap-4 md:grid-cols-2">
           <Input
             id="patientName"
-            label="Patient Name"
-            placeholder="Enter patient name"
+            label={t("patientEntry.patientName")}
+            placeholder={t("patientEntry.enterPatientName")}
             error={errors.patientName?.message}
             required
             {...register("patientName")}
@@ -64,7 +69,7 @@ export function PatientEntryForm({
             render={({ field }) => (
               <DatePicker
                 id="dob"
-                label="DOB"
+                label={t("patientEntry.dob")}
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -77,8 +82,8 @@ export function PatientEntryForm({
 
           <Select
             id="bloodGroup"
-            label="Blood Group"
-            placeholder="Select blood group"
+            label={t("patientEntry.bloodGroup")}
+            placeholder={t("patientEntry.selectBloodGroup")}
             options={[...bloodGroupOptions]}
             error={errors.bloodGroup?.message}
             required
@@ -88,8 +93,8 @@ export function PatientEntryForm({
 
           <Input
             id="aadhaar"
-            label="Aadhaar"
-            placeholder="Optional 12-digit Aadhaar"
+            label={t("patientEntry.aadhaar")}
+            placeholder={t("patientEntry.aadhaarPlaceholder")}
             error={errors.aadhaar?.message}
             maxLength={12}
             {...register("aadhaar")}
@@ -97,8 +102,8 @@ export function PatientEntryForm({
 
           <Input
             id="contact"
-            label="Phone or Email"
-            placeholder="Enter phone or email"
+            label={t("patientEntry.contact")}
+            placeholder={t("patientEntry.contactPlaceholder")}
             error={errors.contact?.message}
             required
             {...register("contact")}
@@ -106,9 +111,9 @@ export function PatientEntryForm({
 
           <Select
             id="department"
-            label="Department"
-            placeholder="Select department"
-            options={createSelectOptions(departments)}
+            label={t("schedule.department")}
+            placeholder={t("schedule.selectDepartment")}
+            options={createSelectOptions(departments, departmentDisplayByValue)}
             error={errors.department?.message}
             required
             defaultValue=""
@@ -124,10 +129,10 @@ export function PatientEntryForm({
             leftIcon={<X className="h-4 w-4" />}
             onClick={onCancel}
           >
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button type="submit" loading={isSubmitting} leftIcon={<Search className="h-4 w-4" />}>
-            Generate Token
+            {t("patientEntry.generateToken")}
           </Button>
         </div>
       </form>

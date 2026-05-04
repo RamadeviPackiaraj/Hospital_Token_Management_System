@@ -23,12 +23,15 @@ interface ScheduleBootstrapResponse {
     status: string;
   };
   departments: string[];
+  displayDepartments?: string[];
   doctors: ScheduleDoctorDirectoryItem[];
   consultationTimeOptions: number[];
   doctorAssignments?: Array<{
     doctorId: string;
     doctorName: string;
+    displayDoctorName?: string;
     department: string;
+    displayDepartment?: string;
   }>;
 }
 
@@ -36,7 +39,9 @@ interface BackendScheduleRecord {
   id: string;
   doctorId: string;
   doctorName: string;
+  displayDoctorName?: string;
   department: string;
+  displayDepartment?: string;
   date: string;
   consultationTime: number;
   startTime?: string;
@@ -144,7 +149,9 @@ function mapSchedule(record: BackendScheduleRecord): DoctorScheduleRecord {
     id: record.id,
     doctorId: record.doctorId,
     doctorName: record.doctorName,
+    displayDoctorName: record.displayDoctorName || record.doctorName,
     department: record.department,
+    displayDepartment: record.displayDepartment || record.department,
     date: record.date,
     consultationTime: record.consultationTime,
     startTime: record.startTime,

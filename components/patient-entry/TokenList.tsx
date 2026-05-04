@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CalendarDays, Filter, Ticket } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling";
 import { Select } from "@/components/ui";
 import { SectionTitle, BodySecondary } from "@/components/ui/Typography";
@@ -25,20 +26,31 @@ export function TokenList({
   onEdit,
   onDelete,
 }: TokenListProps) {
+  const { t } = useI18n();
   const [selectedDepartment, setSelectedDepartment] = React.useState("all");
 
   const departmentOptions = React.useMemo(() => {
-    const values = new Set(
-      [...departments, ...tokens.map((token) => token.department)].filter((value) => value?.trim())
-    );
+    const labelsByValue = new Map<string, string>();
+
+    departments.forEach((department) => {
+      if (department?.trim()) {
+        labelsByValue.set(department, department);
+      }
+    });
+
+    tokens.forEach((token) => {
+      if (token.department?.trim()) {
+        labelsByValue.set(token.department, token.displayDepartment || token.department);
+      }
+    });
 
     return [
-      { label: "All Departments", value: "all" },
-      ...Array.from(values)
-        .sort((left, right) => left.localeCompare(right))
-        .map((department) => ({ label: department, value: department })),
+      { label: t("patientEntry.allDepartments"), value: "all" },
+      ...Array.from(labelsByValue.entries())
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([department, label]) => ({ label, value: department })),
     ];
-  }, [departments, tokens]);
+  }, [departments, t, tokens]);
 
   const filteredTokens = React.useMemo(() => {
     if (selectedDepartment === "all") {
@@ -57,9 +69,9 @@ export function TokenList({
               <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#F0FDFA] text-[#0EA5A4]">
                 <Ticket className="h-4 w-4" />
               </div>
-              <SectionTitle>Generated Tokens</SectionTitle>
+              <SectionTitle>{t("patientEntry.generatedTokens")}</SectionTitle>
             </div>
-            <BodySecondary>All patient tokens created during this session.</BodySecondary>
+            <BodySecondary>{t("patientEntry.generatedTokensDescription")}</BodySecondary>
           </div>
 
           <div className="flex flex-col gap-3 rounded-[14px] border border-[#CFEAED] bg-[#FFFFFF] p-4 shadow-panel sm:flex-row sm:items-center sm:justify-end sm:gap-4">
@@ -69,9 +81,15 @@ export function TokenList({
                   <Filter className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-[12px] font-medium leading-4 text-[#0EA5A4]">Department Filter</p>
+                  <p className="text-[12px] font-medium leading-4 text-[#0EA5A4]">{t("patientEntry.departmentFilter")}</p>
                   <BodySecondary className="mt-1">
-                    {selectedDepartment === "all" ? "Showing tokens from every department" : `Showing ${selectedDepartment} tokens`}
+                    {selectedDepartment === "all"
+                      ? t("patientEntry.everyDepartment")
+                      : t("patientEntry.selectedDepartment", {
+                          department:
+                            departmentOptions.find((option) => option.value === selectedDepartment)?.label ||
+                            selectedDepartment,
+                        })}
                   </BodySecondary>
                 </div>
               </div>
@@ -88,7 +106,7 @@ export function TokenList({
               </div>
               <div className="inline-flex min-w-fit items-center gap-2 rounded-[10px] border border-[#CFEAED] bg-[#F0FDFA] px-4 py-2 ui-label text-[#0EA5A4]">
                 <Ticket className="h-4 w-4" />
-                {filteredTokens.length} {filteredTokens.length === 1 ? "token" : "tokens"}
+                {filteredTokens.length} {filteredTokens.length === 1 ? t("patientEntry.token") : t("patientEntry.tokens")}
               </div>
             </div>
           </div>
@@ -101,11 +119,15 @@ export function TokenList({
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[10px] border border-[#CFEAED] bg-[#FFFFFF] text-[#0EA5A4]">
               <CalendarDays className="h-5 w-5" />
             </div>
-            <SectionTitle>No Tokens Found</SectionTitle>
+            <SectionTitle>{t("patientEntry.noTokens")}</SectionTitle>
             <BodySecondary className="mt-2">
               {selectedDepartment === "all"
-                ? "Create a new patient entry to see generated tokens appear here instantly."
-                : `No tokens found for ${selectedDepartment}.`}
+                ? t("patientEntry.createFirst")
+                : t("patientEntry.noTokensForDepartment", {
+                    department:
+                      departmentOptions.find((option) => option.value === selectedDepartment)?.label ||
+                      selectedDepartment,
+                  })}
             </BodySecondary>
           </div>
         ) : (

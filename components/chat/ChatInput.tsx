@@ -13,14 +13,13 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ value, onChange, onSend, disabled = false }: ChatInputProps) {
-  const { language } = useI18n();
-  const copy = chatInputCopy[language];
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-2">
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={disabled ? copy.disabledPlaceholder : copy.placeholder}
+        placeholder={disabled ? t("chat.inputDisabledPlaceholder") : t("chat.inputPlaceholder")}
         disabled={disabled}
         className="min-h-10"
         onKeyDown={(event) => {
@@ -31,15 +30,8 @@ export function ChatInput({ value, onChange, onSend, disabled = false }: ChatInp
         }}
       />
       <Button size="sm" className="h-10 px-4" onClick={onSend} disabled={disabled || !value.trim()} rightIcon={<SendHorizonal className="size-4" />}>
-        {copy.send}
+        {t("chat.sendButton")}
       </Button>
     </div>
   );
 }
-
-const chatInputCopy = {
-  en: { placeholder: "Type a message", disabledPlaceholder: "Chat is available only for approved connections", send: "Send" },
-  hi: { placeholder: "संदेश लिखें", disabledPlaceholder: "चैट केवल स्वीकृत कनेक्शन के लिए उपलब्ध है", send: "भेजें" },
-  ml: { placeholder: "സന്ദേശം ടൈപ്പ് ചെയ്യുക", disabledPlaceholder: "അംഗീകരിച്ച കണക്ഷനുകൾക്കായി മാത്രമേ ചാറ്റ് ലഭ്യമാകൂ", send: "അയയ്ക്കുക" },
-  ta: { placeholder: "செய்தியை தட்டச்சிடுங்கள்", disabledPlaceholder: "ஒப்புதல் பெற்ற இணைப்புகளுக்கு மட்டுமே அரட்டை கிடைக்கும்", send: "அனுப்பு" },
-} as const;

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useI18n } from "@/components/i18n";
 import { Modal } from "@/components/overlay/Modal";
 import { Button } from "@/components/ui/Button";
 import { DatePicker, Input, Select } from "@/components/scheduling";
@@ -24,6 +25,7 @@ export function TokenEditModal({
   onClose,
   onSave,
 }: TokenEditModalProps) {
+  const { t } = useI18n();
   const {
     register,
     handleSubmit,
@@ -62,16 +64,16 @@ export function TokenEditModal({
   return (
     <Modal
       open={open}
-      title="Edit Token"
-      description="Update patient details for this token."
+      title={t("patientEntry.editToken")}
+      description={t("patientEntry.editTokenDescription")}
       onClose={onClose}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button onClick={handleSubmit((values) => void onSave(values))} loading={saving}>
-            Save Changes
+            {t("patientEntry.saveChanges")}
           </Button>
         </>
       }
@@ -79,7 +81,7 @@ export function TokenEditModal({
       <div className="grid gap-4 md:grid-cols-2">
         <Input
           id="edit-patientName"
-          label="Patient Name"
+          label={t("patientEntry.patientName")}
           error={errors.patientName?.message}
           {...register("patientName")}
         />
@@ -90,7 +92,7 @@ export function TokenEditModal({
           render={({ field }) => (
             <DatePicker
               id="edit-dob"
-              label="DOB"
+              label={t("patientEntry.dob")}
               value={field.value}
               onChange={field.onChange}
               onBlur={field.onBlur}
@@ -101,7 +103,7 @@ export function TokenEditModal({
 
         <Select
           id="edit-bloodGroup"
-          label="Blood Group"
+          label={t("patientEntry.bloodGroup")}
           options={[...bloodGroupOptions]}
           error={errors.bloodGroup?.message}
           defaultValue=""
@@ -110,19 +112,19 @@ export function TokenEditModal({
 
         <Input
           id="edit-aadhaar"
-          label="Aadhaar"
+          label={t("patientEntry.aadhaar")}
           error={errors.aadhaar?.message}
           {...register("aadhaar")}
         />
 
         <Input
           id="edit-contact"
-          label="Phone or Email"
+          label={t("patientEntry.contact")}
           error={errors.contact?.message}
           {...register("contact")}
         />
 
-        <Input id="edit-department" label="Department" value={token?.department || ""} readOnly />
+        <Input id="edit-department" label={t("schedule.department")} value={token?.displayDepartment || token?.department || ""} readOnly />
       </div>
     </Modal>
   );

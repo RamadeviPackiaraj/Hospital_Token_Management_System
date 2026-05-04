@@ -33,17 +33,16 @@ export function ChatHeader({
   onClear,
   clearDisabled = false,
 }: ChatHeaderProps) {
-  const { language } = useI18n();
-  const copy = chatHeaderCopy[language];
+  const { t } = useI18n();
   const filters: Array<"all" | "read" | "unread"> = ["all", "read", "unread"];
   const socketLabel =
     socketStatus === "connected"
-      ? copy.live
+      ? t("chat.headerLive")
       : socketStatus === "connecting"
-        ? copy.connecting
+        ? t("chat.headerConnecting")
         : socketStatus === "error"
-          ? copy.connectionIssue
-          : copy.offline;
+          ? t("chat.headerConnectionIssue")
+          : t("chat.headerOffline");
   const socketClasses =
     socketStatus === "connected"
       ? "border-[#99F6E4] bg-[#F0FDFA] text-[#0F766E]"
@@ -61,15 +60,15 @@ export function ChatHeader({
 
         <div className="flex items-center gap-2">
           <div className={`rounded-md border px-3 py-1 ${socketClasses}`}>
-            <span className="text-[12px]">{copy.status}</span>
+            <span className="text-[12px]">{t("chat.headerStatus")}</span>
             <span className="ml-2 text-[14px] font-medium">{socketLabel}</span>
           </div>
           <div className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1">
-            <span className="text-[12px] text-[#64748B]">{copy.unread}</span>
+            <span className="text-[12px] text-[#64748B]">{t("chat.headerUnread")}</span>
             <span className="ml-2 text-[14px] font-medium text-[#0F172A]">{unreadCount}</span>
           </div>
           <div className="rounded-md border border-[#E2E8F0] bg-white px-3 py-1">
-            <span className="text-[12px] text-[#64748B]">{copy.visible}</span>
+            <span className="text-[12px] text-[#64748B]">{t("chat.headerVisible")}</span>
             <span className="ml-2 text-[14px] font-medium text-[#0F172A]">{resultCount}</span>
           </div>
         </div>
@@ -81,7 +80,7 @@ export function ChatHeader({
           <Input
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={copy.searchMessages}
+            placeholder={t("chat.headerSearchMessages")}
             className="min-h-10 pl-10"
           />
         </div>
@@ -97,7 +96,7 @@ export function ChatHeader({
               disabled={clearDisabled}
               leftIcon={<Trash2 className="size-4" />}
             >
-              {copy.clearChat}
+              {t("chat.headerClearChat")}
             </Button>
           ) : null}
           {filters.map((item) => (
@@ -111,7 +110,7 @@ export function ChatHeader({
               }`}
               onClick={() => onFilterChange(item)}
             >
-              {item === "all" ? copy.all : item === "read" ? copy.read : copy.unreadFilter}
+              {item === "all" ? t("chat.headerAll") : item === "read" ? t("chat.headerRead") : t("chat.headerUnreadFilter")}
             </button>
           ))}
         </div>
@@ -119,62 +118,3 @@ export function ChatHeader({
     </div>
   );
 }
-
-const chatHeaderCopy = {
-  en: {
-    status: "Status",
-    unread: "Unread",
-    visible: "Visible",
-    searchMessages: "Search messages",
-    clearChat: "Clear chat",
-    all: "All",
-    read: "Read",
-    unreadFilter: "Unread",
-    live: "Live",
-    connecting: "Connecting",
-    connectionIssue: "Connection issue",
-    offline: "Offline",
-  },
-  hi: {
-    status: "स्थिति",
-    unread: "अपठित",
-    visible: "दिख रहे",
-    searchMessages: "संदेश खोजें",
-    clearChat: "चैट साफ़ करें",
-    all: "सभी",
-    read: "पढ़े गए",
-    unreadFilter: "अपठित",
-    live: "लाइव",
-    connecting: "कनेक्ट हो रहा है",
-    connectionIssue: "कनेक्शन समस्या",
-    offline: "ऑफ़लाइन",
-  },
-  ml: {
-    status: "സ്ഥിതി",
-    unread: "വായിക്കാത്തത്",
-    visible: "കാണുന്നത്",
-    searchMessages: "സന്ദേശങ്ങൾ തിരയുക",
-    clearChat: "ചാറ്റ് മായ്ക്കുക",
-    all: "എല്ലാം",
-    read: "വായിച്ചത്",
-    unreadFilter: "വായിക്കാത്തത്",
-    live: "ലൈവ്",
-    connecting: "കണക്റ്റ് ചെയ്യുന്നു",
-    connectionIssue: "കണക്ഷൻ പ്രശ്നം",
-    offline: "ഓഫ്‌ലൈൻ",
-  },
-  ta: {
-    status: "நிலை",
-    unread: "படிக்காதவை",
-    visible: "தெரியும்",
-    searchMessages: "செய்திகளைத் தேடு",
-    clearChat: "அரட்டையை அழி",
-    all: "அனைத்தும்",
-    read: "படித்தவை",
-    unreadFilter: "படிக்காதவை",
-    live: "நேரலை",
-    connecting: "இணைக்கப்படுகிறது",
-    connectionIssue: "இணைப்பு சிக்கல்",
-    offline: "ஆஃப்லைன்",
-  },
-} as const;

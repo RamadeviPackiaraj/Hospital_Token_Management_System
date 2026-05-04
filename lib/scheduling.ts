@@ -27,13 +27,13 @@ export function todayDateString() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function createSelectOptions(values: readonly string[]) {
-  return values.map((value) => ({ label: value, value }));
+export function createSelectOptions(values: readonly string[], displayByValue: Record<string, string> = {}) {
+  return values.map((value) => ({ label: displayByValue[value] || value, value }));
 }
 
 export function createDoctorOptions(doctors: readonly DoctorDirectoryItem[]) {
   return doctors.map((doctor) => ({
-    label: doctor.name,
+    label: doctor.displayName || doctor.name,
     value: doctor.id,
   }));
 }

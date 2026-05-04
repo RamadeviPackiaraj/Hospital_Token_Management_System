@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Ticket } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { PageHero, useDashboardContext } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Card as UiCard } from "@/components/ui";
 import { BodySecondary, SectionTitle } from "@/components/ui/Typography";
@@ -29,6 +30,7 @@ import {
   updatePatientTokenStatus,
 } from "@/lib/schedule-api";
 import { logger } from "@/lib/logger";
+import { speakTokenAnnouncement } from "@/lib/browser-tts";
 import type { DoctorScheduleRecord, PatientTokenRecord } from "@/lib/scheduling-types";
 import {
   defaultPatientEntryValues,
@@ -38,9 +40,11 @@ import {
 
 export default function PatientEntryPage() {
   const { currentUser } = useDashboardContext();
+  const { t } = useI18n();
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
   const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
   const [departments, setDepartments] = React.useState<string[]>([]);
+  const [departmentDisplayByValue, setDepartmentDisplayByValue] = React.useState<Record<string, string>>({});
   const [showForm, setShowForm] = React.useState(false);
   const [formMessage, setFormMessage] = React.useState("");
   const [updatingTokenId, setUpdatingTokenId] = React.useState<string | null>(null);
@@ -65,8 +69,8 @@ export default function PatientEntryPage() {
   if (currentUser.role !== "hospital") {
     return (
       <UiCard className="p-4">
-        <SectionTitle>Patient Entry</SectionTitle>
-        <BodySecondary className="mt-2">Only hospital users can access patient entry and token generation.</BodySecondary>
+        <SectionTitle>{t("patientEntry.title")}</SectionTitle>
+        <BodySecondary className="mt-2">{t("dashboard.header.accessRestricted")}</BodySecondary>
       </UiCard>
     );
   }
@@ -86,12 +90,21 @@ export default function PatientEntryPage() {
         setSchedules(scheduleRecords);
         setTokens(tokenRecords);
         setDepartments(bootstrap.departments || []);
+        setDepartmentDisplayByValue(
+          Object.fromEntries(
+            (bootstrap.departments || []).map((department, index) => [
+              department,
+              bootstrap.displayDepartments?.[index] || department,
+            ])
+          )
+        );
       })
       .catch((error) => {
         if (!active) return;
         setSchedules([]);
         setTokens([]);
         setDepartments([]);
+        setDepartmentDisplayByValue({});
         setFormMessage(error instanceof Error ? error.message : "Unable to load patient entry data.");
       });
 
@@ -155,6 +168,9 @@ export default function PatientEntryPage() {
       setTokens((current) =>
         current.map((token) => (token.id === updatedToken.id ? updatedToken : token))
       );
+      if (status === "CALLING") {
+        speakTokenAnnouncement({ tokenNumber: updatedToken.tokenNumber });
+      }
       logger.success("Token status updated", {
         source: "patient-entry",
         data: { tokenId, status },
@@ -241,15 +257,15 @@ export default function PatientEntryPage() {
   return (
     <div className="space-y-6">
       <PageHero
-        title="Patient Entry"
-        description="Manage patient token creation"
+        title={t("patientEntry.title")}
+        description={t("patientEntry.description")}
         icon={<Ticket className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=900&q=80"
         imageAlt="Patient registration desk"
         stats={[
-          { label: "Today", value: formatScheduleDate(visitDate) },
-          { label: "Generated", value: String(tokens.length) },
-          { label: "Open Slots", value: String(todayAvailable) },
+          { label: t("patientEntry.today"), value: formatScheduleDate(visitDate) },
+          { label: t("patientEntry.generated"), value: String(tokens.length) },
+          { label: t("patientEntry.openSlots"), value: String(todayAvailable) },
         ]}
         supplementaryContent={
           <LinearProgressDisplay
@@ -277,6 +293,7 @@ export default function PatientEntryPage() {
           visitDate={visitDate}
           message={formMessage}
           departments={departments}
+          departmentDisplayByValue={departmentDisplayByValue}
           onSubmit={handleSubmit(onSubmit)}
           onCancel={() => {
             reset(defaultPatientEntryValues);
@@ -311,10 +328,10 @@ export default function PatientEntryPage() {
 
       <ConfirmationDialog
         open={Boolean(deleteTokenTarget)}
-        title="Delete Token"
+        title={t("common.actions.delete")}
         description={`Are you sure you want to delete this token${deleteTokenTarget ? ` for ${deleteTokenTarget.patientName}` : ""}?`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("common.actions.delete")}
+        cancelLabel={t("common.actions.cancel")}
         confirmVariant="danger"
         onCancel={() => setDeleteTokenTarget(null)}
         onConfirm={() => void handleDeleteToken()}

@@ -57,8 +57,7 @@ export function ChatContainer({
   onClear,
   clearDisabled = false,
 }: ChatContainerProps) {
-  const { language } = useI18n();
-  const copy = chatUiCopy[language];
+  const { t } = useI18n();
 
   return (
     <Card className="p-4">
@@ -86,8 +85,8 @@ export function ChatContainer({
 
         <div className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-[16px] font-medium text-[#0F172A]">{copy.quickActions}</p>
-            <p className="text-[12px] text-[#64748B]">{copy.tapToSend}</p>
+            <p className="text-[16px] font-medium text-[#0F172A]">{t("chat.quickActionsTitle")}</p>
+            <p className="text-[12px] text-[#64748B]">{t("chat.quickActionsTapToSend")}</p>
           </div>
           <QuickMessagePanel messages={quickMessages} onSend={onSendQuick} disabled={disabled} />
           {disabledMessage ? <p className="text-[12px] text-[#64748B]">{disabledMessage}</p> : null}
@@ -99,10 +98,3 @@ export function ChatContainer({
     </Card>
   );
 }
-
-const chatUiCopy = {
-  en: { quickActions: "Quick Actions", tapToSend: "Tap to send instantly" },
-  hi: { quickActions: "त्वरित कार्रवाइयाँ", tapToSend: "तुरंत भेजने के लिए टैप करें" },
-  ml: { quickActions: "വേഗത്തിലുള്ള പ്രവർത്തനങ്ങൾ", tapToSend: "ഉടൻ അയയ്ക്കാൻ ടാപ്പ് ചെയ്യുക" },
-  ta: { quickActions: "விரைவு செயல்கள்", tapToSend: "உடனே அனுப்ப தட்டவும்" },
-} as const;

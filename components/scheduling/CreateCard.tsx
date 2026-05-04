@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { cn } from "@/lib/utils";
 
 interface CreateCardProps {
@@ -9,6 +10,8 @@ interface CreateCardProps {
 }
 
 export function CreateCard({ active = false, onClick }: CreateCardProps) {
+  const { t } = useI18n();
+
   return (
     <button
       type="button"
@@ -23,8 +26,8 @@ export function CreateCard({ active = false, onClick }: CreateCardProps) {
           <Plus className="size-5" />
         </div>
         <div className="flex flex-col gap-1">
-          <p className="ui-card-title">Create New Schedule</p>
-          <p className="ui-card-meta">Set doctor availability and generate slots.</p>
+          <p className="ui-card-title">{t("schedule.createTitle")}</p>
+          <p className="ui-card-meta">{t("schedule.createDescription")}</p>
         </div>
       </div>
     </button>

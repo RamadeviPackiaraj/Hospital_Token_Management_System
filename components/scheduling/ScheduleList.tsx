@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/data-display/Avatar";
+import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling/Card";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/utility";
@@ -26,6 +27,7 @@ export function ScheduleList({
   onEdit,
   onDelete,
 }: ScheduleListProps) {
+  const { t } = useI18n();
   const [currentPage, setCurrentPage] = React.useState(1);
   const totalPages = Math.max(1, Math.ceil(schedules.length / pageSize));
 
@@ -46,11 +48,11 @@ export function ScheduleList({
     <Card>
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h2 className="ui-section-title">Scheduled Doctors</h2>
-          <p className="ui-body-secondary">Card list of saved doctor availability.</p>
+          <h2 className="ui-section-title">{t("schedule.scheduledDoctors")}</h2>
+          <p className="ui-body-secondary">{t("schedule.savedAvailability")}</p>
         </div>
         <div className="ui-card-chip">
-          {schedules.length} records
+          {schedules.length} {t("schedule.records")}
         </div>
       </div>
 
@@ -59,18 +61,18 @@ export function ScheduleList({
       <div className="grid gap-4">
         {schedules.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-            <p className="ui-body-secondary">No schedules added yet.</p>
+            <p className="ui-body-secondary">{t("schedule.noSchedules")}</p>
           </div>
         ) : null}
 
         {schedules.length > 0 ? (
           <div className="hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 md:grid md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(220px,1.1fr)] md:gap-4">
-            <p className="ui-table-header">Doctor</p>
-            <p className="ui-table-header">Date</p>
-            <p className="ui-table-header">Time Range</p>
-            <p className="ui-table-header">Slots</p>
-            <p className="ui-table-header">Available</p>
-            <p className="ui-table-header">Actions</p>
+            <p className="ui-table-header">{t("schedule.doctor")}</p>
+            <p className="ui-table-header">{t("schedule.date")}</p>
+            <p className="ui-table-header">{t("schedule.timeRange")}</p>
+            <p className="ui-table-header">{t("schedule.slots")}</p>
+            <p className="ui-table-header">{t("schedule.available")}</p>
+            <p className="ui-table-header">{t("schedule.actions")}</p>
           </div>
         ) : null}
 
@@ -79,6 +81,8 @@ export function ScheduleList({
           const startTime = schedule.startTime ?? schedule.slots[0]?.time ?? "--";
           const endTime =
             schedule.endTime ?? schedule.slots[schedule.slots.length - 1]?.time ?? "--";
+          const doctorName = schedule.displayDoctorName || schedule.doctorName;
+          const department = schedule.displayDepartment || schedule.department;
 
           return (
             <div
@@ -87,37 +91,37 @@ export function ScheduleList({
             >
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar
-                  name={schedule.doctorName}
+                  name={doctorName}
                   size="sm"
                   className="bg-[#F0FDFA] font-medium text-[#0EA5A4]"
                 />
                 <div className="min-w-0">
-                  <p className="ui-card-title">{schedule.doctorName}</p>
-                  <p className="mt-1 ui-body-secondary">{schedule.department}</p>
+                  <p className="ui-card-title">{doctorName}</p>
+                  <p className="mt-1 ui-body-secondary">{department}</p>
                 </div>
               </div>
               <div>
-                <p className="ui-meta md:hidden">Date</p>
+                <p className="ui-meta md:hidden">{t("schedule.date")}</p>
                 <p className="mt-1 ui-card-body">{formatScheduleDate(schedule.date)}</p>
               </div>
               <div>
-                <p className="ui-meta md:hidden">Time Range</p>
+                <p className="ui-meta md:hidden">{t("schedule.timeRange")}</p>
                 <p className="mt-1 ui-card-body">
                   {formatScheduleTime(startTime)} - {formatScheduleTime(endTime)}
                 </p>
               </div>
               <div>
-                <p className="ui-meta md:hidden">Slots</p>
+                <p className="ui-meta md:hidden">{t("schedule.slots")}</p>
                 <p className="mt-1 ui-card-body">{counts.total}</p>
               </div>
               <div>
-                <p className="ui-meta md:hidden">Available</p>
+                <p className="ui-meta md:hidden">{t("schedule.available")}</p>
                 <div className="mt-1 inline-flex rounded-full bg-[#F0FDFA] px-2.5 py-1 text-xs font-medium text-[#0EA5A4]">
                   {counts.available}
                 </div>
               </div>
               <div className="min-w-0">
-                <p className="ui-meta md:hidden">Actions</p>
+                <p className="ui-meta md:hidden">{t("schedule.actions")}</p>
                 <div className="mt-1 flex items-center gap-2 whitespace-nowrap">
                   <Button
                     size="sm"
@@ -126,7 +130,7 @@ export function ScheduleList({
                     leftIcon={<Pencil className="size-4" />}
                     onClick={() => onEdit?.(schedule)}
                   >
-                    Edit
+                    {t("common.actions.edit")}
                   </Button>
                   <Button
                     size="sm"
@@ -136,7 +140,7 @@ export function ScheduleList({
                     loading={deletingScheduleId === schedule.id}
                     onClick={() => void onDelete?.(schedule)}
                   >
-                    Delete
+                    {t("common.actions.delete")}
                   </Button>
                 </div>
               </div>
@@ -147,7 +151,11 @@ export function ScheduleList({
         {showPagination ? (
           <div className="flex flex-col gap-3 border-t border-[#E2E8F0] pt-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="ui-body-secondary">
-              Showing {startRecord}-{endRecord} of {schedules.length} records
+              {t("schedule.showingRecords", {
+                start: startRecord,
+                end: endRecord,
+                total: schedules.length,
+              })}
             </p>
             <Pagination
               currentPage={currentPage}

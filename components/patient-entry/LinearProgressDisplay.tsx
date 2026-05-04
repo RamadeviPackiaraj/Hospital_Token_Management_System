@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui";
+import { useI18n } from "@/components/i18n";
 import type { PatientTokenStatus } from "@/lib/scheduling-types";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +18,7 @@ function getStatusStyles(status: PatientTokenStatus | null) {
       ring: "border-[#22C55E]",
       core: "border-[#22C55E] bg-[#DCFCE7] text-[#15803D]",
       badge: "success" as const,
-      label: "Now Calling",
+      labelKey: "patientEntry.calling",
       animate: true,
     };
   }
@@ -27,7 +28,7 @@ function getStatusStyles(status: PatientTokenStatus | null) {
     ring: "border-[#CBD5E1]",
     core: "border-[#CBD5E1] bg-[#FFFFFF] text-[#0F172A]",
     badge: "neutral" as const,
-    label: "Waiting",
+    labelKey: "patientEntry.waiting",
     animate: false,
   };
 }
@@ -37,6 +38,7 @@ export function LinearProgressDisplay({
   status,
   compact = false,
 }: LinearProgressDisplayProps) {
+  const { t } = useI18n();
   const styles = getStatusStyles(status);
   const tokenValue = currentToken !== null ? currentToken : "--";
 
@@ -49,7 +51,7 @@ export function LinearProgressDisplay({
       )}
     >
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="ui-meta">{styles.label}</div>
+        <div className="ui-meta">{t(styles.labelKey)}</div>
 
         <div className="relative flex h-20 w-20 items-center justify-center">
           <div
@@ -74,7 +76,7 @@ export function LinearProgressDisplay({
               "relative flex h-14 w-14 items-center justify-center rounded-full border ui-page-title leading-none",
               styles.core
             )}
-            aria-label={currentToken !== null ? `Token ${currentToken}` : "No active token"}
+            aria-label={currentToken !== null ? `${t("patientEntry.token")} ${currentToken}` : t("patientEntry.noActiveToken")}
           >
             {tokenValue}
           </div>
@@ -84,7 +86,7 @@ export function LinearProgressDisplay({
         </div>
 
         <Badge status={styles.badge} className="rounded-lg px-3 py-1 ui-meta">
-          {currentToken !== null ? `Token ${tokenValue}` : "No Active Token"}
+          {currentToken !== null ? `${t("patientEntry.token")} ${tokenValue}` : t("patientEntry.noActiveToken")}
         </Badge>
       </div>
     </div>

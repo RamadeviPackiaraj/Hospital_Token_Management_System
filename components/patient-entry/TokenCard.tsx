@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarDays, Clock3, Pencil, Stethoscope, Ticket, Trash2, UserRound } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { CardBody, CardTitle, Label } from "@/components/ui/Typography";
@@ -67,12 +68,6 @@ function getCardStyles(status: PatientTokenStatus) {
   }
 }
 
-function getStatusLabel(status: PatientTokenStatus) {
-  if (status === "CALLING") return "Calling";
-  if (status === "COMPLETED") return "Completed";
-  return "Pending";
-}
-
 export function TokenCard({
   token,
   isUpdating = false,
@@ -80,7 +75,11 @@ export function TokenCard({
   onEdit,
   onDelete,
 }: TokenCardProps) {
+  const { t } = useI18n();
   const styles = getCardStyles(token.status);
+  const patientName = token.displayPatientName || token.patientName;
+  const doctorName = token.displayDoctorName || token.doctorName;
+  const department = token.displayDepartment || token.department;
   const actionButtonClass = cn(
     "inline-flex h-8 w-8 items-center justify-center rounded-md border bg-white/90 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60",
     token.status === "COMPLETED"
@@ -108,11 +107,11 @@ export function TokenCard({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <UserRound className={cn("h-3.5 w-3.5", styles.icon)} />
-                  <CardTitle className="truncate text-[15px]">{token.patientName}</CardTitle>
+                  <CardTitle className="truncate text-[15px]">{patientName}</CardTitle>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <Stethoscope className={cn("h-3.5 w-3.5", styles.icon)} />
-                  <CardBody className="truncate text-[13px] text-[#64748B]">Dr. {token.doctorName}</CardBody>
+                  <CardBody className="truncate text-[13px] text-[#64748B]">Dr. {doctorName}</CardBody>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -120,7 +119,11 @@ export function TokenCard({
                   status={styles.badgeTone}
                   className={cn("rounded-lg border px-2.5 py-1 text-[11px] font-semibold", styles.badgeClass)}
                 >
-                  {getStatusLabel(token.status)}
+                  {token.status === "CALLING"
+                    ? t("patientEntry.calling")
+                    : token.status === "COMPLETED"
+                      ? t("patientEntry.completed")
+                      : t("patientEntry.pending")}
                 </Badge>
                 <button
                   type="button"
@@ -147,7 +150,7 @@ export function TokenCard({
 
             <div className={cn("inline-flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[12px] font-medium", styles.departmentClass)}>
               <Ticket className={cn("h-3.5 w-3.5", styles.icon)} />
-              {token.department}
+              {department}
             </div>
           </div>
         </div>
@@ -159,7 +162,7 @@ export function TokenCard({
             <div className="flex items-start gap-2">
               <CalendarDays className={cn("mt-0.5 h-4 w-4 shrink-0", styles.icon)} />
               <div className="min-w-0">
-                <Label>Date</Label>
+                <Label>{t("patientEntry.date")}</Label>
                 <CardBody className="mt-1">{formatScheduleDate(token.date)}</CardBody>
               </div>
             </div>
@@ -169,7 +172,7 @@ export function TokenCard({
             <div className="flex items-start gap-2">
               <Clock3 className={cn("mt-0.5 h-4 w-4 shrink-0", styles.icon)} />
               <div className="min-w-0">
-                <Label>Time</Label>
+                <Label>{t("patientEntry.time")}</Label>
                 <CardBody className="mt-1">{formatTimeTo12Hour(token.time)}</CardBody>
               </div>
             </div>
@@ -184,7 +187,7 @@ export function TokenCard({
               loading={isUpdating}
               className={cn("flex-1 rounded-[10px] border", styles.buttonClass)}
             >
-              Call Patient
+              {t("patientEntry.callPatient")}
             </Button>
           ) : null}
 
@@ -197,7 +200,7 @@ export function TokenCard({
                 loading={isUpdating}
                 className={cn("flex-1 rounded-[10px] border border-[#22C55E]")}
               >
-                End Call
+                {t("patientEntry.endCall")}
               </Button>
               <Button
                 size="sm"
@@ -206,7 +209,7 @@ export function TokenCard({
                 loading={isUpdating}
                 className={cn("flex-1 rounded-[10px] border bg-[#FFFFFF]", styles.buttonClass)}
               >
-                Reset
+                {t("patientEntry.reset")}
               </Button>
             </>
           ) : null}
@@ -219,7 +222,7 @@ export function TokenCard({
               loading={isUpdating}
               className={cn("flex-1 rounded-[10px] border bg-[#FFFFFF]", styles.buttonClass)}
             >
-              Reset
+              {t("patientEntry.reset")}
             </Button>
           ) : null}
         </div>

@@ -286,7 +286,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
           subtitle: meta.subtitle,
           user: {
             name: currentUser.fullName,
-            role: formatRoleLabel(currentUser.role)
+            role: t(`dashboard.roles.${currentUser.role}`) || formatRoleLabel(currentUser.role)
           },
           onLogout: signOut
         }}

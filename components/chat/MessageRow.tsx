@@ -22,8 +22,7 @@ export function MessageRow({
   onDelete,
   onSaveEdit,
 }: MessageRowProps) {
-  const { language } = useI18n();
-  const copy = messageRowCopy[language];
+  const { t } = useI18n();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(message.message);
   const isOutgoing = message.sender === currentSender;
@@ -81,7 +80,7 @@ export function MessageRow({
                 }}
                 disabled={!draft.trim()}
               >
-                {copy.save}
+                {t("chat.messageSave")}
               </Button>
             </div>
           ) : (
@@ -99,8 +98,8 @@ export function MessageRow({
                   ? "text-green-500 bg-[#F0FDF4]"
                   : "text-orange-400 bg-[#FFF7ED]"
               )}
-              aria-label={message.isRead ? copy.seen : copy.waiting}
-              title={message.isRead ? copy.seen : copy.waiting}
+              aria-label={message.isRead ? t("chat.messageSeen") : t("chat.messageWaiting")}
+              title={message.isRead ? t("chat.messageSeen") : t("chat.messageWaiting")}
             >
               {message.isRead ? <MailOpen className="size-4" /> : <Mail className="size-4" />}
             </span>
@@ -109,7 +108,7 @@ export function MessageRow({
                 type="button"
                 className="rounded-md p-1 text-[#0EA5A4] transition hover:bg-[#F0FDFA] hover:text-[#0B8B8B]"
                 onClick={() => setIsEditing((current) => !current)}
-                aria-label={copy.edit}
+                aria-label={t("chat.messageEdit")}
               >
                 <Pencil className="size-4" />
               </button>
@@ -118,7 +117,7 @@ export function MessageRow({
               type="button"
               className="rounded-md p-1 text-[#EF4444] transition hover:bg-[#FEF2F2] hover:text-[#DC2626]"
               onClick={() => onDelete(message.id)}
-              aria-label={copy.delete}
+              aria-label={t("chat.messageDelete")}
             >
               <Trash2 className="size-4" />
             </button>
@@ -128,10 +127,3 @@ export function MessageRow({
     </div>
   );
 }
-
-const messageRowCopy = {
-  en: { save: "Save", seen: "Seen by receiver", waiting: "Waiting to be seen", edit: "Edit message", delete: "Delete message" },
-  hi: { save: "सहेजें", seen: "प्राप्तकर्ता ने देख लिया", waiting: "देखे जाने की प्रतीक्षा में", edit: "संदेश संपादित करें", delete: "संदेश हटाएँ" },
-  ml: { save: "സേവ് ചെയ്യുക", seen: "സ്വീകരിക്കുന്നയാൾ കണ്ടു", waiting: "കാണുന്നതിനായി കാത്തിരിക്കുന്നു", edit: "സന്ദേശം തിരുത്തുക", delete: "സന്ദേശം ഇല്ലാതാക്കുക" },
-  ta: { save: "சேமி", seen: "பெறுநர் பார்த்தார்", waiting: "பார்க்க காத்திருக்கிறது", edit: "செய்தியைத் திருத்து", delete: "செய்தியை நீக்கு" },
-} as const;

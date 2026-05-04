@@ -401,10 +401,11 @@ export default function DoctorsPage() {
                   <div className="space-y-1">
                     <p className="ui-card-body">{formatDoctorDetail(row.displayDepartment || row.department)}</p>
                     <p className="ui-card-meta">
-                      Requested{" "}
-                      {row.createdAt
-                        ? formatDisplayDate(row.createdAt).replace(/ \d{2}:\d{2} (AM|PM)$/, "")
-                        : t("common.recent")}
+                      {t("doctors.requestedOn", {
+                        date: row.createdAt
+                          ? formatDisplayDate(row.createdAt).replace(/ \d{2}:\d{2} (AM|PM)$/, "")
+                          : t("common.recent"),
+                      })}
                     </p>
                   </div>
                 ),

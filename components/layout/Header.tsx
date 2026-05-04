@@ -2,6 +2,7 @@
 
 import { LogOut, Menu } from "lucide-react";
 import { Avatar } from "@/components/data-display/Avatar";
+import { useI18n } from "@/components/i18n";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,8 @@ export function Header({
   onLogout,
   className
 }: HeaderProps) {
+  const { t } = useI18n();
+
   return (
     <header className={cn("sticky top-0 z-30 h-14 border-b border-[#0d9488] bg-[#0EA5A4]", className)}>
       <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
@@ -66,7 +69,7 @@ export function Header({
               leftIcon={<LogOut className="size-4" />}
               onClick={onLogout}
             >
-              Logout
+              {t("common.actions.logout")}
             </Button>
           ) : null}
         </div>
