@@ -4,6 +4,7 @@ import * as React from "react";
 import { MessageSquareMore, Stethoscope } from "lucide-react";
 import { ChatContainer } from "@/components/chat";
 import { useDashboardContext } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Badge, Card } from "@/components/ui";
 import { apiRequest, buildQuery } from "@/lib/api";
@@ -26,7 +27,7 @@ import {
 } from "@/lib/chat-realtime";
 import { CHAT_STORAGE_KEY, useChatStore } from "@/lib/chat-store";
 import { getSelectionsForDoctor } from "@/lib/dashboard-data";
-import { QUICK_MESSAGES, type ChatParticipant } from "@/lib/chat";
+import { type ChatParticipant } from "@/lib/chat";
 import type { AuthRole, MockUser } from "@/lib/auth-flow";
 
 type ChatParticipantView = ChatParticipant;
@@ -45,21 +46,11 @@ type HospitalDoctorRequest = {
   status: "pending" | "approved" | "rejected";
 };
 
-function getRoleCopy(role: Exclude<AuthRole, "admin">) {
-  return role === "doctor"
-    ? { empty: "No approved hospital connections are available yet." }
-    : { empty: "No approved doctor connections are available yet." };
-}
-
 function getStatusVariant(status: ChatParticipant["status"]) {
   if (status === "approved") return "success";
   if (status === "pending") return "warning";
   if (status === "rejected") return "error";
   return "neutral";
-}
-
-function formatParticipantSubtitle(participant: ChatParticipant) {
-  return `${participant.role === "doctor" ? "Doctor" : "Hospital"} | ${participant.subtitle}`;
 }
 
 function isApprovedParticipant(participant: ChatParticipant | null) {
@@ -123,6 +114,7 @@ function messageMatchesContext(
 
 export default function DashboardChatPage() {
   const { currentUser } = useDashboardContext();
+  const { language } = useI18n();
   const [participants, setParticipants] = React.useState<ChatParticipantView[]>([]);
   const [selectedParticipantId, setSelectedParticipantId] = React.useState("");
   const [draft, setDraft] = React.useState("");
@@ -140,6 +132,7 @@ export default function DashboardChatPage() {
   const clearConversation = useChatStore((state) => state.clearConversation);
 
   const role: Exclude<AuthRole, "admin"> | null = currentUser.role === "admin" ? null : currentUser.role;
+  const copy = chatCopy[language];
   const selectedParticipant = participants.find((participant) => participant.id === selectedParticipantId) ?? null;
   const selectedContext =
     role && selectedParticipant && isApprovedParticipant(selectedParticipant)
@@ -210,7 +203,7 @@ export default function DashboardChatPage() {
               id: selection.hospitalId,
               name: selection.hospitalName || hospitalNameMap.get(selection.hospitalId) || "Hospital",
               role: "hospital" as const,
-              subtitle: "Approved connection",
+              subtitle: copy.approvedConnection,
               status: "approved" as const,
             }));
 
@@ -227,7 +220,7 @@ export default function DashboardChatPage() {
           id: doctor.id || doctor.userId || doctor.name,
           name: doctor.name,
           role: "doctor" as const,
-          subtitle: doctor.department || "Connected doctor",
+          subtitle: doctor.department || copy.connectedDoctor,
           status: "approved" as const,
         }));
 
@@ -410,8 +403,8 @@ export default function DashboardChatPage() {
   if (!role) {
     return (
       <Card className="p-4">
-        <p className="ui-section-title">Chat Module</p>
-        <p className="mt-2 ui-body-secondary">Chat is available for doctor and hospital dashboards only.</p>
+        <p className="ui-section-title">{copy.moduleTitle}</p>
+        <p className="mt-2 ui-body-secondary">{copy.moduleDescription}</p>
       </Card>
     );
   }
@@ -422,11 +415,11 @@ export default function DashboardChatPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const copy = getRoleCopy(role);
   const isApproved = isApprovedParticipant(selectedParticipant);
   const unreadCount = currentMessages.filter((message) => message.sender !== role && !message.isRead).length;
+  const emptyText = role === "doctor" ? copy.emptyDoctor : copy.emptyHospital;
   const disableReason =
-    !isApproved && selectedParticipant ? "Messaging is enabled only when the connection is approved." : "";
+    !isApproved && selectedParticipant ? copy.approvedOnlyMessage : "";
 
   return (
     <>
@@ -437,7 +430,7 @@ export default function DashboardChatPage() {
               <div className="flex size-8 items-center justify-center rounded-md bg-[#F0FDFA] text-[#0EA5A4]">
                 <MessageSquareMore className="size-4" />
               </div>
-              <p className="text-[16px] font-medium text-[#0F172A]">Contacts</p>
+              <p className="text-[16px] font-medium text-[#0F172A]">{copy.contacts}</p>
             </div>
             <Badge variant="neutral">{participants.length}</Badge>
           </div>
@@ -470,7 +463,7 @@ export default function DashboardChatPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-[16px] font-medium text-[#0F172A]">{participant.name}</p>
-                        <p className="mt-1 text-[12px] text-[#64748B]">{formatParticipantSubtitle(participant)}</p>
+                        <p className="mt-1 text-[12px] text-[#64748B]">{formatParticipantSubtitle(participant, copy)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -482,16 +475,16 @@ export default function DashboardChatPage() {
               );
             })}
 
-            {!participants.length ? <p className="ui-body-secondary">{copy.empty}</p> : null}
+            {!participants.length ? <p className="ui-body-secondary">{emptyText}</p> : null}
           </div>
         </Card>
 
         {selectedParticipant ? (
           <ChatContainer
-            title={`${currentUser.role === "doctor" ? "Doctor" : "Hospital"} Activity Log`}
-            subtitle={`Realtime chat with ${selectedParticipant.name}`}
+            title={currentUser.role === "doctor" ? copy.activityLogDoctor : copy.activityLogHospital}
+            subtitle={copy.realtimeChatWith(selectedParticipant.name)}
             messages={visibleMessages}
-            quickMessages={QUICK_MESSAGES[role]}
+            quickMessages={getQuickMessages(role, copy)}
             currentSender={role}
             draft={draft}
             onDraftChange={setDraft}
@@ -512,17 +505,17 @@ export default function DashboardChatPage() {
           />
         ) : (
           <Card className="flex min-h-[560px] items-center justify-center p-4">
-            <p className="ui-body-secondary">{copy.empty}</p>
+            <p className="ui-body-secondary">{emptyText}</p>
           </Card>
         )}
       </div>
 
       <ConfirmationDialog
         open={Boolean(deleteTargetId)}
-        title="Delete Message"
-        description="This will delete the message in the backend conversation."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={copy.deleteMessage}
+        description={copy.deleteMessageDescription}
+        confirmLabel={copy.delete}
+        cancelLabel={copy.cancel}
         confirmVariant="danger"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTargetId(null)}
@@ -530,10 +523,10 @@ export default function DashboardChatPage() {
 
       <ConfirmationDialog
         open={clearRequested}
-        title="Clear Conversation"
-        description="This will remove all messages in the current doctor-hospital conversation."
-        confirmLabel="Clear chat"
-        cancelLabel="Cancel"
+        title={copy.clearConversation}
+        description={copy.clearConversationDescription}
+        confirmLabel={copy.clearChat}
+        cancelLabel={copy.cancel}
         confirmVariant="danger"
         onConfirm={handleClearConversation}
         onCancel={() => setClearRequested(false)}
@@ -541,3 +534,225 @@ export default function DashboardChatPage() {
     </>
   );
 }
+
+function formatParticipantSubtitle(
+  participant: ChatParticipant,
+  copy: (typeof chatCopy)[keyof typeof chatCopy]
+) {
+  return `${participant.role === "doctor" ? copy.doctorLabel : copy.hospitalLabel} | ${participant.subtitle}`;
+}
+
+function getQuickMessages(
+  role: Exclude<AuthRole, "admin">,
+  copy: (typeof chatCopy)[keyof typeof chatCopy]
+) {
+  return role === "doctor"
+    ? [
+        copy.quick.patientReady,
+        copy.quick.reviewCompleted,
+        copy.quick.prescriptionShared,
+        copy.quick.roomUpdate,
+        copy.quick.testsRequired,
+        copy.quick.patientStable,
+        copy.quick.dischargePlanned,
+        copy.quick.urgentConsult,
+        copy.quick.followUp,
+        copy.quick.billingClearance,
+        copy.quick.callBack,
+      ]
+    : [
+        copy.quick.bedAssigned,
+        copy.quick.needApproval,
+        copy.quick.emergencyCase,
+        copy.quick.scheduleUpdated,
+        copy.quick.delayExpected,
+        copy.quick.patientWaiting,
+        copy.quick.labReportReady,
+        copy.quick.ambulanceArrived,
+        copy.quick.admissionConfirmed,
+        copy.quick.pleaseConfirm,
+      ];
+}
+
+const chatCopy = {
+  en: {
+    emptyDoctor: "No approved hospital connections are available yet.",
+    emptyHospital: "No approved doctor connections are available yet.",
+    doctorLabel: "Doctor",
+    hospitalLabel: "Hospital",
+    approvedConnection: "Approved connection",
+    connectedDoctor: "Connected doctor",
+    moduleTitle: "Chat Module",
+    moduleDescription: "Chat is available for doctor and hospital dashboards only.",
+    approvedOnlyMessage: "Messaging is enabled only when the connection is approved.",
+    contacts: "Contacts",
+    activityLogDoctor: "Doctor Activity Log",
+    activityLogHospital: "Hospital Activity Log",
+    realtimeChatWith: (name: string) => `Realtime chat with ${name}`,
+    deleteMessage: "Delete Message",
+    deleteMessageDescription: "This will delete the message in the backend conversation.",
+    clearConversation: "Clear Conversation",
+    clearConversationDescription: "This will remove all messages in the current doctor-hospital conversation.",
+    clearChat: "Clear chat",
+    delete: "Delete",
+    cancel: "Cancel",
+    quick: {
+      patientReady: "Patient is ready",
+      reviewCompleted: "Review completed",
+      prescriptionShared: "Prescription shared",
+      roomUpdate: "Need room update",
+      testsRequired: "Tests required",
+      patientStable: "Patient stable",
+      dischargePlanned: "Discharge planned",
+      urgentConsult: "Urgent consult needed",
+      followUp: "Follow-up required",
+      billingClearance: "Need billing clearance",
+      callBack: "Please call back",
+      bedAssigned: "Bed assigned",
+      needApproval: "Need approval",
+      emergencyCase: "Emergency case",
+      scheduleUpdated: "Schedule updated",
+      delayExpected: "Delay expected",
+      patientWaiting: "Patient waiting",
+      labReportReady: "Lab report ready",
+      ambulanceArrived: "Ambulance arrived",
+      admissionConfirmed: "Admission confirmed",
+      pleaseConfirm: "Please confirm",
+    },
+  },
+  hi: {
+    emptyDoctor: "अभी कोई स्वीकृत अस्पताल कनेक्शन उपलब्ध नहीं है।",
+    emptyHospital: "अभी कोई स्वीकृत डॉक्टर कनेक्शन उपलब्ध नहीं है।",
+    doctorLabel: "डॉक्टर",
+    hospitalLabel: "अस्पताल",
+    approvedConnection: "स्वीकृत कनेक्शन",
+    connectedDoctor: "कनेक्टेड डॉक्टर",
+    moduleTitle: "चैट मॉड्यूल",
+    moduleDescription: "चैट केवल डॉक्टर और अस्पताल डैशबोर्ड के लिए उपलब्ध है।",
+    approvedOnlyMessage: "मैसेजिंग केवल स्वीकृत कनेक्शन होने पर सक्षम है।",
+    contacts: "संपर्क",
+    activityLogDoctor: "डॉक्टर गतिविधि लॉग",
+    activityLogHospital: "अस्पताल गतिविधि लॉग",
+    realtimeChatWith: (name: string) => `${name} के साथ रीयलटाइम चैट`,
+    deleteMessage: "संदेश हटाएँ",
+    deleteMessageDescription: "यह बैकएंड वार्तालाप में संदेश को हटा देगा।",
+    clearConversation: "वार्तालाप साफ़ करें",
+    clearConversationDescription: "यह वर्तमान डॉक्टर-अस्पताल वार्तालाप के सभी संदेश हटा देगा।",
+    clearChat: "चैट साफ़ करें",
+    delete: "हटाएँ",
+    cancel: "रद्द करें",
+    quick: {
+      patientReady: "रोगी तैयार है",
+      reviewCompleted: "समीक्षा पूरी हुई",
+      prescriptionShared: "प्रिस्क्रिप्शन साझा किया गया",
+      roomUpdate: "कमरे का अपडेट चाहिए",
+      testsRequired: "टेस्ट आवश्यक हैं",
+      patientStable: "रोगी स्थिर है",
+      dischargePlanned: "डिस्चार्ज की योजना है",
+      urgentConsult: "तत्काल परामर्श चाहिए",
+      followUp: "फॉलो-अप आवश्यक है",
+      billingClearance: "बिलिंग क्लीयरेंस चाहिए",
+      callBack: "कृपया वापस कॉल करें",
+      bedAssigned: "बेड आवंटित किया गया",
+      needApproval: "स्वीकृति चाहिए",
+      emergencyCase: "आपातकालीन मामला",
+      scheduleUpdated: "अनुसूची अपडेट की गई",
+      delayExpected: "देरी की संभावना है",
+      patientWaiting: "रोगी प्रतीक्षा कर रहा है",
+      labReportReady: "लैब रिपोर्ट तैयार है",
+      ambulanceArrived: "एम्बुलेंस आ गई",
+      admissionConfirmed: "प्रवेश की पुष्टि हुई",
+      pleaseConfirm: "कृपया पुष्टि करें",
+    },
+  },
+  ml: {
+    emptyDoctor: "അംഗീകരിച്ച ആശുപത്രി കണക്ഷനുകൾ ഇതുവരെ ലഭ്യമല്ല.",
+    emptyHospital: "അംഗീകരിച്ച ഡോക്ടർ കണക്ഷനുകൾ ഇതുവരെ ലഭ്യമല്ല.",
+    doctorLabel: "ഡോക്ടർ",
+    hospitalLabel: "ആശുപത്രി",
+    approvedConnection: "അംഗീകരിച്ച കണക്ഷൻ",
+    connectedDoctor: "കണക്റ്റ് ചെയ്ത ഡോക്ടർ",
+    moduleTitle: "ചാറ്റ് മോഡ്യൂൾ",
+    moduleDescription: "ചാറ്റ് ഡോക്ടർ, ആശുപത്രി ഡാഷ്ബോർഡുകൾക്കായി മാത്രം ലഭ്യമാണ്.",
+    approvedOnlyMessage: "കണക്ഷൻ അംഗീകരിച്ചാൽ മാത്രമേ സന്ദേശയയയ്ക്കൽ ലഭ്യമാകൂ.",
+    contacts: "കോൺടാക്റ്റുകൾ",
+    activityLogDoctor: "ഡോക്ടർ പ്രവർത്തന ലോഗ്",
+    activityLogHospital: "ആശുപത്രി പ്രവർത്തന ലോഗ്",
+    realtimeChatWith: (name: string) => `${name} ഒപ്പമുള്ള റിയൽടൈം ചാറ്റ്`,
+    deleteMessage: "സന്ദേശം ഇല്ലാതാക്കുക",
+    deleteMessageDescription: "ഇത് ബാക്ക്എൻഡ് സംഭാഷണത്തിലെ സന്ദേശം ഇല്ലാതാക്കും.",
+    clearConversation: "സംഭാഷണം മായ്ക്കുക",
+    clearConversationDescription: "ഇത് നിലവിലെ ഡോക്ടർ-ആശുപത്രി സംഭാഷണത്തിലെ എല്ലാ സന്ദേശങ്ങളും നീക്കും.",
+    clearChat: "ചാറ്റ് മായ്ക്കുക",
+    delete: "ഇല്ലാതാക്കുക",
+    cancel: "റദ്ദാക്കുക",
+    quick: {
+      patientReady: "രോഗി തയ്യാറാണ്",
+      reviewCompleted: "പരിശോധന പൂർത്തിയായി",
+      prescriptionShared: "പ്രിസ്ക്രിപ്ഷൻ പങ്കിട്ടു",
+      roomUpdate: "റൂം അപ്ഡേറ്റ് വേണം",
+      testsRequired: "ടെസ്റ്റുകൾ ആവശ്യമാണ്",
+      patientStable: "രോഗി സ്ഥിരതയിലാണ്",
+      dischargePlanned: "ഡിസ്ചാർജ് പ്ലാൻ ചെയ്തു",
+      urgentConsult: "തിടുക്കത്തിലുള്ള നിർദേശം വേണം",
+      followUp: "ഫോളോ-അപ്പ് ആവശ്യമാണ്",
+      billingClearance: "ബില്ലിംഗ് ക്ലിയറൻസ് വേണം",
+      callBack: "ദയവായി തിരിച്ച് വിളിക്കുക",
+      bedAssigned: "കിടക്ക നൽകിയിരിക്കുന്നു",
+      needApproval: "അംഗീകാരം വേണം",
+      emergencyCase: "അത്യാഹിത കേസ്",
+      scheduleUpdated: "ഷെഡ്യൂൾ അപ്ഡേറ്റ് ചെയ്തു",
+      delayExpected: "താമസം പ്രതീക്ഷിക്കുന്നു",
+      patientWaiting: "രോഗി കാത്തിരിക്കുന്നു",
+      labReportReady: "ലാബ് റിപ്പോർട്ട് തയ്യാറാണ്",
+      ambulanceArrived: "ആംബുലൻസ് എത്തി",
+      admissionConfirmed: "അഡ്മിഷൻ സ്ഥിരീകരിച്ചു",
+      pleaseConfirm: "ദയവായി സ്ഥിരീകരിക്കുക",
+    },
+  },
+  ta: {
+    emptyDoctor: "இன்னும் ஒப்புதல் பெற்ற மருத்துவமனை இணைப்புகள் கிடைக்கவில்லை.",
+    emptyHospital: "இன்னும் ஒப்புதல் பெற்ற மருத்துவர் இணைப்புகள் கிடைக்கவில்லை.",
+    doctorLabel: "மருத்துவர்",
+    hospitalLabel: "மருத்துவமனை",
+    approvedConnection: "ஒப்புதல் பெற்ற இணைப்பு",
+    connectedDoctor: "இணைக்கப்பட்ட மருத்துவர்",
+    moduleTitle: "அரட்டை தொகுதி",
+    moduleDescription: "அரட்டை மருத்துவர் மற்றும் மருத்துவமனை டாஷ்போர்ட்களுக்கு மட்டும் கிடைக்கும்.",
+    approvedOnlyMessage: "இணைப்பு ஒப்புதல் பெற்றால் மட்டுமே செய்தி அனுப்ப முடியும்.",
+    contacts: "தொடர்புகள்",
+    activityLogDoctor: "மருத்துவர் செயல்பாட்டு பதிவு",
+    activityLogHospital: "மருத்துவமனை செயல்பாட்டு பதிவு",
+    realtimeChatWith: (name: string) => `${name} உடன் நேரடி அரட்டை`,
+    deleteMessage: "செய்தியை நீக்கு",
+    deleteMessageDescription: "இது பின்தள உரையாடலில் உள்ள செய்தியை நீக்கும்.",
+    clearConversation: "உரையாடலை அழி",
+    clearConversationDescription: "இது தற்போதைய மருத்துவர்-மருத்துவமனை உரையாடலின் அனைத்து செய்திகளையும் நீக்கும்.",
+    clearChat: "அரட்டையை அழி",
+    delete: "நீக்கு",
+    cancel: "ரத்து செய்",
+    quick: {
+      patientReady: "நோயாளர் தயாராக உள்ளார்",
+      reviewCompleted: "சரிபார்ப்பு முடிந்தது",
+      prescriptionShared: "மருந்து சீட்டு பகிரப்பட்டது",
+      roomUpdate: "அறை தகவல் புதுப்பிப்பு தேவை",
+      testsRequired: "சோதனைகள் தேவையுள்ளது",
+      patientStable: "நோயாளர் நிலையாக உள்ளார்",
+      dischargePlanned: "விடுவிப்பு திட்டமிடப்பட்டது",
+      urgentConsult: "அவசர ஆலோசனை தேவை",
+      followUp: "பின்தொடர்பு தேவை",
+      billingClearance: "பில்லிங் அனுமதி தேவை",
+      callBack: "தயவு செய்து மீண்டும் அழைக்கவும்",
+      bedAssigned: "படுக்கை ஒதுக்கப்பட்டது",
+      needApproval: "ஒப்புதல் தேவை",
+      emergencyCase: "அவசர நிலை வழக்கு",
+      scheduleUpdated: "அட்டவணை புதுப்பிக்கப்பட்டது",
+      delayExpected: "தாமதம் ஏற்படும் வாய்ப்பு",
+      patientWaiting: "நோயாளர் காத்திருக்கிறார்",
+      labReportReady: "ஆய்வு அறிக்கை தயாராக உள்ளது",
+      ambulanceArrived: "ஆம்புலன்ஸ் வந்துவிட்டது",
+      admissionConfirmed: "சேர்க்கை உறுதி செய்யப்பட்டது",
+      pleaseConfirm: "தயவு செய்து உறுதிப்படுத்தவும்",
+    },
+  },
+} as const;

@@ -22,9 +22,9 @@ import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Badge, Button, Card, Checkbox, Input, Select, Table } from "@/components/ui";
 import { useDashboardContext, PageHero, AdminUserEditModal } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 import { formatDisplayDate } from "@/lib/utils";
 import {
-  formatApprovalStatus,
   type MockUser,
   type UserApprovalStatus,
 } from "@/lib/auth-flow";
@@ -47,9 +47,11 @@ type HospitalDirectoryItem = {
   id: string;
   userId?: string;
   name: string;
+  displayName?: string;
   email: string;
   phone?: string;
   location?: string;
+  displayLocation?: string;
   status: string;
 };
 
@@ -72,10 +74,6 @@ function splitLocation(location?: string | null) {
   };
 }
 
-function formatRequestStatus(status: HospitalSelection["status"]) {
-  return status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : "Pending";
-}
-
 function requestBadgeVariant(status: HospitalSelection["status"]) {
   return status === "approved" ? "success" : status === "rejected" ? "error" : "warning";
 }
@@ -88,6 +86,7 @@ function getRequestDateLabel(requestedAt: string) {
 export default function HospitalsPage() {
   const searchParams = useSearchParams();
   const { currentUser, refreshSession } = useDashboardContext();
+  const { t } = useI18n();
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [users, setUsers] = React.useState<MockUser[]>([]);
@@ -162,7 +161,7 @@ export default function HospitalsPage() {
     .filter((user) => user.role === "hospital")
     .filter((user) => {
       const matchesSearch =
-        (user.hospitalName || user.fullName).toLowerCase().includes(search.toLowerCase()) ||
+        (user.displayHospitalName || user.hospitalName || user.fullName).toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === "all" || user.approvalStatus === statusFilter;
 
@@ -179,7 +178,9 @@ export default function HospitalsPage() {
       const updated = await getAdminHospitals();
       setUsers(updated);
       await refreshSession();
-      logger.success(status === "approved" ? "Hospital approved." : "Hospital rejected.", {
+      logger.success(
+        status === "approved" ? `${t("hospitals.hospital")} ${t("common.statuses.approved").toLowerCase()}.` : `${t("hospitals.hospital")} ${t("common.statuses.rejected").toLowerCase()}.`,
+        {
         source: "hospitals.admin",
         data: { userId, status },
         toast: true,
@@ -294,9 +295,9 @@ export default function HospitalsPage() {
   }
 
   function getRevertLabel(status: HospitalSelection["status"]) {
-    if (status === "pending") return "Cancel Request";
-    if (status === "approved") return "Remove Selection";
-    return "Clear Rejection";
+    if (status === "pending") return t("hospitals.cancelRequest");
+    if (status === "approved") return t("hospitals.removeSelection");
+    return t("hospitals.clearRejection");
   }
 
   async function handleRemoveSelection(hospitalId: string) {
@@ -337,7 +338,7 @@ export default function HospitalsPage() {
     const filteredHospitals = availableHospitals.filter((hospital) => {
       const term = doctorSearch.toLowerCase();
       const matchesSearch =
-        hospital.name.toLowerCase().includes(term) || hospital.email.toLowerCase().includes(term);
+        (hospital.displayName || hospital.name).toLowerCase().includes(term) || hospital.email.toLowerCase().includes(term);
       const notAlreadyRequested = !requestsByHospitalId.has(hospital.id);
 
       return matchesSearch && notAlreadyRequested;
@@ -363,17 +364,17 @@ export default function HospitalsPage() {
     return (
       <div className="space-y-6">
         <PageHero
-          title="Hospital Selection"
-          description="Choose within your plan."
+        title={t("hospitals.doctorTitle")}
+        description={t("hospitals.doctorDescription")}
           icon={<Building2 className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=900&q=80"
-          imageAlt="Hospital building exterior"
-          stats={[
-            { label: "Plan", value: `Rs ${subscriptionAmount}` },
-            { label: "Limit", value: `${hospitalLimit} Hospitals` },
-            { label: "Remaining", value: String(remainingSlots) },
-          ]}
-        />
+        imageAlt={t("hospitals.doctorImageAlt")}
+        stats={[
+          { label: t("subscriptions.plan"), value: `Rs ${subscriptionAmount}` },
+          { label: t("subscriptions.hospitalLimit"), value: `${hospitalLimit} ${t("hospitals.hospitals")}` },
+          { label: t("common.remaining"), value: String(remainingSlots) },
+        ]}
+      />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="space-y-4 border-[#DDEAF0] bg-[linear-gradient(180deg,#FFFFFF_0%,#FCFEFF_100%)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
@@ -382,29 +383,29 @@ export default function HospitalsPage() {
                 <WalletCards className="size-5" />
               </div>
               <div className="space-y-1">
-                <h2 className="ui-section-title">Choose Hospitals</h2>
-                <p className="ui-body-secondary">Rs 500 gives 1 hospital slot.</p>
+                <h2 className="ui-section-title">{t("hospitals.chooseHospitals")}</h2>
+                <p className="ui-body-secondary">{t("hospitals.planRule")}</p>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)] p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="ui-meta">Approved</p>
+                  <p className="ui-meta">{t("hospitals.approvedCount")}</p>
                   <CircleCheckBig className="size-4 text-[#22C55E]" />
                 </div>
                 <p className="mt-1 ui-section-title leading-none">{approvedRequests.length}</p>
               </div>
               <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#FFFBEA_100%)] p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="ui-meta">Pending</p>
+                  <p className="ui-meta">{t("hospitals.pendingCount")}</p>
                   <Clock3 className="size-4 text-[#F59E0B]" />
                 </div>
                 <p className="mt-1 ui-section-title leading-none">{pendingRequests.length}</p>
               </div>
               <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDFA_100%)] p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="ui-meta">Selected</p>
+                  <p className="ui-meta">{t("hospitals.selectedCount")}</p>
                   <Building2 className="size-4 text-[#0EA5A4]" />
                 </div>
                 <p className="mt-1 ui-section-title leading-none">{selectedHospitalIds.length}</p>
@@ -417,19 +418,19 @@ export default function HospitalsPage() {
                 <Input
                   value={doctorSearch}
                   onChange={(event) => setDoctorSearch(event.target.value)}
-                  placeholder="Search hospital by name or email"
+                  placeholder={t("hospitals.searchDoctorHospital")}
                   className="border-[#D7E3EA] bg-white pl-10 shadow-sm"
                 />
               </div>
 
               {doctorError ? <p className="ui-body text-[#EF4444]">{doctorError}</p> : null}
               {!doctorError && remainingSlots === 0 ? (
-                <p className="ui-body-secondary">You have used all hospital slots in this plan.</p>
+                <p className="ui-body-secondary">{t("hospitals.allSlotsUsed")}</p>
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
                 {filteredHospitals.map((hospital) => {
-                  const location = splitLocation(hospital.location);
+                  const location = splitLocation(hospital.displayLocation || hospital.location);
                   const checked = selectedHospitalIds.includes(hospital.id);
                   const disableSelection = !checked && (submittingSelection || selectionLimitReached);
 
@@ -467,7 +468,7 @@ export default function HospitalsPage() {
                             <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
                               <Building2 className="size-4" />
                             </div>
-                            <p className="truncate ui-card-title">{hospital.name}</p>
+                            <p className="truncate ui-card-title">{hospital.displayName || hospital.name}</p>
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -478,12 +479,12 @@ export default function HospitalsPage() {
                           <div className="flex items-start gap-2">
                             <MapPin className="mt-0.5 size-4 shrink-0 text-[#64748B]" />
                             <p className="ui-body-secondary">
-                              {[location.city, location.state].filter(Boolean).join(", ") || "Location unavailable"}
+                              {[location.city, location.state].filter(Boolean).join(", ") || t("hospitals.locationUnavailable")}
                             </p>
                           </div>
                           <div className="flex items-start gap-2">
                             <WalletCards className="mt-0.5 size-4 shrink-0 text-[#64748B]" />
-                            <p className="ui-body-secondary">Uses 1 hospital slot</p>
+                            <p className="ui-body-secondary">{t("hospitals.usesOneSlot")}</p>
                           </div>
                         </div>
                       </div>
@@ -494,7 +495,7 @@ export default function HospitalsPage() {
 
               {!loadingDoctorView && filteredHospitals.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                  <p className="ui-body-secondary">No approved hospitals matched your search.</p>
+                  <p className="ui-body-secondary">{t("hospitals.noApprovedHospitals")}</p>
                 </div>
               ) : null}
 
@@ -504,7 +505,7 @@ export default function HospitalsPage() {
                 loading={submittingSelection}
                 disabled={selectedHospitalIds.length === 0 || remainingSlots === 0}
               >
-                Submit Selection
+                {t("hospitals.submitSelection")}
               </Button>
             </div>
           </Card>
@@ -515,10 +516,10 @@ export default function HospitalsPage() {
                 <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
                   <ClipboardList className="size-4" />
                 </div>
-                <h2 className="ui-section-title">Current Requests</h2>
+                <h2 className="ui-section-title">{t("hospitals.currentRequests")}</h2>
               </div>
-              <p className="ui-body-secondary">View current status.</p>
-              <p className="ui-meta">{approvedRequests.length} approved / {pendingRequests.length} pending</p>
+              <p className="ui-body-secondary">{t("hospitals.currentStatus")}</p>
+              <p className="ui-meta">{t("hospitals.approvedPendingSummary", { approved: approvedRequests.length, pending: pendingRequests.length })}</p>
             </div>
 
             <div className="space-y-3">
@@ -540,17 +541,21 @@ export default function HospitalsPage() {
                             <Building2 className="size-4" />
                           </div>
                           <p className="truncate ui-section-title">
-                            {hospital?.name || request.hospitalName || "Hospital request"}
+                            {hospital?.displayName || hospital?.name || request.hospitalName || t("hospitals.hospitalRequest")}
                           </p>
                         </div>
-                        <p className="ui-meta">Requested {getRequestDateLabel(request.requestedAt)}</p>
+                        <p className="ui-meta">{t("hospitals.requestedOn", { date: getRequestDateLabel(request.requestedAt) })}</p>
                         <p className="ui-meta">
-                          {request.status === "approved" ? "1 slot used" : "Waiting for review"}
+                          {request.status === "approved" ? t("hospitals.slotUsed") : t("hospitals.waitingReview")}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge status={requestBadgeVariant(request.status)}>
-                          {formatRequestStatus(request.status)}
+                          {request.status === "approved"
+                            ? t("common.statuses.approved")
+                            : request.status === "rejected"
+                              ? t("common.statuses.rejected")
+                              : t("common.statuses.pending")}
                         </Badge>
                         <button
                           type="button"
@@ -570,7 +575,7 @@ export default function HospitalsPage() {
 
               {!loadingDoctorView && requests.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                  <p className="ui-body-secondary">No hospital requests submitted yet.</p>
+                  <p className="ui-body-secondary">{t("hospitals.noRequests")}</p>
                 </div>
               ) : null}
             </div>
@@ -583,8 +588,8 @@ export default function HospitalsPage() {
   if (currentUser.role !== "admin") {
     return (
       <Card className="p-4">
-        <h2 className="text-base font-medium text-[#0F172A]">Hospital module</h2>
-        <p className="mt-1 text-sm text-[#64748B]">Admin can review hospital registrations here.</p>
+        <h2 className="text-base font-medium text-[#0F172A]">{t("hospitals.fallbackModuleTitle")}</h2>
+        <p className="mt-1 text-sm text-[#64748B]">{t("hospitals.fallbackModuleDescription")}</p>
       </Card>
     );
   }
@@ -592,43 +597,43 @@ export default function HospitalsPage() {
   return (
     <div className="space-y-6">
       <PageHero
-        title="Hospital Approval Workflow"
-        description="Approve hospital registrations"
+        title={t("hospitals.adminTitle")}
+        description={t("hospitals.adminDescription")}
         icon={<ShieldCheck className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Hospital administration desk"
+        imageAlt={t("hospitals.adminImageAlt")}
         stats={[
-          { label: "Pending", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "pending").length) },
-          { label: "Approved", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "approved").length) },
-          { label: "Rejected", value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "rejected").length) },
+          { label: t("common.statuses.pending"), value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "pending").length) },
+          { label: t("common.statuses.approved"), value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "approved").length) },
+          { label: t("common.statuses.rejected"), value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "rejected").length) },
         ]}
       />
 
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-2 text-sm text-[#0F172A]">
-            Search
+            {t("common.actions.search")}
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by hospital name or email"
+                placeholder={t("hospitals.searchHospitalEmail")}
                 className="pl-10"
               />
             </div>
           </label>
 
           <label className="grid gap-2 text-sm text-[#0F172A]">
-            Status
+            {t("common.actions.status")}
             <Select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               options={[
-                { label: "All Statuses", value: "all" },
-                { label: "Pending", value: "pending" },
-                { label: "Approved", value: "approved" },
-                { label: "Rejected", value: "rejected" },
+                { label: t("common.statuses.allStatuses"), value: "all" },
+                { label: t("common.statuses.pending"), value: "pending" },
+                { label: t("common.statuses.approved"), value: "approved" },
+                { label: t("common.statuses.rejected"), value: "rejected" },
               ]}
             />
           </label>
@@ -640,51 +645,55 @@ export default function HospitalsPage() {
           columns={[
             {
               key: "profile",
-              header: "Profile",
+              header: t("hospitals.profile"),
               render: (row) => (
                 <div className="flex items-center gap-3">
-                  <Avatar name={row.hospitalName || row.fullName} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
+                  <Avatar name={row.displayHospitalName || row.hospitalName || row.fullName} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
                   <div>
-                    <p className="ui-section-title">{row.hospitalName || row.fullName}</p>
+                    <p className="ui-section-title">{row.displayHospitalName || row.hospitalName || row.fullName}</p>
                     <p className="mt-1 ui-meta">{row.email}</p>
-                    <p className="mt-1 ui-meta">Hospital account</p>
+                    <p className="mt-1 ui-meta">{t("hospitals.hospitalAccount")}</p>
                   </div>
                 </div>
               ),
             },
             {
               key: "details",
-              header: "Details",
+              header: t("hospitals.details"),
               render: (row) => (
                 <div className="space-y-1">
                   <p className="ui-body">{row.mobileNumber}</p>
-                  <p className="ui-meta">{row.city}, {row.state}</p>
-                  <p className="ui-meta">{row.country}</p>
+                  <p className="ui-meta">{row.displayCity || row.city}, {row.displayState || row.state}</p>
+                  <p className="ui-meta">{row.displayCountry || row.country}</p>
                 </div>
               ),
             },
             {
               key: "registrationDate",
-              header: "Registered",
+              header: t("hospitals.registered"),
               render: (row) => (
                 <div className="space-y-1">
                   <p className="ui-body">{formatDisplayDate(row.registrationDate || "")}</p>
-                  <p className="ui-meta">Recent request</p>
+                  <p className="ui-meta">{t("common.requestedRecently")}</p>
                 </div>
               ),
             },
             {
               key: "approvalStatus",
-              header: "Status",
+              header: t("common.actions.status"),
               render: (row) => (
                 <Badge status={badgeVariant(row.approvalStatus)} className="font-medium">
-                  {formatApprovalStatus(row.approvalStatus)}
+                  {row.approvalStatus === "approved"
+                    ? t("common.statuses.approved")
+                    : row.approvalStatus === "rejected"
+                      ? t("common.statuses.rejected")
+                      : t("common.statuses.pending")}
                 </Badge>
               ),
             },
             {
               key: "actions",
-              header: "Actions",
+              header: t("hospitals.actions"),
               className: "min-w-[220px]",
               render: (row) => (
                 <div className="flex items-center justify-start gap-2 whitespace-nowrap">
@@ -694,7 +703,7 @@ export default function HospitalsPage() {
                     onClick={() => void updateStatus(row.id, "approved")}
                   >
                     <Check className="size-4" />
-                    Approve
+                    {t("common.actions.approve")}
                   </button>
                   <button
                     type="button"
@@ -702,14 +711,14 @@ export default function HospitalsPage() {
                     onClick={() => setRejectTarget(row)}
                   >
                     <X className="size-4" />
-                    Reject
+                    {t("common.actions.reject")}
                   </button>
                   <button
                     type="button"
                     className="ui-icon-button text-[#0EA5A4] hover:text-[#0EA5A4]"
                     onClick={() => setEditTarget(row)}
-                    aria-label={`Edit ${row.hospitalName || row.fullName}`}
-                    title="Edit hospital"
+                    aria-label={`Edit ${row.displayHospitalName || row.hospitalName || row.fullName}`}
+                    title={t("hospitals.editHospital")}
                   >
                     <Pencil className="size-4" />
                   </button>
@@ -717,8 +726,8 @@ export default function HospitalsPage() {
                     type="button"
                     className="ui-icon-button text-[#EF4444] hover:text-[#EF4444] hover:border-[#EF4444]"
                     onClick={() => setDeleteTarget(row)}
-                    aria-label={`Delete ${row.hospitalName || row.fullName}`}
-                    title="Delete hospital"
+                    aria-label={`Delete ${row.displayHospitalName || row.hospitalName || row.fullName}`}
+                    title={t("hospitals.deleteHospital")}
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -728,16 +737,16 @@ export default function HospitalsPage() {
           ]}
           data={hospitalRows}
           pageSize={6}
-          emptyMessage="No hospitals matched the selected filters."
+          emptyMessage={t("hospitals.noHospitalsFiltered")}
         />
       </Card>
 
       <ConfirmationDialog
         open={Boolean(rejectTarget)}
-        title="Reject Hospital"
-        description="Are you sure you want to reject this hospital?"
-        confirmLabel="Confirm Reject"
-        cancelLabel="Cancel"
+        title={t("hospitals.rejectDialogTitle")}
+        description={t("hospitals.rejectDialogDescription")}
+        confirmLabel={t("hospitals.confirmReject")}
+        cancelLabel={t("common.actions.cancel")}
         confirmVariant="danger"
         onConfirm={confirmRejectHospital}
         onCancel={() => setRejectTarget(null)}
@@ -751,10 +760,10 @@ export default function HospitalsPage() {
       />
       <ConfirmationDialog
         open={Boolean(deleteTarget)}
-        title="Delete Hospital"
-        description="This frontend-only delete removes the hospital from the admin table using mock data."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t("hospitals.deleteDialogTitle")}
+        description={t("hospitals.deleteDialogDescription")}
+        confirmLabel={t("common.actions.delete")}
+        cancelLabel={t("common.actions.cancel")}
         confirmVariant="danger"
         onConfirm={handleDeleteHospital}
         onCancel={() => setDeleteTarget(null)}

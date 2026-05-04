@@ -18,9 +18,9 @@ export function LanguageSettingsPanel() {
   }
 
   return (
-    <Card className="p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-4">
+    <Card className="h-full p-4">
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex min-w-0 items-center gap-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
             <Languages className="size-5" />
           </div>
@@ -30,7 +30,7 @@ export function LanguageSettingsPanel() {
           </div>
         </div>
 
-        <div className="w-full sm:w-64">
+        <div className="mt-auto">
           <label className="mb-2 block text-sm font-medium text-[#0F172A]" htmlFor="app-language">
             {t("settings.languageLabel")}
           </label>

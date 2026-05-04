@@ -103,6 +103,13 @@ function pageMeta(pathname: string, role: MockUser["role"], t: (key: string) => 
     };
   }
 
+  if (pathname === "/dashboard/settings/language") {
+    return {
+      title: t("settings.languageTitle"),
+      subtitle: t("settings.languageDescription")
+    };
+  }
+
   if (pathname === "/dashboard/settings") {
     return {
       title: t("dashboard.meta.settings"),

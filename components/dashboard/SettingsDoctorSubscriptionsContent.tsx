@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
 import { PageHero, useDashboardContext } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 import {
   getDoctorSubscriptionRecords,
   updateDoctorSubscriptionRate,
@@ -28,6 +29,7 @@ function getHospitalLimit(amount: number) {
 
 export function SettingsDoctorSubscriptionsContent() {
   const { currentUser } = useDashboardContext();
+  const { t } = useI18n();
   const [doctorSubscriptions, setDoctorSubscriptions] = React.useState<DoctorSubscriptionRecord[]>([]);
   const [editingDoctorId, setEditingDoctorId] = React.useState<string | null>(null);
   const [editingDoctorRate, setEditingDoctorRate] = React.useState("");
@@ -73,7 +75,7 @@ export function SettingsDoctorSubscriptionsContent() {
     const ratePerHospital = Number(editingDoctorRate);
 
     if (!Number.isFinite(ratePerHospital) || ratePerHospital < 500 || ratePerHospital % 500 !== 0) {
-      setDoctorFeeError("Enter an amount in Rs 500 steps.");
+      setDoctorFeeError(t("subscriptions.amountStepError"));
       return;
     }
 
@@ -86,7 +88,7 @@ export function SettingsDoctorSubscriptionsContent() {
       setDoctorSubscriptions(refreshedRecords);
       setEditingDoctorId(null);
       setEditingDoctorRate("");
-      logger.success("Doctor subscription updated.", {
+      logger.success(t("subscriptions.doctorUpdated"), {
         source: "settings.subscriptions.doctors",
         data: { doctorId, ratePerHospital },
         toast: true,
@@ -107,7 +109,7 @@ export function SettingsDoctorSubscriptionsContent() {
   if (currentUser.role !== "admin") {
     return (
       <Card className="p-4">
-        <p className="ui-body-secondary">Only admins can manage doctor subscription pricing.</p>
+        <p className="ui-body-secondary">{t("subscriptions.adminOnlyDoctors")}</p>
       </Card>
     );
   }
@@ -115,38 +117,38 @@ export function SettingsDoctorSubscriptionsContent() {
   return (
     <div className="space-y-6">
       <PageHero
-        title="Doctor Subscriptions"
-        description="Set plan amount."
+        title={t("subscriptions.doctorsTitle")}
+        description={t("subscriptions.doctorsDescription")}
         icon={<WalletCards className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Billing and payment desk"
+        imageAlt={t("subscriptions.imageAlt")}
         stats={[
-          { label: "Doctors", value: String(filteredDoctorSubscriptions.length) },
-          { label: "Base Step", value: "Rs 500" },
-          { label: "Plans", value: formatFee(String(totalDoctorSubscriptionValue)) },
+          { label: t("doctors.doctors"), value: String(filteredDoctorSubscriptions.length) },
+          { label: t("subscriptions.baseStep"), value: "Rs 500" },
+          { label: t("subscriptions.plans"), value: formatFee(String(totalDoctorSubscriptionValue)) },
         ]}
       />
 
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="ui-meta">Search</span>
+            <span className="ui-meta">{t("common.actions.search")}</span>
             <Input
               value={filterText}
               onChange={(event) => setFilterText(event.target.value)}
-              placeholder="Search doctor"
+              placeholder={t("subscriptions.searchDoctor")}
             />
           </label>
           <label className="space-y-2">
-            <span className="ui-meta">Filter</span>
+            <span className="ui-meta">{t("common.actions.filter")}</span>
             <select
               value={filterMode}
               onChange={(event) => setFilterMode(event.target.value as "all" | "high" | "low")}
               className="focus-ring min-h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm text-[#0F172A]"
             >
-              <option value="all">All</option>
-              <option value="high">Rs 1500 and above</option>
-              <option value="low">Below Rs 1500</option>
+              <option value="all">{t("common.statuses.all")}</option>
+              <option value="high">{t("subscriptions.filterHigh")}</option>
+              <option value="low">{t("subscriptions.filterLow")}</option>
             </select>
           </label>
         </div>
@@ -159,16 +161,16 @@ export function SettingsDoctorSubscriptionsContent() {
               <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <Sparkles className="size-4" />
               </span>
-              <h2 className="ui-section-title">Doctor Subscription Cards</h2>
+              <h2 className="ui-section-title">{t("subscriptions.cardsTitle")}</h2>
             </div>
-            <p className="ui-body-secondary">Rs 500 = 1 hospital.</p>
+            <p className="ui-body-secondary">{t("subscriptions.cardsDescription")}</p>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B]">
             <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
               <Stethoscope className="size-4" />
             </span>
-            <span>Visible</span>
+            <span>{t("common.visible")}</span>
             <span className="text-sm font-medium text-[#0F172A]">{filteredDoctorSubscriptions.length}</span>
           </div>
         </div>
@@ -188,7 +190,7 @@ export function SettingsDoctorSubscriptionsContent() {
                     <div className="min-w-0">
                       <h3 className="truncate ui-section-title">{doctor.fullName}</h3>
                       <p className="mt-1 ui-meta">
-                        Plan {formatFee(String(doctor.ratePerHospital))} • Limit {hospitalLimit} hospitals
+                        {t("subscriptions.plan")} {formatFee(String(doctor.ratePerHospital))} • {t("subscriptions.hospitalLimit")} {hospitalLimit} {t("hospitals.hospitals").toLowerCase()}
                       </p>
                     </div>
                   </div>
@@ -204,7 +206,7 @@ export function SettingsDoctorSubscriptionsContent() {
                       }}
                     >
                       <PencilLine className="size-4" />
-                      Edit
+                      {t("common.actions.edit")}
                     </button>
                   ) : null}
                 </div>
@@ -213,11 +215,11 @@ export function SettingsDoctorSubscriptionsContent() {
                   <p className="ui-page-title leading-none">{formatFee(String(doctor.ratePerHospital))}</p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="rounded-lg bg-[#F8FAFC] px-3 py-2">
-                      <p className="ui-meta">Hospital Limit</p>
+                      <p className="ui-meta">{t("subscriptions.hospitalLimit")}</p>
                       <p className="ui-body">{hospitalLimit}</p>
                     </div>
                     <div className="rounded-lg bg-[#F8FAFC] px-3 py-2">
-                      <p className="ui-meta">Used</p>
+                      <p className="ui-meta">{t("subscriptions.used")}</p>
                       <p className="ui-body">{doctor.hospitalCount}</p>
                     </div>
                   </div>
@@ -226,7 +228,7 @@ export function SettingsDoctorSubscriptionsContent() {
                 {isEditing ? (
                   <div className="mt-4 space-y-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                     <label className="space-y-2">
-                      <span className="ui-meta">Plan Amount</span>
+                      <span className="ui-meta">{t("subscriptions.planAmount")}</span>
                       <Input
                         value={editingDoctorRate}
                         type="number"
@@ -237,14 +239,14 @@ export function SettingsDoctorSubscriptionsContent() {
                           setEditingDoctorRate(event.target.value);
                           setDoctorFeeError("");
                         }}
-                        placeholder="Enter amount"
+                        placeholder={t("subscriptions.enterAmount")}
                       />
                     </label>
 
                     <div className="rounded-lg bg-white px-3 py-3">
-                      <p className="ui-meta">Rule</p>
+                      <p className="ui-meta">{t("subscriptions.rule")}</p>
                       <p className="ui-body">
-                        {formatFee(editingDoctorRate || "500")} allows {getHospitalLimit(Number(editingDoctorRate) || 500)} hospitals.
+                        {formatFee(editingDoctorRate || "500")} allows {getHospitalLimit(Number(editingDoctorRate) || 500)} {t("hospitals.hospitals").toLowerCase()}.
                       </p>
                     </div>
 
@@ -258,7 +260,7 @@ export function SettingsDoctorSubscriptionsContent() {
                         loading={savingDoctorId === doctor.id}
                         onClick={() => void saveDoctorSubscription(doctor.id)}
                       >
-                        Save
+                        {t("common.actions.save")}
                       </Button>
                       <Button
                         size="sm"
@@ -271,7 +273,7 @@ export function SettingsDoctorSubscriptionsContent() {
                           setDoctorFeeError("");
                         }}
                       >
-                        Cancel
+                        {t("common.actions.cancel")}
                       </Button>
                     </div>
                   </div>

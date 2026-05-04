@@ -21,6 +21,7 @@ export interface SubscriptionSettings {
 export interface DoctorSubscriptionRecord {
   id: string;
   fullName: string;
+  displayFullName?: string;
   hospitalCount: number;
   ratePerHospital: number;
 }
@@ -29,6 +30,7 @@ export interface DoctorSubscriptionSummary {
   doctorId: string;
   userId: string;
   fullName: string;
+  displayFullName?: string;
   ratePerHospital: number;
   hospitalLimit: number;
   usedHospitalSlots: number;
@@ -43,7 +45,9 @@ export interface DoctorSubscriptionSummary {
 export interface HospitalDoctorDepartmentAssignment {
   doctorId: string;
   doctorName: string;
+  displayDoctorName?: string;
   department: string;
+  displayDepartment?: string;
 }
 
 export interface HospitalSelection {
@@ -153,7 +157,7 @@ export async function getSelectionsForDoctor(doctorId: string) {
     id: `${doctorId}:${hospital.id}:pending`,
     doctorId,
     hospitalId: hospital.id,
-    hospitalName: hospital.name,
+    hospitalName: hospital.displayName || hospital.name,
     status: "pending" as const,
     requestedAt: now,
   }));
@@ -162,7 +166,7 @@ export async function getSelectionsForDoctor(doctorId: string) {
     id: `${doctorId}:${hospital.id}:approved`,
     doctorId,
     hospitalId: hospital.id,
-    hospitalName: hospital.name,
+    hospitalName: hospital.displayName || hospital.name,
     status: "approved" as const,
     requestedAt: now,
   }));
@@ -171,7 +175,7 @@ export async function getSelectionsForDoctor(doctorId: string) {
     id: `${doctorId}:${hospital.id}:rejected`,
     doctorId,
     hospitalId: hospital.id,
-    hospitalName: hospital.name,
+    hospitalName: hospital.displayName || hospital.name,
     status: "rejected" as const,
     requestedAt: now,
   }));
@@ -228,9 +232,11 @@ export async function getApprovedDoctorsForHospital(hospitalId: string) {
       id: String(doctor.id || doctor._id || doctor.userId || ""),
       role: "doctor",
       fullName: doctor.name,
+      displayFullName: doctor.displayName || doctor.name,
       mobileNumber: doctor.phone,
       email: doctor.email,
       department: doctor.department,
+      displayDepartment: doctor.displayDepartment || doctor.department,
       approvalStatus: "approved",
       registrationDate: new Date().toISOString().slice(0, 10),
     })

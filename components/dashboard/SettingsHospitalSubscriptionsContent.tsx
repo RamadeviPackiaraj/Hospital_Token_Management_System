@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
 import { PageHero, useDashboardContext } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 import type { MockUser } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
 import {
@@ -40,6 +41,7 @@ function formatFee(value: string) {
 
 export function SettingsHospitalSubscriptionsContent() {
   const { currentUser } = useDashboardContext();
+  const { t } = useI18n();
   const [settings, setSettings] = React.useState<SubscriptionSettings | null>(null);
   const [draftDefaultFee, setDraftDefaultFee] = React.useState("500");
   const [defaultFeeError, setDefaultFeeError] = React.useState("");
@@ -103,7 +105,7 @@ export function SettingsHospitalSubscriptionsContent() {
       displayName: hospital.hospitalName || hospital.fullName,
       customFee: customFee || undefined,
       amount: customFee || settings?.defaultFee || "500",
-      feeSource: customFee ? "Hospital override" : "Default fee",
+      feeSource: customFee ? t("subscriptions.hospitalOverride") : t("subscriptions.defaultFee"),
     };
   });
 
@@ -131,7 +133,7 @@ export function SettingsHospitalSubscriptionsContent() {
         nextSettings.defaultFee && Number(nextSettings.defaultFee) > 0 ? nextSettings.defaultFee : "500";
       setSettings({ ...nextSettings, defaultFee: fallbackDefaultFee });
       setDraftDefaultFee(fallbackDefaultFee);
-      logger.success("Default subscription fee updated.", {
+      logger.success(t("subscriptions.defaultFeeUpdated"), {
         source: "settings.subscriptions.hospitals",
         data: { defaultFee: fallbackDefaultFee },
         toast: true,
@@ -167,7 +169,7 @@ export function SettingsHospitalSubscriptionsContent() {
       setSettings({ ...nextSettings, defaultFee: fallbackDefaultFee });
       setEditingHospitalId(null);
       setEditingFee("");
-      logger.success("Custom hospital fee updated.", {
+      logger.success(t("subscriptions.customFeeUpdated"), {
         source: "settings.subscriptions.hospitals",
         data: { hospitalId, fee: editingFee || null },
         toast: true,
@@ -193,14 +195,14 @@ export function SettingsHospitalSubscriptionsContent() {
     return (
       <div className="space-y-6">
         <PageHero
-          title="Hospital Subscription Summary"
-          description="View fees."
+          title={t("subscriptions.hospitalSummaryTitle")}
+          description={t("subscriptions.hospitalSummaryDescription")}
           icon={<WalletCards className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
-          imageAlt="Billing and payment desk"
+          imageAlt={t("subscriptions.imageAlt")}
           stats={[
-            { label: "Current Fee", value: formatFee(displayFee) },
-            { label: "Default Fee", value: formatFee(defaultFee) },
+            { label: t("subscriptions.currentFee"), value: formatFee(displayFee) },
+            { label: t("subscriptions.defaultFee"), value: formatFee(defaultFee) },
           ]}
         />
       </div>
@@ -208,7 +210,7 @@ export function SettingsHospitalSubscriptionsContent() {
   }
 
   if (!settings) {
-    return <Card className="p-4">Loading hospital subscription settings...</Card>;
+    return <Card className="p-4">{t("subscriptions.loadingHospitalSettings")}</Card>;
   }
 
   return (
@@ -218,19 +220,19 @@ export function SettingsHospitalSubscriptionsContent() {
         className="focus-ring inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
       >
         <ArrowLeft className="size-4" />
-        Back to Subscriptions
+        {t("subscriptions.backToSubscriptions")}
       </Link>
 
       <PageHero
-        title="Hospital Subscriptions"
-        description="Set hospital fees."
+        title={t("subscriptions.hospitalsTitle")}
+        description={t("subscriptions.hospitalsDescription")}
         icon={<WalletCards className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Billing and payment desk"
+        imageAlt={t("subscriptions.imageAlt")}
         stats={[
-          { label: "Default Fee", value: formatFee(settings.defaultFee || "500") },
-          { label: "Custom Overrides", value: String(settings.customFees.length) },
-          { label: "Visible Hospitals", value: String(filteredHospitalRows.length) },
+          { label: t("subscriptions.defaultFee"), value: formatFee(settings.defaultFee || "500") },
+          { label: t("subscriptions.customOverrides"), value: String(settings.customFees.length) },
+          { label: t("subscriptions.visibleHospitals"), value: String(filteredHospitalRows.length) },
         ]}
       />
 
@@ -241,7 +243,7 @@ export function SettingsHospitalSubscriptionsContent() {
               <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <CreditCard className="size-4" />
               </span>
-              Default Fee
+              {t("subscriptions.defaultFee")}
             </span>
             <Input
               value={draftDefaultFee}
@@ -253,35 +255,35 @@ export function SettingsHospitalSubscriptionsContent() {
                 setDraftDefaultFee(event.target.value);
                 setDefaultFeeError("");
               }}
-              placeholder="Enter default fee"
+              placeholder={t("subscriptions.enterDefaultFee")}
             />
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
-              <span className="ui-meta">Search</span>
+              <span className="ui-meta">{t("common.actions.search")}</span>
               <Input
                 value={filterText}
                 onChange={(event) => setFilterText(event.target.value)}
-                placeholder="Search hospital"
+                placeholder={t("subscriptions.searchHospital")}
               />
             </label>
             <label className="space-y-2">
-              <span className="ui-meta">Filter</span>
+              <span className="ui-meta">{t("common.actions.filter")}</span>
               <select
                 value={filterMode}
                 onChange={(event) => setFilterMode(event.target.value as "all" | "default" | "custom")}
                 className="focus-ring min-h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm text-[#0F172A]"
               >
-                <option value="all">All</option>
-                <option value="default">Default Fee</option>
-                <option value="custom">Custom Fee</option>
+                <option value="all">{t("common.statuses.all")}</option>
+                <option value="default">{t("subscriptions.defaultFee")}</option>
+                <option value="custom">{t("subscriptions.customFee")}</option>
               </select>
             </label>
           </div>
 
           <Button className="h-11 w-full px-4" onClick={() => void saveDefaultFee()} loading={savingDefaultFee}>
-            Save Fee
+            {t("subscriptions.saveFee")}
           </Button>
         </div>
         {defaultFeeError ? <p className="mt-3 text-sm text-[#EF4444]">{defaultFeeError}</p> : null}
@@ -294,16 +296,16 @@ export function SettingsHospitalSubscriptionsContent() {
               <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <Sparkles className="size-4" />
               </span>
-              <h2 className="ui-section-title">Hospital Overrides</h2>
+              <h2 className="ui-section-title">{t("subscriptions.overridesTitle")}</h2>
             </div>
-            <p className="ui-body-secondary">Set custom fees.</p>
+            <p className="ui-body-secondary">{t("subscriptions.overridesDescription")}</p>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B]">
             <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
               <Building2 className="size-4" />
             </span>
-            <span>Visible</span>
+            <span>{t("common.visible")}</span>
             <span className="text-sm font-medium text-[#0F172A]">{filteredHospitalRows.length}</span>
           </div>
         </div>
@@ -321,7 +323,7 @@ export function SettingsHospitalSubscriptionsContent() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="truncate ui-section-title">{row.displayName}</h3>
-                      <p className="mt-1 ui-meta">{row.customFee ? "Custom fee" : "Using default"}</p>
+                      <p className="mt-1 ui-meta">{row.customFee ? t("subscriptions.customFee") : t("subscriptions.usingDefault")}</p>
                     </div>
                   </div>
 
@@ -337,7 +339,7 @@ export function SettingsHospitalSubscriptionsContent() {
                       }}
                     >
                       <PencilLine className="size-4" />
-                      Edit
+                      {t("common.actions.edit")}
                     </button>
                   ) : null}
                 </div>
@@ -362,7 +364,7 @@ export function SettingsHospitalSubscriptionsContent() {
                         setEditingFee(event.target.value);
                         setCustomFeeError("");
                       }}
-                      placeholder={`Leave blank to use ${formatFee(settings.defaultFee || "500")}`}
+                      placeholder={t("subscriptions.leaveBlankFee", { fee: formatFee(settings.defaultFee || "500") })}
                     />
                     {customFeeError ? <p className="text-sm text-[#EF4444]">{customFeeError}</p> : null}
 
@@ -374,7 +376,7 @@ export function SettingsHospitalSubscriptionsContent() {
                         loading={savingCustomFeeId === row.id}
                         onClick={() => void saveCustomFee(row.id)}
                       >
-                        Save
+                        {t("common.actions.save")}
                       </Button>
                       <Button
                         size="sm"
@@ -387,7 +389,7 @@ export function SettingsHospitalSubscriptionsContent() {
                           setCustomFeeError("");
                         }}
                       >
-                        Cancel
+                        {t("common.actions.cancel")}
                       </Button>
                     </div>
                   </div>

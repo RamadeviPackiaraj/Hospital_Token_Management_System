@@ -21,18 +21,26 @@ export interface MockUser {
   id: string;
   role: AuthRole;
   fullName: string;
+  displayFullName?: string;
   mobileNumber?: string;
   email: string;
   hospitalName?: string;
+  displayHospitalName?: string;
   gender?: string;
+  displayGender?: string;
   specialization?: string;
+  displaySpecialization?: string;
   department?: string;
+  displayDepartment?: string;
   medicalRegistrationId?: string;
   bloodGroup?: string;
   adminAccessCode?: string;
   country?: string;
+  displayCountry?: string;
   state?: string;
+  displayState?: string;
   city?: string;
+  displayCity?: string;
   registrationDate?: string;
   approvalStatus: UserApprovalStatus;
 }
@@ -219,10 +227,14 @@ function mapMeToMockUser(payload: {
   profile?: {
     id?: string;
     name?: string;
+    displayName?: string;
     phone?: string;
     location?: string;
+    displayLocation?: string;
     department?: string;
+    displayDepartment?: string;
     specialization?: string;
+    displaySpecialization?: string;
     medical_registration_id?: string;
     medicalRegistrationId?: string;
     createdAt?: string;
@@ -239,16 +251,26 @@ function mapMeToMockUser(payload: {
     id: user.id,
     role,
     fullName: profile?.name || user.name,
+    displayFullName: profile?.displayName || profile?.name || user.name,
     mobileNumber: profile?.phone || "",
     email: user.email,
     hospitalName: role === "hospital" ? profile?.name || user.name : undefined,
+    displayHospitalName:
+      role === "hospital" ? profile?.displayName || profile?.name || user.name : undefined,
     specialization: profile?.specialization || undefined,
+    displaySpecialization: profile?.displaySpecialization || profile?.specialization || undefined,
     department: profile?.department || user.departmentName || undefined,
+    displayDepartment:
+      profile?.displayDepartment || profile?.department || user.departmentName || undefined,
     medicalRegistrationId:
       profile?.medical_registration_id || profile?.medicalRegistrationId || undefined,
     country: locationParts.country,
     state: locationParts.state,
     city: locationParts.city,
+    displayCity: parseLocation(profile?.displayLocation || profile?.location).city || locationParts.city,
+    displayState: parseLocation(profile?.displayLocation || profile?.location).state || locationParts.state,
+    displayCountry:
+      parseLocation(profile?.displayLocation || profile?.location).country || locationParts.country,
     registrationDate: profile?.createdAt || new Date().toISOString().slice(0, 10),
     approvalStatus,
   };
@@ -258,15 +280,20 @@ export type AdminEntityItem = {
   id: string;
   userId: string;
   name: string;
+  displayName?: string;
   email: string;
   role: string;
   status: string;
   phone?: string | null;
   gender?: string | null;
+  displayGender?: string | null;
   department?: string | null;
+  displayDepartment?: string | null;
   departmentName?: string | null;
   location?: string | null;
+  displayLocation?: string | null;
   specialization?: string | null;
+  displaySpecialization?: string | null;
   medicalRegistrationId?: string | null;
   medical_registration_id?: string | null;
   bloodGroup?: string | null;
@@ -284,18 +311,31 @@ export function mapAdminEntityToMockUser(entity: AdminEntityItem): MockUser {
     id: entity.userId || entity.id,
     role,
     fullName: entity.name,
+    displayFullName: entity.displayName || entity.name,
     mobileNumber: entity.phone || "",
     email: entity.email,
     hospitalName: role === "hospital" ? entity.name : undefined,
+    displayHospitalName: role === "hospital" ? entity.displayName || entity.name : undefined,
     gender: entity.gender || undefined,
+    displayGender: entity.displayGender || entity.gender || undefined,
     specialization: entity.specialization || undefined,
+    displaySpecialization: entity.displaySpecialization || entity.specialization || undefined,
     department: entity.department || entity.departmentName || undefined,
+    displayDepartment:
+      entity.displayDepartment || entity.department || entity.departmentName || undefined,
     medicalRegistrationId:
       entity.medicalRegistrationId || entity.medical_registration_id || undefined,
     bloodGroup: entity.bloodGroup || entity.blood_group || undefined,
     country: entity.country || locationParts.country,
     state: entity.state || locationParts.state,
     city: entity.city || locationParts.city,
+    displayCity: parseLocation(entity.displayLocation || entity.location).city || entity.city || locationParts.city,
+    displayState:
+      parseLocation(entity.displayLocation || entity.location).state || entity.state || locationParts.state,
+    displayCountry:
+      parseLocation(entity.displayLocation || entity.location).country ||
+      entity.country ||
+      locationParts.country,
     registrationDate: entity.createdAt || new Date().toISOString().slice(0, 10),
     approvalStatus: normalizeApprovalStatus(entity.status),
   };

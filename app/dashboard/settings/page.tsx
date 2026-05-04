@@ -1,7 +1,7 @@
 "use client";
 
-import { LayoutList, WalletCards } from "lucide-react";
-import { LanguageSettingsPanel, SettingsNavCard, useDashboardContext } from "@/components/dashboard";
+import { Languages, LayoutList, WalletCards } from "lucide-react";
+import { SettingsNavCard, useDashboardContext } from "@/components/dashboard";
 import { useI18n } from "@/components/i18n";
 
 export default function SettingsPage() {
@@ -10,11 +10,16 @@ export default function SettingsPage() {
   const showAdminSettings = currentUser.role === "admin";
 
   return (
-    <div className="space-y-6">
-      <LanguageSettingsPanel />
+    <section className="grid gap-6 md:grid-cols-2">
+      <SettingsNavCard
+        href="/dashboard/settings/language"
+        icon={<Languages className="size-5" />}
+        title={t("settings.languageTitle")}
+        description={t("settings.languageDescription")}
+      />
 
       {showAdminSettings ? (
-        <section className="grid gap-6 md:grid-cols-2">
+        <>
           <SettingsNavCard
             href="/dashboard/settings/departments"
             icon={<LayoutList className="size-5" />}
@@ -27,8 +32,8 @@ export default function SettingsPage() {
             title={t("settings.subscriptions")}
             description={t("settings.subscriptionsDescription")}
           />
-        </section>
+        </>
       ) : null}
-    </div>
+    </section>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTimer } from "@/components/tv-display";
 import { useAudioQueue } from "@/hooks/useAudioQueue";
+import { getStoredLanguage } from "@/lib/i18n";
 import { logger } from "@/lib/logger";
 import { getPatientTokens } from "@/lib/schedule-api";
 import type { CloudTtsLanguage } from "@/lib/tts-api";
@@ -302,9 +303,9 @@ function getLocalizedDepartment(language: Exclude<CloudTtsLanguage, "english">, 
 }
 
 function buildAnnouncementText(token: PatientTokenRecord, language: CloudTtsLanguage) {
-  const patientName = escapeSsml(token.patientName);
-  const doctorName = escapeSsml(normalizeDoctorName(token.doctorName));
-  const department = escapeSsml(token.department);
+  const patientName = escapeSsml(token.displayPatientName || token.patientName);
+  const doctorName = escapeSsml(normalizeDoctorName(token.displayDoctorName || token.doctorName));
+  const department = escapeSsml(token.displayDepartment || token.department);
   const tokenNumber = String(token.tokenNumber);
 
   if (language === "english") {
@@ -353,7 +354,7 @@ function buildAnnouncementText(token: PatientTokenRecord, language: CloudTtsLang
   };
 
   const template = templates[language];
-  const localizedDepartment = getLocalizedDepartment(language, token.department);
+  const localizedDepartment = getLocalizedDepartment(language, token.displayDepartment || token.department);
   const departmentLine = localizedDepartment
     ? `<lang xml:lang="${template.locale}">${escapeSsml(localizedDepartment)}</lang> <lang xml:lang="${template.locale}">${escapeSsml(
         template.departmentLead
@@ -384,12 +385,24 @@ function isSupportedLanguage(value: unknown): value is CloudTtsLanguage {
   return LANGUAGE_OPTIONS.some((option) => option.value === value);
 }
 
+function mapAppLanguageToCloudLanguage(language: string): CloudTtsLanguage {
+  if (language === "ta") return "tamil";
+  if (language === "hi") return "hindi";
+  if (language === "ml") return "malayalam";
+  return "english";
+}
+
 function safeLoadSettings(): AnnouncementSettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
 
   try {
     const rawValue = window.localStorage.getItem(ANNOUNCEMENT_SETTINGS_KEY);
-    if (!rawValue) return DEFAULT_SETTINGS;
+    if (!rawValue) {
+      return {
+        ...DEFAULT_SETTINGS,
+        language: mapAppLanguageToCloudLanguage(getStoredLanguage()),
+      };
+    }
 
     const parsed = JSON.parse(rawValue) as Partial<AnnouncementSettings>;
     return {
@@ -859,13 +872,13 @@ export default function TVDisplayPage() {
                 <tbody>
                   <tr className="border-b border-[#E2E8F0]">
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.patientName ?? "Waiting for next patient"}
+                      {currentToken?.displayPatientName || currentToken?.patientName || "Waiting for next patient"}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken ? `Dr. ${normalizeDoctorName(currentToken.doctorName)}` : "Not available"}
+                      {currentToken ? `Dr. ${normalizeDoctorName(currentToken.displayDoctorName || currentToken.doctorName)}` : "Not available"}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.department ?? "Not available"}
+                      {currentToken?.displayDepartment || currentToken?.department || "Not available"}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
                       {currentToken?.contact ?? "Not available"}
@@ -884,7 +897,7 @@ export default function TVDisplayPage() {
                       </div>
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {nextToken ? `${formatDisplayTokenNumber(nextToken.tokenNumber)} - ${nextToken.patientName}` : "Queue waiting"}
+                      {nextToken ? `${formatDisplayTokenNumber(nextToken.tokenNumber)} - ${nextToken.displayPatientName || nextToken.patientName}` : "Queue waiting"}
                     </td>
                   </tr>
                 </tbody>

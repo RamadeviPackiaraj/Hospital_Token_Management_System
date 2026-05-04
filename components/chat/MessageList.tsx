@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { MessageRow } from "@/components/chat/MessageRow";
+import { useI18n } from "@/components/i18n";
 import { formatChatDateLabel, type ChatMessage, type ChatSender } from "@/lib/chat";
 
 interface MessageListProps {
@@ -17,6 +18,8 @@ export function MessageList({
   onDelete,
   onSaveEdit,
 }: MessageListProps) {
+  const { language } = useI18n();
+  const copy = messageListCopy[language];
   const endRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -30,14 +33,15 @@ export function MessageList({
       {messages.length ? (
         messages.map((message) => {
           const dateLabel = formatChatDateLabel(message.createdAt);
-          const showDateLabel = dateLabel !== lastDateLabel;
-          lastDateLabel = dateLabel;
+          const localizedDateLabel = dateLabel === "Today" ? copy.today : dateLabel;
+          const showDateLabel = localizedDateLabel !== lastDateLabel;
+          lastDateLabel = localizedDateLabel;
 
           return (
             <div key={message.id} className="mb-2 last:mb-0">
               {showDateLabel ? (
                 <div className="mb-1 px-1">
-                  <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#64748B]">{dateLabel}</p>
+                  <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#64748B]">{localizedDateLabel}</p>
                 </div>
               ) : null}
               <MessageRow
@@ -52,7 +56,7 @@ export function MessageList({
         })
       ) : (
         <div className="flex min-h-[180px] items-center justify-center text-center">
-          <p className="ui-body-secondary">Start the conversation using a quick message or manual message.</p>
+          <p className="ui-body-secondary">{copy.empty}</p>
         </div>
       )}
 
@@ -60,3 +64,10 @@ export function MessageList({
     </div>
   );
 }
+
+const messageListCopy = {
+  en: { today: "Today", empty: "Start the conversation using a quick message or manual message." },
+  hi: { today: "आज", empty: "त्वरित संदेश या मैनुअल संदेश से वार्तालाप शुरू करें।" },
+  ml: { today: "ഇന്ന്", empty: "വേഗത്തിലുള്ള സന്ദേശമോ മാനുവൽ സന്ദേശമോ ഉപയോഗിച്ച് സംഭാഷണം ആരംഭിക്കുക." },
+  ta: { today: "இன்று", empty: "விரைவு செய்தி அல்லது கைமுறை செய்தியால் உரையாடலை தொடங்குங்கள்." },
+} as const;

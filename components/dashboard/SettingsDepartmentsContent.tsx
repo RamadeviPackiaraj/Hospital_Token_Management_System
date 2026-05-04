@@ -86,7 +86,7 @@ export function SettingsDepartmentsContent() {
         setApprovedDoctors(
           doctorData
             .filter((doctor) => doctor.approvalStatus === "approved")
-            .map((doctor) => ({ id: doctor.id, fullName: doctor.fullName }))
+            .map((doctor) => ({ id: doctor.id, fullName: doctor.displayFullName || doctor.fullName }))
         );
         setAssignments(assignmentData);
       })
@@ -361,7 +361,7 @@ export function SettingsDepartmentsContent() {
                     <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
                       <UserRoundCheck className="size-4" />
                     </span>
-                    <span>{row.doctorName}</span>
+                    <span>{row.displayDoctorName || row.doctorName}</span>
                   </div>
                 ),
               },
@@ -384,7 +384,7 @@ export function SettingsDepartmentsContent() {
                       <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
                         <LayoutList className="size-4" />
                       </span>
-                      <span>{row.department}</span>
+                      <span>{row.displayDepartment || row.department}</span>
                     </div>
                   ),
               },
@@ -430,8 +430,8 @@ export function SettingsDepartmentsContent() {
                         onClick={() =>
                           setAssignmentDeleteTarget({
                             doctorId: row.doctorId,
-                            doctorName: row.doctorName,
-                            department: row.department,
+                            doctorName: row.displayDoctorName || row.doctorName,
+                            department: row.displayDepartment || row.department,
                           })
                         }
                       >

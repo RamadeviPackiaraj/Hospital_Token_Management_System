@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui";
 import { useDashboardContext } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 import type { MockUser } from "@/lib/auth-flow";
 import {
   getAdminDoctors,
@@ -52,6 +53,7 @@ function SummaryCard({
 
 export default function DashboardPage() {
   const { currentUser } = useDashboardContext();
+  const { language } = useI18n();
   const [adminDoctors, setAdminDoctors] = React.useState<MockUser[]>([]);
   const [adminHospitals, setAdminHospitals] = React.useState<MockUser[]>([]);
   const [hospitalSelections, setHospitalSelections] = React.useState<HospitalSelection[]>([]);
@@ -193,6 +195,7 @@ export default function DashboardPage() {
   }, [currentUser]);
 
   if (currentUser.role === "admin") {
+    const copy = dashboardHomeCopy[language].admin;
     const hospitals = adminHospitals;
     const doctors = adminDoctors;
     const pendingDoctorApprovals = doctors.filter((user) => user.approvalStatus === "pending");
@@ -204,39 +207,39 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SummaryCard
-            title="Total Doctors"
+            title={copy.totalDoctors}
             value={String(doctors.length)}
-            note="Registered doctor accounts"
+            note={copy.registeredDoctorAccounts}
             icon={<Stethoscope className="size-5" />}
           />
           <SummaryCard
-            title="Pending Doctor Approvals"
+            title={copy.pendingDoctorApprovals}
             value={String(pendingDoctorApprovals.length)}
-            note="Awaiting admin review"
+            note={copy.awaitingAdminReview}
             icon={<Clock3 className="size-5" />}
           />
           <SummaryCard
-            title="Approved Doctors"
+            title={copy.approvedDoctors}
             value={String(approvedDoctorsCount.length)}
-            note="Doctor accounts approved"
+            note={copy.doctorAccountsApproved}
             icon={<ShieldCheck className="size-5" />}
           />
           <SummaryCard
-            title="Total Hospitals"
+            title={copy.totalHospitals}
             value={String(hospitals.length)}
-            note="Registered hospital accounts"
+            note={copy.registeredHospitalAccounts}
             icon={<Building2 className="size-5" />}
           />
           <SummaryCard
-            title="Pending Hospital Approvals"
+            title={copy.pendingHospitalApprovals}
             value={String(pendingHospitalApprovals.length)}
-            note="Awaiting admin review"
+            note={copy.awaitingAdminReview}
             icon={<Clock3 className="size-5" />}
           />
           <SummaryCard
-            title="Approved Hospitals"
+            title={copy.approvedHospitals}
             value={String(approvedHospitals.length)}
-            note="Hospital accounts approved"
+            note={copy.hospitalAccountsApproved}
             icon={<ShieldCheck className="size-5" />}
           />
         </section>
@@ -245,6 +248,7 @@ export default function DashboardPage() {
   }
 
   if (currentUser.role === "hospital") {
+    const copy = dashboardHomeCopy[language].hospital;
     const pendingRequests = hospitalSelections.filter((selection) => selection.status === "pending");
     const approvedRequests = hospitalSelections.filter((selection) => selection.status === "approved");
 
@@ -252,21 +256,21 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SummaryCard
-            title="Doctor Approval"
+            title={copy.doctorApproval}
             value={String(pendingRequests.length)}
-            note={`${approvedRequests.length} approved requests`}
+            note={copy.approvedRequests(approvedRequests.length)}
             icon={<ShieldCheck className="size-5" />}
           />
           <SummaryCard
-            title="Doctor Schedule"
+            title={copy.doctorSchedule}
             value={String(todayScheduleCount)}
-            note={`${approvedDoctors.length} active doctors`}
+            note={copy.activeDoctors(approvedDoctors.length)}
             icon={<CalendarClock className="size-5" />}
           />
           <SummaryCard
-            title="Patient Entry"
+            title={copy.patientEntry}
             value={String(todayAvailableSlots)}
-            note="Open slots available for token generation"
+            note={copy.openSlots}
             icon={<Ticket className="size-5" />}
           />
         </section>
@@ -276,29 +280,157 @@ export default function DashboardPage() {
 
   const approvedSelections = doctorSelections.filter((selection) => selection.status === "approved");
   const pendingSelections = doctorSelections.filter((selection) => selection.status === "pending");
+  const copy = dashboardHomeCopy[language].doctor;
 
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <SummaryCard
-          title="Selected Hospitals"
+          title={copy.selectedHospitals}
           value={String(doctorSelections.length)}
-          note="Total hospital requests"
+          note={copy.totalHospitalRequests}
           icon={<Building2 className="size-5" />}
         />
         <SummaryCard
-          title="Approved Hospitals"
+          title={copy.approvedHospitals}
           value={String(approvedSelections.length)}
-          note="Active hospital access"
+          note={copy.activeHospitalAccess}
           icon={<ShieldCheck className="size-5" />}
         />
         <SummaryCard
-          title="Pending Requests"
+          title={copy.pendingRequests}
           value={String(pendingSelections.length)}
-          note="Waiting for review"
+          note={copy.waitingForReview}
           icon={<Clock3 className="size-5" />}
         />
       </section>
     </div>
   );
 }
+
+const dashboardHomeCopy = {
+  en: {
+    admin: {
+      totalDoctors: "Total Doctors",
+      registeredDoctorAccounts: "Registered doctor accounts",
+      pendingDoctorApprovals: "Pending Doctor Approvals",
+      awaitingAdminReview: "Awaiting admin review",
+      approvedDoctors: "Approved Doctors",
+      doctorAccountsApproved: "Doctor accounts approved",
+      totalHospitals: "Total Hospitals",
+      registeredHospitalAccounts: "Registered hospital accounts",
+      pendingHospitalApprovals: "Pending Hospital Approvals",
+      approvedHospitals: "Approved Hospitals",
+      hospitalAccountsApproved: "Hospital accounts approved",
+    },
+    hospital: {
+      doctorApproval: "Doctor Approval",
+      approvedRequests: (count: number) => `${count} approved requests`,
+      doctorSchedule: "Doctor Schedule",
+      activeDoctors: (count: number) => `${count} active doctors`,
+      patientEntry: "Patient Entry",
+      openSlots: "Open slots available for token generation",
+    },
+    doctor: {
+      selectedHospitals: "Selected Hospitals",
+      totalHospitalRequests: "Total hospital requests",
+      approvedHospitals: "Approved Hospitals",
+      activeHospitalAccess: "Active hospital access",
+      pendingRequests: "Pending Requests",
+      waitingForReview: "Waiting for review",
+    },
+  },
+  hi: {
+    admin: {
+      totalDoctors: "कुल डॉक्टर",
+      registeredDoctorAccounts: "पंजीकृत डॉक्टर खाते",
+      pendingDoctorApprovals: "लंबित डॉक्टर स्वीकृतियाँ",
+      awaitingAdminReview: "एडमिन समीक्षा की प्रतीक्षा में",
+      approvedDoctors: "स्वीकृत डॉक्टर",
+      doctorAccountsApproved: "स्वीकृत डॉक्टर खाते",
+      totalHospitals: "कुल अस्पताल",
+      registeredHospitalAccounts: "पंजीकृत अस्पताल खाते",
+      pendingHospitalApprovals: "लंबित अस्पताल स्वीकृतियाँ",
+      approvedHospitals: "स्वीकृत अस्पताल",
+      hospitalAccountsApproved: "स्वीकृत अस्पताल खाते",
+    },
+    hospital: {
+      doctorApproval: "डॉक्टर स्वीकृति",
+      approvedRequests: (count: number) => `${count} स्वीकृत अनुरोध`,
+      doctorSchedule: "डॉक्टर अनुसूची",
+      activeDoctors: (count: number) => `${count} सक्रिय डॉक्टर`,
+      patientEntry: "रोगी प्रविष्टि",
+      openSlots: "टोकन जनरेशन के लिए खुले स्लॉट उपलब्ध हैं",
+    },
+    doctor: {
+      selectedHospitals: "चयनित अस्पताल",
+      totalHospitalRequests: "कुल अस्पताल अनुरोध",
+      approvedHospitals: "स्वीकृत अस्पताल",
+      activeHospitalAccess: "सक्रिय अस्पताल पहुँच",
+      pendingRequests: "लंबित अनुरोध",
+      waitingForReview: "समीक्षा की प्रतीक्षा में",
+    },
+  },
+  ml: {
+    admin: {
+      totalDoctors: "ആകെ ഡോക്ടർമാർ",
+      registeredDoctorAccounts: "രജിസ്റ്റർ ചെയ്ത ഡോക്ടർ അക്കൗണ്ടുകൾ",
+      pendingDoctorApprovals: "ബാക്കി ഡോക്ടർ അംഗീകാരങ്ങൾ",
+      awaitingAdminReview: "അഡ്മിൻ പരിശോധനയ്ക്കായി കാത്തിരിക്കുന്നു",
+      approvedDoctors: "അംഗീകരിച്ച ഡോക്ടർമാർ",
+      doctorAccountsApproved: "അംഗീകരിച്ച ഡോക്ടർ അക്കൗണ്ടുകൾ",
+      totalHospitals: "ആകെ ആശുപത്രികൾ",
+      registeredHospitalAccounts: "രജിസ്റ്റർ ചെയ്ത ആശുപത്രി അക്കൗണ്ടുകൾ",
+      pendingHospitalApprovals: "ബാക്കി ആശുപത്രി അംഗീകാരങ്ങൾ",
+      approvedHospitals: "അംഗീകരിച്ച ആശുപത്രികൾ",
+      hospitalAccountsApproved: "അംഗീകരിച്ച ആശുപത്രി അക്കൗണ്ടുകൾ",
+    },
+    hospital: {
+      doctorApproval: "ഡോക്ടർ അംഗീകാരം",
+      approvedRequests: (count: number) => `${count} അംഗീകരിച്ച അഭ്യർത്ഥനകൾ`,
+      doctorSchedule: "ഡോക്ടർ ഷെഡ്യൂൾ",
+      activeDoctors: (count: number) => `${count} സജീവ ഡോക്ടർമാർ`,
+      patientEntry: "രോഗി എൻട്രി",
+      openSlots: "ടോക്കൺ സൃഷ്ടിക്കാനായി തുറന്ന സ്ലോട്ടുകൾ ലഭ്യമാണ്",
+    },
+    doctor: {
+      selectedHospitals: "തിരഞ്ഞെടുത്ത ആശുപത്രികൾ",
+      totalHospitalRequests: "ആകെ ആശുപത്രി അഭ്യർത്ഥനകൾ",
+      approvedHospitals: "അംഗീകരിച്ച ആശുപത്രികൾ",
+      activeHospitalAccess: "സജീവ ആശുപത്രി ആക്സസ്",
+      pendingRequests: "ബാക്കി അഭ്യർത്ഥനകൾ",
+      waitingForReview: "പരിശോധനയ്ക്കായി കാത്തിരിക്കുന്നു",
+    },
+  },
+  ta: {
+    admin: {
+      totalDoctors: "மொத்த மருத்துவர்கள்",
+      registeredDoctorAccounts: "பதிவுசெய்யப்பட்ட மருத்துவர் கணக்குகள்",
+      pendingDoctorApprovals: "நிலுவையில் உள்ள மருத்துவர் ஒப்புதல்கள்",
+      awaitingAdminReview: "நிர்வாகி பரிசீலனைக்காக காத்திருக்கிறது",
+      approvedDoctors: "ஒப்புதல் பெற்ற மருத்துவர்கள்",
+      doctorAccountsApproved: "ஒப்புதல் பெற்ற மருத்துவர் கணக்குகள்",
+      totalHospitals: "மொத்த மருத்துவமனைகள்",
+      registeredHospitalAccounts: "பதிவுசெய்யப்பட்ட மருத்துவமனை கணக்குகள்",
+      pendingHospitalApprovals: "நிலுவையில் உள்ள மருத்துவமனை ஒப்புதல்கள்",
+      approvedHospitals: "ஒப்புதல் பெற்ற மருத்துவமனைகள்",
+      hospitalAccountsApproved: "ஒப்புதல் பெற்ற மருத்துவமனை கணக்குகள்",
+    },
+    hospital: {
+      doctorApproval: "மருத்துவர் ஒப்புதல்",
+      approvedRequests: (count: number) => `${count} ஒப்புதல் பெற்ற கோரிக்கைகள்`,
+      doctorSchedule: "மருத்துவர் அட்டவணை",
+      activeDoctors: (count: number) => `${count} செயலில் உள்ள மருத்துவர்கள்`,
+      patientEntry: "நோயாளர் பதிவு",
+      openSlots: "டோக்கன் உருவாக்கத்திற்கான காலியிடங்கள் உள்ளன",
+    },
+    doctor: {
+      selectedHospitals: "தேர்ந்தெடுக்கப்பட்ட மருத்துவமனைகள்",
+      totalHospitalRequests: "மொத்த மருத்துவமனை கோரிக்கைகள்",
+      approvedHospitals: "ஒப்புதல் பெற்ற மருத்துவமனைகள்",
+      activeHospitalAccess: "செயலில் உள்ள மருத்துவமனை அணுகல்",
+      pendingRequests: "நிலுவை கோரிக்கைகள்",
+      waitingForReview: "பரிசீலனைக்காக காத்திருக்கிறது",
+    },
+  },
+} as const;

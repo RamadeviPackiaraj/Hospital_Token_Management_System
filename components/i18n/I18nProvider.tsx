@@ -6,7 +6,7 @@ import { DEFAULT_LANGUAGE, getStoredLanguage, i18next, LANGUAGE_STORAGE_KEY, typ
 type I18nContextValue = {
   language: AppLanguage;
   changeLanguage: (language: AppLanguage) => Promise<void>;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 };
 
 const I18nContext = React.createContext<I18nContextValue | null>(null);
@@ -41,7 +41,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     () => ({
       language,
       changeLanguage,
-      t: (key: string) => i18next.t(key),
+      t: (key: string, options?: Record<string, unknown>) => i18next.t(key, options),
     }),
     [changeLanguage, language]
   );

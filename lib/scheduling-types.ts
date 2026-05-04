@@ -28,12 +28,15 @@ export interface PatientTokenRecord {
   id: string;
   tokenNumber: number;
   patientName: string;
+  displayPatientName?: string;
   dob: string;
   bloodGroup: string;
   aadhaar: string;
   contact: string;
   department: string;
+  displayDepartment?: string;
   doctorName: string;
+  displayDoctorName?: string;
   date: string;
   time: string;
   status: PatientTokenStatus;

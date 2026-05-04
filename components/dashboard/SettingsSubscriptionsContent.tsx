@@ -2,18 +2,21 @@
 
 import { Building2, Stethoscope, WalletCards } from "lucide-react";
 import { PageHero, SettingsNavCard } from "@/components/dashboard";
+import { useI18n } from "@/components/i18n";
 
 export function SettingsSubscriptionsContent() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <PageHero
-        title="Subscription Workspace"
-        description="Choose a subscription page."
+        title={t("subscriptions.workspaceTitle")}
+        description={t("subscriptions.workspaceDescription")}
         icon={<WalletCards className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Billing and payment desk"
+        imageAlt={t("subscriptions.imageAlt")}
         stats={[
-          { label: "Sections", value: "2" },
+          { label: t("subscriptions.sections"), value: "2" },
         ]}
       />
 
@@ -21,14 +24,14 @@ export function SettingsSubscriptionsContent() {
         <SettingsNavCard
           href="/dashboard/settings/subscriptions/hospitals"
           icon={<Building2 className="size-5" />}
-          title="Hospital Subscriptions"
-          description="Set hospital fees."
+          title={t("subscriptions.hospitalsTitle")}
+          description={t("subscriptions.hospitalsDescription")}
         />
         <SettingsNavCard
           href="/dashboard/settings/subscriptions/doctors"
           icon={<Stethoscope className="size-5" />}
-          title="Doctor Subscriptions"
-          description="Set doctor plans."
+          title={t("subscriptions.doctorsTitle")}
+          description={t("subscriptions.doctorsDescription")}
         />
       </section>
     </div>

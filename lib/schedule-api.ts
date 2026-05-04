@@ -51,12 +51,15 @@ interface BackendPatientTokenRecord {
   id: string;
   tokenNumber: number;
   patientName: string;
+  displayPatientName?: string;
   dob: string;
   bloodGroup: string;
   aadhaar: string;
   contact: string;
   department: string;
+  displayDepartment?: string;
   doctorName: string;
+  displayDoctorName?: string;
   date: string;
   time: string;
   status?: string;
@@ -166,12 +169,15 @@ function mapToken(record: BackendPatientTokenRecord): PatientTokenRecord {
     id: record.id,
     tokenNumber: record.tokenNumber,
     patientName: record.patientName,
+    displayPatientName: record.displayPatientName || record.patientName,
     dob: record.dob,
     bloodGroup: record.bloodGroup,
     aadhaar: record.aadhaar || "",
     contact: record.contact,
     department: record.department,
+    displayDepartment: record.displayDepartment || record.department,
     doctorName: record.doctorName,
+    displayDoctorName: record.displayDoctorName || record.doctorName,
     date: record.date,
     time: record.time,
     status: normalizePatientTokenStatus(record.status),

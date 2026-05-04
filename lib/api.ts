@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getStoredLanguage } from "@/lib/i18n";
 
 export const API_BASE_URL =
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "");
@@ -70,6 +71,8 @@ function buildHeaders(options: RequestInit, config: ApiRequestConfig) {
       headers.set("Authorization", `Bearer ${token}`);
     }
   }
+
+  headers.set("x-language", getStoredLanguage());
 
   return headers;
 }
