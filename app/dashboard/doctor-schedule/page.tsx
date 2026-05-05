@@ -538,7 +538,7 @@ export default function DoctorSchedulePage() {
         description={t("schedule.boardDescription")}
         icon={<CalendarDays className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Doctor schedule workflow"
+        imageAlt={t("schedule.imageAlt")}
         stats={[
           { label: t("schedule.schedules"), value: String(schedules.length) },
           { label: t("schedule.slots"), value: String(totalSlots) },

@@ -41,7 +41,7 @@ export function CreateSchedule({
   submitMessage,
   isSubmitting,
   minDate,
-  submitLabel = "Save Schedule",
+  submitLabel,
   disableDoctorSelection = false,
   disableSubmit = false,
   onCancel,
@@ -154,7 +154,7 @@ export function CreateSchedule({
             </Button>
           ) : null}
           <Button type="submit" loading={isSubmitting} disabled={disableSubmit} leftIcon={<Plus className="size-4" />}>
-            {submitLabel}
+            {submitLabel || t("schedule.saveSchedule")}
           </Button>
         </div>
       </form>

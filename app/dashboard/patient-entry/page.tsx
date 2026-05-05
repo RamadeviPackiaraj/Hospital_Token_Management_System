@@ -261,7 +261,7 @@ export default function PatientEntryPage() {
         description={t("patientEntry.description")}
         icon={<Ticket className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Patient registration desk"
+        imageAlt={t("patientEntry.imageAlt")}
         stats={[
           { label: t("patientEntry.today"), value: formatScheduleDate(visitDate) },
           { label: t("patientEntry.generated"), value: String(tokens.length) },

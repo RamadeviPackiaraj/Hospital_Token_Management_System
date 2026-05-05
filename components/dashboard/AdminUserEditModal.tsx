@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowLeft, Building2, MailCheck } from "lucide-react";
 import { GetCity, GetCountries, GetState } from "react-country-state-city";
+import { useI18n } from "@/components/i18n";
 import { OTPInput } from "@/components/OTPInput";
 import { Button, Input, Select } from "@/components/ui";
 import { Modal } from "@/components/overlay/Modal";
@@ -27,19 +28,6 @@ export interface AdminUserEditModalProps {
 }
 
 type OtpState = "idle" | "sent" | "verified";
-
-const roleScenes = {
-  doctor: {
-    image:
-      "https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&w=1200&q=80",
-    alt: "Doctor consulting a patient",
-  },
-  hospital: {
-    image:
-      "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80",
-    alt: "Hospital staff working together",
-  },
-} as const;
 
 function normalizeDraft(role: "doctor" | "hospital", user: MockUser | null): MockUser | null {
   if (!user) {
@@ -70,6 +58,7 @@ export function AdminUserEditModal({
   onClose,
   onSave,
 }: AdminUserEditModalProps) {
+  const { t } = useI18n();
   const [draft, setDraft] = React.useState<MockUser | null>(null);
   const [otpCode, setOtpCode] = React.useState("");
   const [otpState, setOtpState] = React.useState<OtpState>("idle");
@@ -196,6 +185,21 @@ export function AdminUserEditModal({
   const stateOptions = states.map((state) => ({ label: state.name, value: String(state.id) }));
   const cityOptions = cities.map((city) => ({ label: city.name, value: String(city.id) }));
   const departmentOptions = departments.map((department) => ({ label: department.name, value: department.name }));
+  const roleScenes = React.useMemo(
+    () => ({
+      doctor: {
+        image:
+          "https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&w=1200&q=80",
+        alt: t("adminEditModal.doctorImageAlt"),
+      },
+      hospital: {
+        image:
+          "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80",
+        alt: t("adminEditModal.hospitalImageAlt"),
+      },
+    }),
+    [t]
+  );
 
   function updateField<K extends keyof MockUser>(field: K, value: MockUser[K]) {
     setDraft((current) => (current ? { ...current, [field]: value } : current));
@@ -203,12 +207,12 @@ export function AdminUserEditModal({
 
   function handleSendOtp() {
     if (!draft?.email.trim()) {
-      setError("Email is required before OTP verification.");
+      setError(t("adminEditModal.emailRequiredForOtp"));
       return;
     }
 
     if (!user?.id) {
-      setError("Unable to request OTP. Missing user id.");
+      setError(t("adminEditModal.missingUserIdRequestOtp"));
       return;
     }
 
@@ -225,7 +229,7 @@ export function AdminUserEditModal({
         setError("");
       })
       .catch((otpError) => {
-        const message = otpError instanceof Error ? otpError.message : "Unable to send OTP.";
+        const message = otpError instanceof Error ? otpError.message : t("adminEditModal.unableToSendOtp");
         setError(message);
       })
       .finally(() => {
@@ -249,12 +253,12 @@ export function AdminUserEditModal({
 
   async function handleVerifyOtp() {
     if (!otpCode.trim()) {
-      setError("OTP is required.");
+      setError(t("adminEditModal.otpRequired"));
       return;
     }
 
     if (!user?.id) {
-      setError("Unable to verify OTP. Missing user id.");
+      setError(t("adminEditModal.missingUserIdVerifyOtp"));
       return;
     }
 
@@ -265,7 +269,7 @@ export function AdminUserEditModal({
       await verifyAdminUserEmailChange(user.id, otpCode.trim());
       setOtpState("verified");
     } catch (otpError) {
-      const message = otpError instanceof Error ? otpError.message : "Invalid OTP.";
+      const message = otpError instanceof Error ? otpError.message : t("adminEditModal.invalidOtp");
       setError(message);
     } finally {
       setVerifyingOtp(false);
@@ -278,18 +282,18 @@ export function AdminUserEditModal({
     }
 
     if (!draft.fullName.trim()) {
-      setError(role === "hospital" ? "Hospital name is required." : "Doctor name is required.");
+      setError(role === "hospital" ? t("adminEditModal.hospitalNameRequired") : t("adminEditModal.doctorNameRequired"));
       return;
     }
 
     if (!draft.email.trim()) {
-      setError("Email is required.");
+      setError(t("adminEditModal.emailRequired"));
       return;
     }
 
     if (emailChanged) {
       if (otpState !== "verified") {
-        setError("Verify the OTP before saving the email change.");
+        setError(t("adminEditModal.verifyOtpBeforeSaving"));
         return;
       }
     }
@@ -303,7 +307,7 @@ export function AdminUserEditModal({
   return (
     <Modal
       open={open}
-      title={role === "hospital" ? "Edit Hospital" : "Edit Doctor"}
+      title={role === "hospital" ? t("hospitals.editHospital") : t("doctors.editDoctor")}
       onClose={onClose}
       hideHeader
       className="max-w-6xl overflow-hidden p-0"
@@ -315,9 +319,9 @@ export function AdminUserEditModal({
             <div className="mx-auto max-w-[620px]">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="space-y-2">
-                  <h2 className="ui-page-title">Hospital Token Management System</h2>
+                  <h2 className="ui-page-title">{`${t("dashboard.header.brandTitle")} ${t("dashboard.header.brandSubtitle")}`}</h2>
                   <p className="ui-body-secondary">
-                    {role === "hospital" ? "Update hospital details." : "Update doctor details."}
+                    {role === "hospital" ? t("adminEditModal.updateHospitalDetails") : t("adminEditModal.updateDoctorDetails")}
                   </p>
                 </div>
                 <button
@@ -326,23 +330,23 @@ export function AdminUserEditModal({
                   className="focus-ring inline-flex h-11 items-center gap-1 text-sm font-medium text-[#64748B] transition hover:text-[#0F172A]"
                 >
                   <ArrowLeft className="size-4" />
-                  Change
+                  {t("adminEditModal.close")}
                 </button>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-2">
-                  <span className="ui-field-label">{role === "hospital" ? "Hospital Name" : "Doctor Name"}</span>
+                  <span className="ui-field-label">{role === "hospital" ? t("common.fields.hospitalName") : t("common.fields.doctorName")}</span>
                   <Input value={draft.fullName} onChange={(event) => updateField("fullName", event.target.value)} />
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="ui-field-label">Mobile Number</span>
+                  <span className="ui-field-label">{t("common.fields.mobileNumber")}</span>
                   <Input value={draft.mobileNumber || ""} onChange={(event) => updateField("mobileNumber", event.target.value)} />
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="ui-field-label">Email</span>
+                  <span className="ui-field-label">{t("common.fields.email")}</span>
                   <Input
                     type="email"
                     value={draft.email}
@@ -357,7 +361,7 @@ export function AdminUserEditModal({
 
                 {role === "doctor" ? (
                   <label className="grid gap-2">
-                    <span className="ui-field-label">Registration ID</span>
+                    <span className="ui-field-label">{t("doctors.registrationId")}</span>
                     <Input
                       value={draft.medicalRegistrationId || ""}
                       onChange={(event) => updateField("medicalRegistrationId", event.target.value)}
@@ -365,21 +369,21 @@ export function AdminUserEditModal({
                   </label>
                 ) : (
                   <label className="grid gap-2">
-                    <span className="ui-field-label">Approval Status</span>
+                    <span className="ui-field-label">{t("common.fields.approvalStatus")}</span>
                     <Select
                       value={draft.approvalStatus}
                       onChange={(event) => updateField("approvalStatus", event.target.value as MockUser["approvalStatus"])}
                       options={[
-                        { label: "Pending", value: "pending" },
-                        { label: "Approved", value: "approved" },
-                        { label: "Rejected", value: "rejected" },
+                        { label: t("common.statuses.pending"), value: "pending" },
+                        { label: t("common.statuses.approved"), value: "approved" },
+                        { label: t("common.statuses.rejected"), value: "rejected" },
                       ]}
                     />
                   </label>
                 )}
 
                 <label className="grid gap-2">
-                  <span className="ui-field-label">Country</span>
+                  <span className="ui-field-label">{t("common.fields.country")}</span>
                   <Select
                     value={selectedCountryId ? String(selectedCountryId) : ""}
                     onChange={(event) => {
@@ -394,12 +398,12 @@ export function AdminUserEditModal({
                       updateField("city", "");
                     }}
                     options={countryOptions}
-                    placeholder="Select country"
+                    placeholder={t("common.placeholders.selectCountry")}
                   />
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="ui-field-label">State</span>
+                  <span className="ui-field-label">{t("common.fields.state")}</span>
                   <Select
                     value={selectedStateId ? String(selectedStateId) : ""}
                     onChange={(event) => {
@@ -410,13 +414,13 @@ export function AdminUserEditModal({
                       updateField("city", "");
                     }}
                     options={stateOptions}
-                    placeholder="Select state"
+                    placeholder={t("common.placeholders.selectState")}
                     disabled={!selectedCountryId}
                   />
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="ui-field-label">City</span>
+                  <span className="ui-field-label">{t("common.fields.city")}</span>
                   <Select
                     value={
                       cities.find((city) => city.name === (draft.city || ""))?.id
@@ -429,39 +433,39 @@ export function AdminUserEditModal({
                       updateField("city", city?.name || "");
                     }}
                     options={cityOptions}
-                    placeholder="Select city"
+                    placeholder={t("common.placeholders.selectCity")}
                     disabled={!selectedStateId}
                   />
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="ui-field-label">Department</span>
+                  <span className="ui-field-label">{t("schedule.department")}</span>
                   <Select
                     value={draft.department || ""}
                     onChange={(event) => updateField("department", event.target.value)}
                     options={departmentOptions}
-                    placeholder="Select department"
+                    placeholder={t("schedule.selectDepartment")}
                   />
                 </label>
 
                 {role === "doctor" ? (
                   <>
                     <label className="grid gap-2">
-                      <span className="ui-field-label">Gender</span>
+                      <span className="ui-field-label">{t("common.fields.gender")}</span>
                       <Select
                         value={draft.gender || ""}
                         onChange={(event) => updateField("gender", event.target.value)}
                         options={[
-                          { label: "Female", value: "female" },
-                          { label: "Male", value: "male" },
-                          { label: "Other", value: "other" },
+                          { label: t("tvDisplay.female"), value: "female" },
+                          { label: t("tvDisplay.male"), value: "male" },
+                          { label: t("common.options.other"), value: "other" },
                         ]}
-                        placeholder="Select gender"
+                        placeholder={t("common.placeholders.selectGender")}
                       />
                     </label>
 
                     <label className="grid gap-2">
-                      <span className="ui-field-label">Specialization</span>
+                      <span className="ui-field-label">{t("doctors.specialization")}</span>
                       <Input
                         value={draft.specialization || ""}
                         onChange={(event) => updateField("specialization", event.target.value)}
@@ -469,7 +473,7 @@ export function AdminUserEditModal({
                     </label>
 
                     <label className="grid gap-2">
-                      <span className="ui-field-label">Blood Group</span>
+                      <span className="ui-field-label">{t("common.fields.bloodGroup")}</span>
                       <Input value={draft.bloodGroup || ""} onChange={(event) => updateField("bloodGroup", event.target.value)} />
                     </label>
                   </>
@@ -477,14 +481,14 @@ export function AdminUserEditModal({
 
                 {role === "hospital" ? (
                   <label className="grid gap-2">
-                    <span className="ui-field-label">Approval Status</span>
+                    <span className="ui-field-label">{t("common.fields.approvalStatus")}</span>
                     <Select
                       value={draft.approvalStatus}
                       onChange={(event) => updateField("approvalStatus", event.target.value as MockUser["approvalStatus"])}
                       options={[
-                        { label: "Pending", value: "pending" },
-                        { label: "Approved", value: "approved" },
-                        { label: "Rejected", value: "rejected" },
+                        { label: t("common.statuses.pending"), value: "pending" },
+                        { label: t("common.statuses.approved"), value: "approved" },
+                        { label: t("common.statuses.rejected"), value: "rejected" },
                       ]}
                     />
                   </label>
@@ -495,15 +499,15 @@ export function AdminUserEditModal({
                 <div className="mt-5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="ui-section-title">Verify OTP</h3>
-                      <p className="ui-meta">Enter the code sent to the updated email.</p>
+                      <h3 className="ui-section-title">{t("adminEditModal.verifyOtpTitle")}</h3>
+                      <p className="ui-meta">{t("adminEditModal.verifyOtpDescription")}</p>
                     </div>
-                    {otpState === "verified" ? <span className="ui-card-chip">Verified</span> : null}
+                    {otpState === "verified" ? <span className="ui-card-chip">{t("adminEditModal.verified")}</span> : null}
                   </div>
 
                   <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-white p-4">
                   <OTPInput
-                    label="OTP"
+                    label={t("common.fields.otp")}
                     value={otpCode}
                     onChange={(nextValue) => {
                       setOtpCode(nextValue.replace(/\D/g, "").slice(0, 6));
@@ -520,7 +524,7 @@ export function AdminUserEditModal({
                       loading={verifyingOtp}
                       disabled={sendingOtp}
                     >
-                      {otpState === "verified" ? "Verified" : "Verify"}
+                      {otpState === "verified" ? t("adminEditModal.verified") : t("adminEditModal.verify")}
                     </Button>
                   </div>
                 </div>
@@ -529,7 +533,7 @@ export function AdminUserEditModal({
 
               {!emailChanged && otpState !== "idle" ? (
                 <div className="mt-4">
-                  <span className="ui-card-chip">{otpState === "verified" ? "Verified" : "OTP Sent"}</span>
+                  <span className="ui-card-chip">{otpState === "verified" ? t("adminEditModal.verified") : t("adminEditModal.otpSent")}</span>
                 </div>
               ) : null}
 
@@ -537,10 +541,10 @@ export function AdminUserEditModal({
 
               <div className="mt-5 flex flex-wrap justify-end gap-3">
                 <Button variant="secondary" onClick={onClose}>
-                  Cancel
+                  {t("common.actions.cancel")}
                 </Button>
                 <Button onClick={handleSave}>
-                  Save Changes
+                  {t("adminEditModal.saveChanges")}
                 </Button>
               </div>
             </div>

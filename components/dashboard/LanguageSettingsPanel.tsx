@@ -4,11 +4,12 @@ import * as React from "react";
 import { Languages } from "lucide-react";
 import { useI18n } from "@/components/i18n";
 import { Card, Select } from "@/components/ui";
-import { languageOptions, type AppLanguage } from "@/lib/i18n";
+import { getLocalizedLanguageOptions, type AppLanguage } from "@/lib/i18n";
 
 export function LanguageSettingsPanel() {
   const { language, changeLanguage, t } = useI18n();
   const [status, setStatus] = React.useState("");
+  const localizedLanguageOptions = React.useMemo(() => getLocalizedLanguageOptions(t), [t]);
 
   async function handleLanguageChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const nextLanguage = event.target.value as AppLanguage;
@@ -38,7 +39,7 @@ export function LanguageSettingsPanel() {
             id="app-language"
             value={language}
             onChange={handleLanguageChange}
-            options={[...languageOptions]}
+            options={localizedLanguageOptions}
             aria-label={t("settings.languageLabel")}
           />
           {status ? <p className="mt-2 text-sm text-[#15803D]">{status}</p> : null}

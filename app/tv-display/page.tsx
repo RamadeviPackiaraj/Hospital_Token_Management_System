@@ -11,9 +11,10 @@ import {
   Volume2,
   VolumeOff,
 } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { useTimer } from "@/components/tv-display";
 import { useAudioQueue } from "@/hooks/useAudioQueue";
-import { getStoredLanguage } from "@/lib/i18n";
+import { getLanguageLabel, getStoredLanguage, type AppLanguage } from "@/lib/i18n";
 import { logger } from "@/lib/logger";
 import { getPatientTokens } from "@/lib/schedule-api";
 import type { CloudTtsLanguage } from "@/lib/tts-api";
@@ -48,29 +49,42 @@ const DEFAULT_SETTINGS: AnnouncementSettings = {
   delayMs: 2000,
 };
 
-const LANGUAGE_OPTIONS: Array<{ label: string; value: CloudTtsLanguage }> = [
-  { label: "English", value: "english" },
-  { label: "Tamil", value: "tamil" },
-  { label: "Hindi", value: "hindi" },
-  { label: "Telugu", value: "telugu" },
-  { label: "Malayalam", value: "malayalam" },
-  { label: "Kannada", value: "kannada" },
+const LANGUAGE_OPTIONS: Array<{ languageKey: AppLanguage | "te" | "kn"; value: CloudTtsLanguage }> = [
+  { languageKey: "en", value: "english" },
+  { languageKey: "ta", value: "tamil" },
+  { languageKey: "hi", value: "hindi" },
+  { languageKey: "te", value: "telugu" },
+  { languageKey: "ml", value: "malayalam" },
+  { languageKey: "kn", value: "kannada" },
 ];
 
-const RATE_OPTIONS: Array<{ label: string; value: AnnouncementSettings["rate"] }> = [
-  { label: "0.75x Slow", value: 0.75 },
-  { label: "1x Normal", value: 1 },
-  { label: "1.25x Fast", value: 1.25 },
-  { label: "1.5x Faster", value: 1.5 },
+const RATE_OPTIONS: Array<{ speedKey: "slow" | "normal" | "fast" | "faster"; value: AnnouncementSettings["rate"] }> = [
+  { speedKey: "slow", value: 0.75 },
+  { speedKey: "normal", value: 1 },
+  { speedKey: "fast", value: 1.25 },
+  { speedKey: "faster", value: 1.5 },
 ];
 
-function getVoiceEngineLabel() {
-  return "Cloud TTS Engine";
+const APP_LANGUAGE_LOCALES: Record<AppLanguage, string> = {
+  en: "en-IN",
+  hi: "hi-IN",
+  ml: "ml-IN",
+  ta: "ta-IN",
+};
+
+function getCloudLanguageLabel(language: CloudTtsLanguage, t: (key: string, options?: Record<string, unknown>) => string) {
+  const option = LANGUAGE_OPTIONS.find((item) => item.value === language);
+  if (!option) return getLanguageLabel("en", t);
+  if (option.languageKey === "te") return t("tvDisplay.telugu");
+  if (option.languageKey === "kn") return t("tvDisplay.kannada");
+  return getLanguageLabel(option.languageKey, t);
 }
 
-function getVoiceEngineDescription(language: CloudTtsLanguage) {
-  const languageLabel = LANGUAGE_OPTIONS.find((option) => option.value === language)?.label ?? "English";
-  return `${languageLabel} cloud announcement voice`;
+function getVoiceEngineDescription(
+  language: CloudTtsLanguage,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  return t("tvDisplay.engineDescription", { language: getCloudLanguageLabel(language, t) });
 }
 
 const MOCK_TOKENS: PatientTokenRecord[] = [
@@ -150,16 +164,16 @@ function applySimulation(tokens: PatientTokenRecord[], activeIndex: number) {
   });
 }
 
-function formatDisplayDate(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatDisplayDate(date: Date, language: AppLanguage) {
+  return new Intl.DateTimeFormat(APP_LANGUAGE_LOCALES[language] ?? APP_LANGUAGE_LOCALES.en, {
     day: "2-digit",
     month: "short",
     year: "numeric",
   }).format(date);
 }
 
-function formatDisplayTime(date: Date) {
-  const timeString = new Intl.DateTimeFormat("en-US", {
+function formatDisplayTime(date: Date, language: AppLanguage) {
+  const timeString = new Intl.DateTimeFormat(APP_LANGUAGE_LOCALES[language] ?? APP_LANGUAGE_LOCALES.en, {
     hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
@@ -173,8 +187,8 @@ function formatDisplayTime(date: Date) {
   };
 }
 
-function parseTimeString(timeStr: string | undefined) {
-  if (!timeStr) return { time: "Not available", period: "" };
+function parseTimeString(timeStr: string | undefined, t: (key: string, options?: Record<string, unknown>) => string) {
+  if (!timeStr) return { time: t("tvDisplay.notAvailable"), period: "" };
 
   if (timeStr.includes("AM") || timeStr.includes("PM")) {
     const parts = timeStr.split(" ");
@@ -199,9 +213,9 @@ function parseTimeString(timeStr: string | undefined) {
   return { time: timeStr, period: "" };
 }
 
-function formatDisplayTokenNumber(tokenNumber?: number) {
-  if (!tokenNumber) return "TOKEN #---";
-  return `TOKEN #${String(tokenNumber).padStart(3, "0")}`;
+function formatDisplayTokenNumber(tokenLabel: string, tokenNumber?: number) {
+  if (!tokenNumber) return `${tokenLabel} #---`;
+  return `${tokenLabel} #${String(tokenNumber).padStart(3, "0")}`;
 }
 
 function normalizeDoctorName(name: string) {
@@ -428,6 +442,7 @@ function safeLoadSettings(): AnnouncementSettings {
 }
 
 export default function TVDisplayPage() {
+  const { language, t } = useI18n();
   const [now, setNow] = React.useState<Date | null>(null);
   const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -632,10 +647,27 @@ export default function TVDisplayPage() {
   }, [currentAnnouncement, currentToken, enqueueAnnouncement, settings.language, settings.voiceType]);
 
   const { formatted } = useTimer(currentToken?.id ?? null, currentToken?.status === "CALLING");
-  const displayDate = React.useMemo(() => (now ? formatDisplayDate(now) : "-- --- ----"), [now]);
+  const displayDate = React.useMemo(() => (now ? formatDisplayDate(now, language) : "-- --- ----"), [language, now]);
   const displayClock = React.useMemo(
-    () => (now ? formatDisplayTime(now) : { time: "--:--:--", period: "" }),
-    [now]
+    () => (now ? formatDisplayTime(now, language) : { time: "--:--:--", period: "" }),
+    [language, now]
+  );
+  const tokenLabel = React.useMemo(() => t("patientEntry.token").toUpperCase(), [t]);
+  const languageOptions = React.useMemo(
+    () =>
+      LANGUAGE_OPTIONS.map((option) => ({
+        ...option,
+        label: getCloudLanguageLabel(option.value, t),
+      })),
+    [t]
+  );
+  const rateOptions = React.useMemo(
+    () =>
+      RATE_OPTIONS.map((option) => ({
+        ...option,
+        label: `${option.value}x ${t(`tvDisplay.${option.speedKey}`)}`,
+      })),
+    [t]
   );
 
   const replayLastAnnouncement = React.useCallback(() => {
@@ -674,8 +706,8 @@ export default function TVDisplayPage() {
               <button
                 type="button"
                 onClick={() => setShowSettings((current) => !current)}
-                title={showSettings ? "Hide settings" : "Show settings"}
-                aria-label={showSettings ? "Hide settings" : "Show settings"}
+                title={showSettings ? t("tvDisplay.hideSettings") : t("tvDisplay.showSettings")}
+                aria-label={showSettings ? t("tvDisplay.hideSettings") : t("tvDisplay.showSettings")}
                 className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                   showSettings
                     ? "border-[#0EA5A4] bg-[#F0FDFA] text-[#0F766E]"
@@ -689,8 +721,8 @@ export default function TVDisplayPage() {
                 type="button"
                 onClick={replayLastAnnouncement}
                 disabled={!lastAnnouncement}
-                title="Repeat announcement"
-                aria-label="Repeat announcement"
+                title={t("tvDisplay.repeatAnnouncement")}
+                aria-label={t("tvDisplay.repeatAnnouncement")}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#0EA5A4] bg-[#F0FDFA] text-[#0F766E] transition hover:bg-[#CCFBF1] disabled:cursor-not-allowed disabled:border-[#CBD5E1] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
               >
                 <RotateCcw className="h-4 w-4" />
@@ -699,8 +731,8 @@ export default function TVDisplayPage() {
               <button
                 type="button"
                 onClick={() => updateSetting("muted", !settings.muted)}
-                title={settings.muted ? "Unmute voice" : "Mute voice"}
-                aria-label={settings.muted ? "Unmute voice" : "Mute voice"}
+                title={settings.muted ? t("tvDisplay.unmuteVoice") : t("tvDisplay.muteVoice")}
+                aria-label={settings.muted ? t("tvDisplay.unmuteVoice") : t("tvDisplay.muteVoice")}
                 className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border transition ${
                   settings.muted
                     ? "border-[#FCA5A5] bg-[#FEF2F2] text-[#B91C1C]"
@@ -713,8 +745,8 @@ export default function TVDisplayPage() {
               <button
                 type="button"
                 onClick={handleFullscreenToggle}
-                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                title={isFullscreen ? t("tvDisplay.exitFullscreen") : t("tvDisplay.fullscreen")}
+                aria-label={isFullscreen ? t("tvDisplay.exitFullscreen") : t("tvDisplay.fullscreen")}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#0F172A] transition hover:border-[#0EA5A4] hover:text-[#0F766E]"
               >
                 {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
@@ -731,26 +763,26 @@ export default function TVDisplayPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                 <label className="rounded-[22px] border border-[#D9E3F0] bg-[#F8FAFC] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Voice Type</span>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.voiceType")}</span>
                   </div>
                   <select
                     value={settings.voiceType}
                     onChange={(event) => updateSetting("voiceType", event.target.value as AnnouncementSettings["voiceType"])}
                     className="mt-4 h-[58px] w-full rounded-[16px] border border-[#CBD5E1] bg-white px-5 text-[15px] font-semibold text-[#0F172A] outline-none transition focus:border-[#0EA5A4]"
                   >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
+                    <option value="male">{t("tvDisplay.male")}</option>
+                    <option value="female">{t("tvDisplay.female")}</option>
                   </select>
                 </label>
 
                 <label className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Language</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.language")}</span>
                   <select
                     value={settings.language}
                     onChange={(event) => updateSetting("language", event.target.value as CloudTtsLanguage)}
                     className="mt-4 h-[58px] w-full rounded-[16px] border border-[#CBD5E1] bg-white px-5 text-[15px] font-semibold text-[#0F172A] outline-none transition focus:border-[#0EA5A4]"
                   >
-                    {LANGUAGE_OPTIONS.map((option) => (
+                    {languageOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -760,14 +792,14 @@ export default function TVDisplayPage() {
 
                 <label className="rounded-[22px] border border-[#D9E3F0] bg-[#F8FAFC] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Speech Speed</span>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.speechSpeed")}</span>
                   </div>
                   <select
                     value={settings.rate}
                     onChange={(event) => updateSetting("rate", Number(event.target.value) as AnnouncementSettings["rate"])}
                     className="mt-4 h-[58px] w-full rounded-[16px] border border-[#CBD5E1] bg-white px-5 text-[15px] font-semibold text-[#0F172A] outline-none transition focus:border-[#0EA5A4]"
                   >
-                    {RATE_OPTIONS.map((option) => (
+                    {rateOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -777,7 +809,7 @@ export default function TVDisplayPage() {
 
                 <label className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Volume</span>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.volume")}</span>
                     <span className="text-[14px] font-semibold text-[#0F172A]">
                       {Math.round(settings.volume * 100)}%
                     </span>
@@ -795,7 +827,7 @@ export default function TVDisplayPage() {
 
                 <label className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Delay</span>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.delay")}</span>
                     <span className="text-[14px] font-semibold text-[#0F172A]">
                       {(settings.delayMs / 1000).toFixed(1)}s
                     </span>
@@ -813,11 +845,11 @@ export default function TVDisplayPage() {
 
                 <div className="rounded-[22px] border border-[#D9E3F0] bg-[#F8FAFC] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Voice Engine</span>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.voiceEngine")}</span>
                   </div>
                   <div className="mt-4 space-y-3">
-                    <p className="text-[15px] font-semibold leading-6 text-[#0F172A]">{getVoiceEngineLabel()}</p>
-                    <p className="text-[13px] leading-5 text-[#7B8BA4]">{getVoiceEngineDescription(settings.language)}</p>
+                    <p className="text-[15px] font-semibold leading-6 text-[#0F172A]">{t("tvDisplay.engineLabel")}</p>
+                    <p className="text-[13px] leading-5 text-[#7B8BA4]">{getVoiceEngineDescription(settings.language, t)}</p>
                   </div>
                 </div>
               </div>
@@ -828,7 +860,7 @@ export default function TVDisplayPage() {
             <div className="rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 md:p-6">
               <div className="flex items-center gap-3 text-[#0EA5A4]">
                 <CalendarDays className="h-6 w-6" />
-                <p className="text-[14px] font-medium leading-5 text-[#64748B]">Date</p>
+                <p className="text-[14px] font-medium leading-5 text-[#64748B]">{t("common.date")}</p>
               </div>
               <p className="mt-4 text-[32px] font-medium leading-10 text-[#0F172A]">{displayDate}</p>
             </div>
@@ -836,7 +868,7 @@ export default function TVDisplayPage() {
             <div className="rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 md:p-6">
               <div className="flex items-center gap-3 text-[#0EA5A4]">
                 <Clock3 className="h-6 w-6" />
-                <p className="text-[14px] font-medium leading-5 text-[#64748B]">Time</p>
+                <p className="text-[14px] font-medium leading-5 text-[#64748B]">{t("common.time")}</p>
               </div>
               <div className="mt-4 flex items-baseline gap-3">
                 <p className="text-[32px] font-medium leading-10 text-[#0F172A]">{displayClock.time}</p>
@@ -847,7 +879,7 @@ export default function TVDisplayPage() {
             <div className="rounded-[16px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 md:col-span-2 md:p-6 xl:col-span-1">
               <div className="flex items-center gap-3 text-[#0EA5A4]">
                 <Clock3 className="h-6 w-6" />
-                <p className="text-[14px] font-medium leading-5 text-[#64748B]">Call Duration</p>
+                <p className="text-[14px] font-medium leading-5 text-[#64748B]">{t("tvDisplay.callDuration")}</p>
               </div>
               <p className="mt-4 text-[32px] font-medium leading-10 text-[#0F172A]">{formatted}</p>
             </div>
@@ -860,44 +892,44 @@ export default function TVDisplayPage() {
               <table className="min-w-[1100px] w-full table-auto border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Patient Name</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Doctor</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Department</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Contact</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Visit Date</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Scheduled Time</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Up Next</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.patientName")}</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.doctor")}</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.department")}</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.contact")}</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.visitDate")}</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.scheduledTime")}</th>
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.upNext")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-[#E2E8F0]">
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.displayPatientName || currentToken?.patientName || "Waiting for next patient"}
+                      {currentToken?.displayPatientName || currentToken?.patientName || t("tvDisplay.waitingForNextPatient")}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken ? `Dr. ${normalizeDoctorName(currentToken.displayDoctorName || currentToken.doctorName)}` : "Not available"}
+                      {currentToken ? `Dr. ${normalizeDoctorName(currentToken.displayDoctorName || currentToken.doctorName)}` : t("tvDisplay.notAvailable")}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.displayDepartment || currentToken?.department || "Not available"}
+                      {currentToken?.displayDepartment || currentToken?.department || t("tvDisplay.notAvailable")}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.contact ?? "Not available"}
+                      {currentToken?.contact ?? t("tvDisplay.notAvailable")}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
                       {currentToken?.date ?? displayDate}
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
                       <div className="flex items-baseline gap-2">
-                        <span>{parseTimeString(currentToken?.time).time}</span>
-                        {parseTimeString(currentToken?.time).period ? (
+                        <span>{parseTimeString(currentToken?.time, t).time}</span>
+                        {parseTimeString(currentToken?.time, t).period ? (
                           <span className="text-[14px] font-semibold text-[#0EA5A4]">
-                            {parseTimeString(currentToken?.time).period}
+                            {parseTimeString(currentToken?.time, t).period}
                           </span>
                         ) : null}
                       </div>
                     </td>
                     <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {nextToken ? `${formatDisplayTokenNumber(nextToken.tokenNumber)} - ${nextToken.displayPatientName || nextToken.patientName}` : "Queue waiting"}
+                      {nextToken ? `${formatDisplayTokenNumber(tokenLabel, nextToken.tokenNumber)} - ${nextToken.displayPatientName || nextToken.patientName}` : t("tvDisplay.queueWaiting")}
                     </td>
                   </tr>
                 </tbody>

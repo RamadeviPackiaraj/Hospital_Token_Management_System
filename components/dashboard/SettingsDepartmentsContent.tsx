@@ -302,7 +302,7 @@ export function SettingsDepartmentsContent() {
           description={t("departmentsFeature.description")}
           icon={<LayoutList className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
-          imageAlt="Hospital hallway"
+          imageAlt={t("departmentsFeature.imageAlt")}
           stats={[
             { label: t("departmentsFeature.title"), value: String(departments.length) },
             { label: t("departmentsFeature.approvedDoctors"), value: String(approvedDoctors.length) },
@@ -493,7 +493,7 @@ export function SettingsDepartmentsContent() {
         description={t("departmentsFeature.managementDescription")}
         icon={<LayoutList className="size-5" />}
         imageSrc="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
-        imageAlt="Hospital hallway"
+        imageAlt={t("departmentsFeature.imageAlt")}
         stats={[
           { label: t("departmentsFeature.title"), value: String(departments.length) },
           { label: t("common.editable"), value: t("common.yes") },

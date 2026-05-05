@@ -80,6 +80,8 @@ export function TokenCard({
   const patientName = token.displayPatientName || token.patientName;
   const doctorName = token.displayDoctorName || token.doctorName;
   const department = token.displayDepartment || token.department;
+  const editTokenLabel = `${t("patientEntry.editToken")} ${token.tokenNumber}`;
+  const deleteTokenLabel = `${t("common.actions.delete")} ${t("patientEntry.token").toLowerCase()} ${token.tokenNumber}`;
   const actionButtonClass = cn(
     "inline-flex h-8 w-8 items-center justify-center rounded-md border bg-white/90 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60",
     token.status === "COMPLETED"
@@ -129,8 +131,8 @@ export function TokenCard({
                   type="button"
                   onClick={() => void onEdit(token.id)}
                   disabled={isUpdating}
-                  aria-label={`Edit token ${token.tokenNumber}`}
-                  title="Edit token"
+                  aria-label={editTokenLabel}
+                  title={editTokenLabel}
                   className={actionButtonClass}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -139,8 +141,8 @@ export function TokenCard({
                   type="button"
                   onClick={() => void onDelete(token.id)}
                   disabled={isUpdating}
-                  aria-label={`Delete token ${token.tokenNumber}`}
-                  title="Delete token"
+                  aria-label={deleteTokenLabel}
+                  title={deleteTokenLabel}
                   className={actionButtonClass}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
