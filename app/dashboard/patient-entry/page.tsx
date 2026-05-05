@@ -29,8 +29,10 @@ import {
   updatePatientToken,
   updatePatientTokenStatus,
 } from "@/lib/schedule-api";
+import { generateAnnouncement, type AnnouncementLanguage } from "@/lib/announcement-api";
+import { playAudio } from "@/lib/audioPlayer";
+import { speakAnnouncementText } from "@/lib/browser-tts";
 import { logger } from "@/lib/logger";
-import { speakTokenAnnouncement } from "@/lib/browser-tts";
 import type { DoctorScheduleRecord, PatientTokenRecord } from "@/lib/scheduling-types";
 import {
   defaultPatientEntryValues,
@@ -38,9 +40,33 @@ import {
   type PatientEntryFormValues,
 } from "@/utils/schedulingSchemas";
 
+const TV_ANNOUNCEMENT_SETTINGS_KEY = "hospital_tv_announcement_settings";
+
+function mapUiLanguageToAnnouncementLanguage(language: string): AnnouncementLanguage {
+  if (language === "ta") return "ta";
+  if (language === "hi") return "hi";
+  if (language === "ml") return "ml";
+  return "en";
+}
+
+function getStoredAnnouncementGender() {
+  if (typeof window === "undefined") {
+    return "male" as const;
+  }
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(TV_ANNOUNCEMENT_SETTINGS_KEY) || "{}") as {
+      voiceType?: "male" | "female";
+    };
+    return parsed.voiceType === "female" ? "female" : "male";
+  } catch {
+    return "male" as const;
+  }
+}
+
 export default function PatientEntryPage() {
   const { currentUser } = useDashboardContext();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
   const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
   const [departments, setDepartments] = React.useState<string[]>([]);
@@ -50,6 +76,15 @@ export default function PatientEntryPage() {
   const [updatingTokenId, setUpdatingTokenId] = React.useState<string | null>(null);
   const [editingToken, setEditingToken] = React.useState<PatientTokenRecord | null>(null);
   const [deleteTokenTarget, setDeleteTokenTarget] = React.useState<PatientTokenRecord | null>(null);
+  const activeAnnouncementAudioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  const stopAnnouncementAudio = React.useCallback(() => {
+    if (activeAnnouncementAudioRef.current) {
+      activeAnnouncementAudioRef.current.pause();
+      activeAnnouncementAudioRef.current.currentTime = 0;
+      activeAnnouncementAudioRef.current = null;
+    }
+  }, []);
 
   const methods = useForm<PatientEntryFormValues>({
     resolver: zodResolver(patientEntrySchema),
@@ -169,7 +204,30 @@ export default function PatientEntryPage() {
         current.map((token) => (token.id === updatedToken.id ? updatedToken : token))
       );
       if (status === "CALLING") {
-        speakTokenAnnouncement({ tokenNumber: updatedToken.tokenNumber });
+        const announcement = await generateAnnouncement({
+          tokenNumber: updatedToken.tokenNumber,
+          patientName: updatedToken.displayPatientName || updatedToken.patientName,
+          doctorName: updatedToken.displayDoctorName || updatedToken.doctorName,
+          department: updatedToken.displayDepartment || updatedToken.department,
+          language: mapUiLanguageToAnnouncementLanguage(language),
+          gender: getStoredAnnouncementGender(),
+        });
+
+        stopAnnouncementAudio();
+        const played = announcement.audioUrl
+          ? await playAudio(announcement.audioUrl, {
+              onAudioCreated: (audio) => {
+                activeAnnouncementAudioRef.current = audio;
+              },
+            })
+          : false;
+
+        if (!played) {
+          speakAnnouncementText({
+            text: announcement.translatedText,
+            language,
+          });
+        }
       }
       logger.success("Token status updated", {
         source: "patient-entry",
@@ -187,6 +245,12 @@ export default function PatientEntryPage() {
       setUpdatingTokenId(null);
     }
   }
+
+  React.useEffect(() => {
+    return () => {
+      stopAnnouncementAudio();
+    };
+  }, [stopAnnouncementAudio]);
 
   async function handleTokenEdit(values: PatientEntryFormValues) {
     if (!editingToken) {

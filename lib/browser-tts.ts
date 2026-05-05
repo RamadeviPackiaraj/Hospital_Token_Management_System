@@ -57,3 +57,31 @@ export function speakTokenAnnouncement({
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
 }
+
+export function speakAnnouncementText({
+  text,
+  language = getStoredLanguage(),
+  rate = 0.95,
+}: {
+  text: string;
+  language?: AppLanguage;
+  rate?: number;
+}) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return false;
+  }
+
+  const message = String(text || "").trim();
+  if (!message) {
+    return false;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.lang = SPEECH_LANG[language] || SPEECH_LANG[DEFAULT_LANGUAGE];
+  utterance.rate = rate;
+  utterance.pitch = 1;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+  return true;
+}

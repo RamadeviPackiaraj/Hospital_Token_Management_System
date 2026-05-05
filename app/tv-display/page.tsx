@@ -11,9 +11,11 @@ import {
   Volume2,
   VolumeOff,
 } from "lucide-react";
+import { generateAnnouncement, type AnnouncementLanguage, type GenerateAnnouncementResponse } from "@/lib/announcement-api";
+import { speakAnnouncementText } from "@/lib/browser-tts";
 import { useI18n } from "@/components/i18n";
 import { useTimer } from "@/components/tv-display";
-import { useAudioQueue } from "@/hooks/useAudioQueue";
+import { playAudio } from "@/lib/audioPlayer";
 import { getLanguageLabel, getStoredLanguage, type AppLanguage } from "@/lib/i18n";
 import { logger } from "@/lib/logger";
 import { getPatientTokens } from "@/lib/schedule-api";
@@ -33,9 +35,14 @@ type AnnouncementSettings = {
 
 type AnnouncementRequest = {
   tokenId: string;
-  tokenNumber: number;
-  language: CloudTtsLanguage;
-  voiceType: AnnouncementSettings["voiceType"];
+  payload: {
+    tokenNumber: number;
+    patientName: string;
+    doctorName: string;
+    department: string;
+    language: AnnouncementLanguage;
+    gender: "male" | "female";
+  };
 };
 
 type LiveStatus = "loading" | "ready" | "empty" | "error";
@@ -49,13 +56,11 @@ const DEFAULT_SETTINGS: AnnouncementSettings = {
   delayMs: 2000,
 };
 
-const LANGUAGE_OPTIONS: Array<{ languageKey: AppLanguage | "te" | "kn"; value: CloudTtsLanguage }> = [
+const LANGUAGE_OPTIONS: Array<{ languageKey: AppLanguage; value: CloudTtsLanguage }> = [
   { languageKey: "en", value: "english" },
   { languageKey: "ta", value: "tamil" },
   { languageKey: "hi", value: "hindi" },
-  { languageKey: "te", value: "telugu" },
   { languageKey: "ml", value: "malayalam" },
-  { languageKey: "kn", value: "kannada" },
 ];
 
 const RATE_OPTIONS: Array<{ speedKey: "slow" | "normal" | "fast" | "faster"; value: AnnouncementSettings["rate"] }> = [
@@ -75,16 +80,7 @@ const APP_LANGUAGE_LOCALES: Record<AppLanguage, string> = {
 function getCloudLanguageLabel(language: CloudTtsLanguage, t: (key: string, options?: Record<string, unknown>) => string) {
   const option = LANGUAGE_OPTIONS.find((item) => item.value === language);
   if (!option) return getLanguageLabel("en", t);
-  if (option.languageKey === "te") return t("tvDisplay.telugu");
-  if (option.languageKey === "kn") return t("tvDisplay.kannada");
   return getLanguageLabel(option.languageKey, t);
-}
-
-function getVoiceEngineDescription(
-  language: CloudTtsLanguage,
-  t: (key: string, options?: Record<string, unknown>) => string
-) {
-  return t("tvDisplay.engineDescription", { language: getCloudLanguageLabel(language, t) });
 }
 
 const MOCK_TOKENS: PatientTokenRecord[] = [
@@ -222,164 +218,35 @@ function normalizeDoctorName(name: string) {
   return name.replace(/^dr\.?\s*/i, "").trim();
 }
 
-function delay(ms: number) {
+function wait(ms: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
 }
 
-function escapeSsml(value: string) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+function isSupportedLanguage(value: unknown): value is CloudTtsLanguage {
+  return LANGUAGE_OPTIONS.some((option) => option.value === value);
 }
 
-const DEPARTMENT_TRANSLATIONS: Record<
-  Exclude<CloudTtsLanguage, "english">,
-  Record<string, string>
-> = {
-  tamil: {
-    ent: "\u0b95\u0bbe\u0ba4\u0bc1 \u0bae\u0bc2\u0b95\u0bcd\u0b95\u0bc1 \u0ba4\u0bca\u0ba3\u0bcd\u0b9f\u0bc8 \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    cardiology: "\u0b87\u0ba4\u0baf \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    orthopedics: "\u0b8e\u0bb2\u0bc1\u0bae\u0bcd\u0baa\u0bc1 \u0bae\u0bb1\u0bcd\u0bb1\u0bc1\u0bae\u0bcd \u0bae\u0bc2\u0b9f\u0bcd\u0b9f\u0bc1 \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    neurology: "\u0ba8\u0bb0\u0bae\u0bcd\u0baa\u0bbf\u0baf\u0bb2\u0bcd \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    pediatrics: "\u0b95\u0bc1\u0bb4\u0ba8\u0bcd\u0ba4\u0bc8\u0b95\u0bb3\u0bcd \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    gynecology: "\u0bae\u0b95\u0baa\u0bcd\u0baa\u0bc7\u0bb1\u0bc1 \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    ophthalmology: "\u0b95\u0ba3\u0bcd \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    dentistry: "\u0baa\u0bb2\u0bcd \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    dermatology: "\u0ba4\u0bcb\u0bb2\u0bcd \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-    generalmedicine: "\u0baa\u0bca\u0ba4\u0bc1 \u0bae\u0bb0\u0bc1\u0ba4\u0bcd\u0ba4\u0bc1\u0bb5 \u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-  },
-  hindi: {
-    ent: "\u0915\u093e\u0928 \u0928\u093e\u0915 \u0917\u0932\u093e \u0935\u093f\u092d\u093e\u0917",
-    cardiology: "\u0939\u0943\u0926\u092f \u0935\u093f\u092d\u093e\u0917",
-    orthopedics: "\u0939\u0921\u094d\u0921\u0940 \u0935\u093f\u092d\u093e\u0917",
-    neurology: "\u0928\u0938 \u0935\u093f\u092d\u093e\u0917",
-    pediatrics: "\u092c\u093e\u0932 \u0930\u094b\u0917 \u0935\u093f\u092d\u093e\u0917",
-    gynecology: "\u0938\u094d\u0924\u094d\u0930\u0940 \u0930\u094b\u0917 \u0935\u093f\u092d\u093e\u0917",
-    ophthalmology: "\u0928\u0947\u0924\u094d\u0930 \u0935\u093f\u092d\u093e\u0917",
-    dentistry: "\u0926\u0902\u0924 \u0935\u093f\u092d\u093e\u0917",
-    dermatology: "\u0924\u094d\u0935\u091a\u093e \u0935\u093f\u092d\u093e\u0917",
-    generalmedicine: "\u0938\u093e\u092e\u093e\u0928\u094d\u092f \u091a\u093f\u0915\u093f\u0924\u094d\u0938\u093e \u0935\u093f\u092d\u093e\u0917",
-  },
-  telugu: {
-    ent: "\u0c1a\u0c46\u0c35\u0c3f \u0c2e\u0c41\u0c15\u0c4d\u0c15\u0c41 \u0c17\u0c4a\u0c02\u0c24\u0c41 \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    cardiology: "\u0c39\u0c43\u0c26\u0c2f \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    orthopedics: "\u0c06\u0c38\u0c4d\u0c25\u0c3f \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    neurology: "\u0c28\u0c3e\u0c21\u0c40 \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    pediatrics: "\u0c2a\u0c3f\u0c32\u0c4d\u0c32\u0c32 \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    gynecology: "\u0c38\u0c4d\u0c24\u0c4d\u0c30\u0c40 \u0c30\u0c4b\u0c17 \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    ophthalmology: "\u0c15\u0c02\u0c1f\u0c3f \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    dentistry: "\u0c26\u0c02\u0c24 \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    dermatology: "\u0c1a\u0c30\u0c4d\u0c2e \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-    generalmedicine: "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c35\u0c48\u0c26\u0c4d\u0c2f \u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-  },
-  malayalam: {
-    ent: "\u0d15\u0d3e\u0d24\u0d4d \u0d2e\u0d42\u0d15\u0d4d\u0d15\u0d4d \u0d24\u0d4a\u0d23\u0d4d\u0d1f \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    cardiology: "\u0d39\u0d43\u0d26\u0d2f \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    orthopedics: "\u0d05\u0d38\u0d4d\u0d25\u0d3f \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    neurology: "\u0d28\u0d3e\u0d21\u0d40 \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    pediatrics: "\u0d15\u0d41\u0d1f\u0d4d\u0d1f\u0d3f\u0d15\u0d33\u0d41\u0d1f\u0d46 \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    gynecology: "\u0d38\u0d4d\u0d24\u0d4d\u0d30\u0d40 \u0d30\u0d4b\u0d17 \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    ophthalmology: "\u0d15\u0d23\u0d4d\u0d23\u0d4d \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    dentistry: "\u0d2a\u0d32\u0d4d \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    dermatology: "\u0d1a\u0d7c\u0d2e \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-    generalmedicine: "\u0d2a\u0d4a\u0d24\u0d41 \u0d35\u0d48\u0d26\u0d4d\u0d2f \u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-  },
-  kannada: {
-    ent: "\u0c95\u0cbf\u0cb5\u0cbf \u0cae\u0cc2\u0c97\u0cc1 \u0c97\u0ca4\u0ccd\u0ca4\u0cbf\u0c97\u0cc6 \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    cardiology: "\u0cb9\u0cc3\u0ca6\u0caf \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    orthopedics: "\u0caf\u0cb8\u0ccd\u0ca5\u0cbf \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    neurology: "\u0ca8\u0cbe\u0ca1\u0cc0 \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    pediatrics: "\u0cae\u0c95\u0ccd\u0c95\u0cb3 \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    gynecology: "\u0cb8\u0ccd\u0ca4\u0ccd\u0cb0\u0cc0 \u0cb0\u0ccb\u0c97 \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    ophthalmology: "\u0c95\u0ca3\u0ccd\u0ca3\u0cc1 \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    dentistry: "\u0ca6\u0c82\u0ca4 \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    dermatology: "\u0c9a\u0cb0\u0ccd\u0cae \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-    generalmedicine: "\u0cb8\u0cbe\u0cae\u0cbe\u0ca8\u0ccd\u0caf \u0cb5\u0cc8\u0ca6\u0ccd\u0caf \u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-  },
-};
-
-function normalizeDepartmentKey(value: string) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "");
+function mapCloudLanguageToAnnouncementLanguage(language: CloudTtsLanguage): AnnouncementLanguage {
+  if (language === "tamil") return "ta";
+  if (language === "hindi") return "hi";
+  if (language === "malayalam") return "ml";
+  return "en";
 }
 
-function getLocalizedDepartment(language: Exclude<CloudTtsLanguage, "english">, department: string) {
-  const normalizedKey = normalizeDepartmentKey(department);
-  return DEPARTMENT_TRANSLATIONS[language][normalizedKey] || null;
+function mapCloudLanguageToAppLanguage(language: CloudTtsLanguage): AppLanguage {
+  if (language === "tamil") return "ta";
+  if (language === "hindi") return "hi";
+  if (language === "malayalam") return "ml";
+  return "en";
 }
 
-function buildAnnouncementText(token: PatientTokenRecord, language: CloudTtsLanguage) {
-  const patientName = escapeSsml(token.displayPatientName || token.patientName);
-  const doctorName = escapeSsml(normalizeDoctorName(token.displayDoctorName || token.doctorName));
-  const department = escapeSsml(token.displayDepartment || token.department);
-  const tokenNumber = String(token.tokenNumber);
-
-  if (language === "english") {
-    return `<speak>Token number <say-as interpret-as="cardinal">${tokenNumber}</say-as>, <break time="300ms"/><lang xml:lang="en-IN">${patientName}</lang>, <break time="300ms"/>please proceed to Doctor <lang xml:lang="en-IN">${doctorName}</lang>, <break time="300ms"/><lang xml:lang="en-IN">${department}</lang>.</speak>`;
-  }
-
-  const templates: Record<
-    Exclude<CloudTtsLanguage, "english">,
-    { locale: string; tokenLine: string; doctorLine: string; departmentLead: string; fallbackEndLine: string }
-  > = {
-    tamil: {
-      locale: "ta-IN",
-      tokenLine: `\u0b9f\u0bcb\u0b95\u0bcd\u0b95\u0ba9\u0bcd \u0b8e\u0ba3\u0bcd ${tokenNumber}`,
-      doctorLine: "\u0ba4\u0baf\u0bb5\u0bc1\u0b9a\u0bc6\u0baf\u0bcd\u0ba4\u0bc1 \u0b9f\u0bbe\u0b95\u0bcd\u0b9f\u0bb0\u0bcd",
-      departmentLead: "\u0baa\u0bbf\u0bb0\u0bbf\u0bb5\u0bc1",
-      fallbackEndLine: "\u0b85\u0b99\u0bcd\u0b95\u0bc1 \u0b9a\u0bc6\u0bb2\u0bcd\u0bb2\u0bb5\u0bc1\u0bae\u0bcd.",
-    },
-    hindi: {
-      locale: "hi-IN",
-      tokenLine: `\u091f\u094b\u0915\u0928 \u0928\u0902\u092c\u0930 ${tokenNumber}`,
-      doctorLine: "\u0915\u0943\u092a\u092f\u093e \u0921\u0949\u0915\u094d\u091f\u0930",
-      departmentLead: "\u0935\u093f\u092d\u093e\u0917",
-      fallbackEndLine: "\u0915\u0947 \u092a\u093e\u0938 \u091c\u093e\u090f\u0901\u0964",
-    },
-    telugu: {
-      locale: "te-IN",
-      tokenLine: `\u0c1f\u0c4b\u0c15\u0c46\u0c28\u0c4d \u0c28\u0c02\u0c2c\u0c30\u0c4d ${tokenNumber}`,
-      doctorLine: "\u0c26\u0c2f\u0c1a\u0c47\u0c38\u0c3f \u0c21\u0c3e\u0c15\u0c4d\u0c1f\u0c30\u0c4d",
-      departmentLead: "\u0c35\u0c3f\u0c2d\u0c3e\u0c17\u0c02",
-      fallbackEndLine: "\u0c35\u0c26\u0c4d\u0c26\u0c15\u0c41 \u0c35\u0c46\u0c33\u0c4d\u0c33\u0c02\u0c21\u0c3f.",
-    },
-    malayalam: {
-      locale: "ml-IN",
-      tokenLine: `\u0d1f\u0d4b\u0d15\u0d4d\u0d15\u0d7a \u0d28\u0d2e\u0d4d\u0d2a\u0d7c ${tokenNumber}`,
-      doctorLine: "\u0d26\u0d2f\u0d35\u0d3e\u0d2f\u0d3f \u0d21\u0d4b\u0d15\u0d4d\u0d1f\u0d7c",
-      departmentLead: "\u0d35\u0d3f\u0d2d\u0d3e\u0d17\u0d02",
-      fallbackEndLine: "\u0d35\u0d3f\u0d1f\u0d4d\u0d1f\u0d3f\u0d32\u0d47\u0d15\u0d4d\u0d15\u0d4d \u0d2a\u0d4b\u0d15\u0d41\u0d15.",
-    },
-    kannada: {
-      locale: "kn-IN",
-      tokenLine: `\u0c9f\u0ccb\u0c95\u0ca8\u0ccd \u0cb8\u0c82\u0c96\u0ccd\u0caf\u0cc6 ${tokenNumber}`,
-      doctorLine: "\u0ca6\u0caf\u0cb5\u0cbf\u0c9f\u0ccd\u0c9f\u0cc1 \u0ca1\u0cbe\u0c95\u0ccd\u0c9f\u0cb0\u0ccd",
-      departmentLead: "\u0cb5\u0cbf\u0cad\u0cbe\u0c97",
-      fallbackEndLine: "\u0cb5\u0ca6\u0ccd\u0ca6\u0c95\u0ccd\u0c95\u0cc6 \u0cb9\u0ccb\u0c97\u0cbf.",
-    },
-  };
-
-  const template = templates[language];
-  const localizedDepartment = getLocalizedDepartment(language, token.displayDepartment || token.department);
-  const departmentLine = localizedDepartment
-    ? `<lang xml:lang="${template.locale}">${escapeSsml(localizedDepartment)}</lang> <lang xml:lang="${template.locale}">${escapeSsml(
-        template.departmentLead
-      )}</lang>`
-    : `<lang xml:lang="${template.locale}">${escapeSsml(template.fallbackEndLine)}</lang>`;
-
-  return `<speak><lang xml:lang="${template.locale}">${escapeSsml(
-    template.tokenLine
-  )}</lang><break time="300ms"/><lang xml:lang="en-IN">${patientName}</lang><break time="300ms"/><lang xml:lang="${template.locale}">${escapeSsml(
-    template.doctorLine
-  )}</lang> <lang xml:lang="en-IN">${doctorName}</lang><break time="300ms"/>${departmentLine}</speak>`;
+function mapAppLanguageToCloudLanguage(language: string): CloudTtsLanguage {
+  if (language === "ta") return "tamil";
+  if (language === "hi") return "hindi";
+  if (language === "ml") return "malayalam";
+  return "english";
 }
 
 function buildAnnouncementRequest(
@@ -389,21 +256,15 @@ function buildAnnouncementRequest(
 ): AnnouncementRequest {
   return {
     tokenId: token.id,
-    tokenNumber: token.tokenNumber,
-    language,
-    voiceType,
+    payload: {
+      tokenNumber: token.tokenNumber,
+      patientName: token.displayPatientName || token.patientName,
+      doctorName: normalizeDoctorName(token.displayDoctorName || token.doctorName),
+      department: token.displayDepartment || token.department,
+      language: mapCloudLanguageToAnnouncementLanguage(language),
+      gender: voiceType,
+    },
   };
-}
-
-function isSupportedLanguage(value: unknown): value is CloudTtsLanguage {
-  return LANGUAGE_OPTIONS.some((option) => option.value === value);
-}
-
-function mapAppLanguageToCloudLanguage(language: string): CloudTtsLanguage {
-  if (language === "ta") return "tamil";
-  if (language === "hi") return "hindi";
-  if (language === "ml") return "malayalam";
-  return "english";
 }
 
 function safeLoadSettings(): AnnouncementSettings {
@@ -452,11 +313,12 @@ export default function TVDisplayPage() {
   const [settings, setSettings] = React.useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
-  const [lastAnnouncement, setLastAnnouncement] = React.useState<AnnouncementRequest | null>(null);
+  const [currentAnnouncementResult, setCurrentAnnouncementResult] = React.useState<GenerateAnnouncementResponse | null>(null);
 
   const previousAnnouncementKeyRef = React.useRef<string | null>(null);
   const settingsRef = React.useRef<AnnouncementSettings>(DEFAULT_SETTINGS);
-  const { announceToken, stop: stopActiveAudio } = useAudioQueue();
+  const activeAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const activeAudioControllerRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
     settingsRef.current = settings;
@@ -471,6 +333,20 @@ export default function TVDisplayPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(ANNOUNCEMENT_SETTINGS_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  React.useEffect(() => {
+    const nextLanguage = mapAppLanguageToCloudLanguage(language);
+    setSettings((current) => {
+      if (current.language === nextLanguage) {
+        return current;
+      }
+
+      return {
+        ...current,
+        language: nextLanguage,
+      };
+    });
+  }, [language]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -499,29 +375,60 @@ export default function TVDisplayPage() {
     };
   }, []);
 
-  const enqueueAnnouncement = React.useCallback(
-    (announcement: AnnouncementRequest, immediate = false) => {
-      const currentSettings = settingsRef.current;
-      setLastAnnouncement(announcement);
+  const stopActiveAudio = React.useCallback(() => {
+    activeAudioControllerRef.current?.abort();
+    activeAudioControllerRef.current = null;
 
-      if (currentSettings.muted) {
-        return Promise.resolve(false);
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+      activeAudioRef.current = null;
+    }
+  }, []);
+
+  const playAnnouncementAudio = React.useCallback(
+    async (audioUrl: string, immediate = false) => {
+      const currentSettings = settingsRef.current;
+
+      if (!audioUrl || currentSettings.muted) {
+        return false;
       }
 
-      return announceToken(
-        {
-          token: announcement.tokenNumber,
-          language: announcement.language,
-          gender: announcement.voiceType,
+      stopActiveAudio();
+
+      if (!immediate && currentSettings.delayMs > 0) {
+        await wait(currentSettings.delayMs);
+      }
+
+      const controller = new AbortController();
+      activeAudioControllerRef.current = controller;
+
+      const result = await playAudio(audioUrl, {
+        volume: currentSettings.volume,
+        signal: controller.signal,
+        onAudioCreated: (audio) => {
+          activeAudioRef.current = audio;
         },
-        {
-          delayMs: immediate ? 0 : currentSettings.delayMs,
-          immediate,
-          volume: currentSettings.volume,
-        }
-      );
+      });
+
+      if (activeAudioControllerRef.current === controller) {
+        activeAudioControllerRef.current = null;
+      }
+
+      return result;
     },
-    [announceToken]
+    [stopActiveAudio]
+  );
+
+  const speakAnnouncementFallback = React.useCallback(
+    (text: string) => {
+      return speakAnnouncementText({
+        text,
+        language: mapCloudLanguageToAppLanguage(settingsRef.current.language),
+        rate: settingsRef.current.rate,
+      });
+    },
+    []
   );
 
   React.useEffect(() => {
@@ -627,6 +534,14 @@ export default function TVDisplayPage() {
     [currentToken?.id, displayTokens]
   );
 
+  React.useEffect(() => {
+    if (currentToken?.status === "CALLING") {
+      return;
+    }
+
+    setCurrentAnnouncementResult(null);
+  }, [currentToken]);
+
   const currentAnnouncement = React.useMemo(() => {
     if (!currentToken) return null;
     return buildAnnouncementRequest(currentToken, settings.language, settings.voiceType);
@@ -637,14 +552,48 @@ export default function TVDisplayPage() {
       return;
     }
 
+    const announcementRequest = currentAnnouncement;
     const announcementKey = `${currentToken.id}:${settings.language}:${settings.voiceType}`;
     if (previousAnnouncementKeyRef.current === announcementKey) {
       return;
     }
 
     previousAnnouncementKeyRef.current = announcementKey;
-    void enqueueAnnouncement(currentAnnouncement);
-  }, [currentAnnouncement, currentToken, enqueueAnnouncement, settings.language, settings.voiceType]);
+    let cancelled = false;
+
+    async function loadAnnouncement() {
+      try {
+        const result = await generateAnnouncement(announcementRequest.payload);
+        if (cancelled) return;
+
+        setCurrentAnnouncementResult(result);
+
+        if (!settingsRef.current.muted) {
+          const played = result.audioUrl ? await playAnnouncementAudio(result.audioUrl) : false;
+          if (!played) {
+            speakAnnouncementFallback(result.translatedText);
+          }
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        logger.warn("Unable to generate TV announcement", {
+          source: "tv-display.announcement",
+          data: { error, payload: announcementRequest.payload },
+        });
+
+        const fallbackText =
+          `Token number ${announcementRequest.payload.tokenNumber}, please go to Dr. ${announcementRequest.payload.doctorName} in the ${announcementRequest.payload.department} department.`;
+        speakAnnouncementFallback(fallbackText);
+      }
+    }
+
+    void loadAnnouncement();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAnnouncement, currentToken, playAnnouncementAudio, settings.language, settings.voiceType]);
 
   const { formatted } = useTimer(currentToken?.id ?? null, currentToken?.status === "CALLING");
   const displayDate = React.useMemo(() => (now ? formatDisplayDate(now, language) : "-- --- ----"), [language, now]);
@@ -653,14 +602,6 @@ export default function TVDisplayPage() {
     [language, now]
   );
   const tokenLabel = React.useMemo(() => t("patientEntry.token").toUpperCase(), [t]);
-  const languageOptions = React.useMemo(
-    () =>
-      LANGUAGE_OPTIONS.map((option) => ({
-        ...option,
-        label: getCloudLanguageLabel(option.value, t),
-      })),
-    [t]
-  );
   const rateOptions = React.useMemo(
     () =>
       RATE_OPTIONS.map((option) => ({
@@ -671,9 +612,18 @@ export default function TVDisplayPage() {
   );
 
   const replayLastAnnouncement = React.useCallback(() => {
-    if (!lastAnnouncement) return;
-    void enqueueAnnouncement(lastAnnouncement, true);
-  }, [enqueueAnnouncement, lastAnnouncement]);
+    if (!currentAnnouncementResult) return;
+    if (currentAnnouncementResult.audioUrl) {
+      void playAnnouncementAudio(currentAnnouncementResult.audioUrl, true).then((played) => {
+        if (!played) {
+          speakAnnouncementFallback(currentAnnouncementResult.translatedText);
+        }
+      });
+      return;
+    }
+
+    speakAnnouncementFallback(currentAnnouncementResult.translatedText);
+  }, [currentAnnouncementResult, playAnnouncementAudio, speakAnnouncementFallback]);
 
   async function handleFullscreenToggle() {
     if (typeof document === "undefined") return;
@@ -720,7 +670,7 @@ export default function TVDisplayPage() {
               <button
                 type="button"
                 onClick={replayLastAnnouncement}
-                disabled={!lastAnnouncement}
+                disabled={!currentAnnouncementResult}
                 title={t("tvDisplay.repeatAnnouncement")}
                 aria-label={t("tvDisplay.repeatAnnouncement")}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#0EA5A4] bg-[#F0FDFA] text-[#0F766E] transition hover:bg-[#CCFBF1] disabled:cursor-not-allowed disabled:border-[#CBD5E1] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
@@ -761,10 +711,8 @@ export default function TVDisplayPage() {
           >
             <div className="min-h-0">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-                <label className="rounded-[22px] border border-[#D9E3F0] bg-[#F8FAFC] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.voiceType")}</span>
-                  </div>
+                <label className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.voiceType")}</span>
                   <select
                     value={settings.voiceType}
                     onChange={(event) => updateSetting("voiceType", event.target.value as AnnouncementSettings["voiceType"])}
@@ -772,21 +720,6 @@ export default function TVDisplayPage() {
                   >
                     <option value="male">{t("tvDisplay.male")}</option>
                     <option value="female">{t("tvDisplay.female")}</option>
-                  </select>
-                </label>
-
-                <label className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.language")}</span>
-                  <select
-                    value={settings.language}
-                    onChange={(event) => updateSetting("language", event.target.value as CloudTtsLanguage)}
-                    className="mt-4 h-[58px] w-full rounded-[16px] border border-[#CBD5E1] bg-white px-5 text-[15px] font-semibold text-[#0F172A] outline-none transition focus:border-[#0EA5A4]"
-                  >
-                    {languageOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
                   </select>
                 </label>
 
@@ -843,15 +776,6 @@ export default function TVDisplayPage() {
                   />
                 </label>
 
-                <div className="rounded-[22px] border border-[#D9E3F0] bg-[#F8FAFC] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">{t("tvDisplay.voiceEngine")}</span>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    <p className="text-[15px] font-semibold leading-6 text-[#0F172A]">{t("tvDisplay.engineLabel")}</p>
-                    <p className="text-[13px] leading-5 text-[#7B8BA4]">{getVoiceEngineDescription(settings.language, t)}</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -887,6 +811,12 @@ export default function TVDisplayPage() {
         </section>
 
         <section className="rounded-[18px] border border-[#E2E8F0] bg-[#FFFFFF] shadow-panel">
+          <div className="border-b border-[#E2E8F0] bg-[#F8FAFC] px-6 py-5">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[#7B8BA4]">Announcement</p>
+            <p className="mt-3 text-[24px] font-semibold leading-9 text-[#0F172A]">
+              {currentAnnouncementResult?.translatedText || "Waiting for the next announcement."}
+            </p>
+          </div>
           <div className="overflow-hidden rounded-[18px]">
             <div className="overflow-x-auto">
               <table className="min-w-[1100px] w-full table-auto border-collapse">
