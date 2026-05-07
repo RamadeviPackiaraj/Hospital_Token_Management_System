@@ -237,6 +237,83 @@ export default function DoctorSchedulePage() {
     []
   );
 
+  const loadDoctorScheduleData = React.useCallback(async () => {
+    const [bootstrap, scheduleRecords, approvedDoctors, storedAssignments] = await Promise.all([
+      getScheduleBootstrap(),
+      getDoctorSchedules(),
+      getApprovedDoctorsForHospital(currentUser.id).catch(() => []),
+      getHospitalDepartmentAssignments(currentUser.id).catch(() => []),
+    ]);
+
+    const mergedAssignments = [
+      ...(storedAssignments || []),
+      ...((bootstrap.doctorAssignments || []).filter(
+        (assignment) =>
+          assignment.doctorId &&
+          assignment.department &&
+          !storedAssignments.some(
+            (storedAssignment) =>
+              storedAssignment.doctorId === assignment.doctorId &&
+              storedAssignment.department === assignment.department
+          )
+      ) || []),
+    ];
+
+    const assignmentMap = new Map(
+      mergedAssignments.map((item) => [item.doctorId, item.department] as const)
+    );
+    const assignmentDisplayMap = new Map(
+      mergedAssignments.map((item) => [
+        item.doctorId,
+        item.displayDepartment || item.department,
+      ] as const)
+    );
+
+    const approvedDirectory = buildApprovedDoctorDirectory(
+      approvedDoctors.filter((doctor) => doctor.approvalStatus === "approved"),
+      (bootstrap.doctors || []).filter((doctor) => doctor.isApproved),
+      scheduleRecords
+    ).map((doctor) => ({
+      ...doctor,
+      department: assignmentMap.get(doctor.id) || doctor.department || "",
+      displayDepartment:
+        assignmentDisplayMap.get(doctor.id) ||
+        assignmentMap.get(doctor.id) ||
+        doctor.displayDepartment ||
+        doctor.department ||
+        "",
+    }));
+
+    const assignedDepartments = Array.from(
+      new Set(
+        mergedAssignments
+          .map((assignment) => assignment.department)
+          .filter((department) => department && department.trim())
+      )
+    ).sort((left, right) => left.localeCompare(right));
+
+    const displayByValue = Object.fromEntries(
+      [
+        ...mergedAssignments.map((assignment) => [
+          assignment.department,
+          assignment.displayDepartment || assignment.department,
+        ] as const),
+        ...approvedDirectory.map((doctor) => [
+          doctor.department,
+          doctor.displayDepartment || doctor.department,
+        ] as const),
+      ].filter(([department]) => Boolean(department?.trim()))
+    );
+
+    setDepartments(assignedDepartments);
+    setDepartmentDisplayByValue(displayByValue);
+    setApprovedDoctors(
+      approvedDirectory.filter((doctor) => doctor.isApproved && Boolean(doctor.department?.trim()))
+    );
+    setDoctorDirectory(approvedDirectory);
+    setSchedules(mergeDoctorNames(scheduleRecords, approvedDirectory));
+  }, [buildApprovedDoctorDirectory, currentUser.id, mergeDoctorNames]);
+
   const showPreview = Boolean(selectedDepartment && selectedDoctorId && selectedDate && startTime && endTime);
   const totalSlots = React.useMemo(
     () => schedules.reduce((sum, schedule) => sum + schedule.slots.length, 0),
@@ -251,54 +328,9 @@ export default function DoctorSchedulePage() {
     if (currentUser.role !== "hospital") return;
 
     let active = true;
-
-    Promise.all([
-      getScheduleBootstrap(),
-      getDoctorSchedules(),
-      getApprovedDoctorsForHospital(currentUser.id).catch(() => []),
-      getHospitalDepartmentAssignments(currentUser.id).catch(() => []),
-    ])
-      .then(([bootstrap, scheduleRecords, approvedDoctors, storedAssignments]) => {
+    loadDoctorScheduleData()
+      .then(() => {
         if (!active) return;
-        const assignmentMap = new Map(storedAssignments.map((item) => [item.doctorId, item.department] as const));
-        const approvedDirectory = buildApprovedDoctorDirectory(
-          approvedDoctors.filter((doctor) => doctor.approvalStatus === "approved"),
-          (bootstrap.doctors || []).filter((doctor) => doctor.isApproved),
-          scheduleRecords
-        ).map((doctor) => ({
-          ...doctor,
-          department: assignmentMap.get(doctor.id) || doctor.department || "",
-        }));
-
-        const assignedDepartments = Array.from(
-          new Set(
-            storedAssignments
-              .map((assignment) => assignment.department)
-              .filter((department) => department && department.trim())
-          )
-        );
-        const displayByValue = Object.fromEntries([
-          ...(bootstrap.departments || []).map((department, index) => [
-            department,
-            bootstrap.displayDepartments?.[index] || department,
-          ] as const),
-          ...storedAssignments.map((assignment) => [
-            assignment.department,
-            assignment.displayDepartment || assignment.department,
-          ] as const),
-          ...approvedDirectory.map((doctor) => [
-            doctor.department,
-            doctor.displayDepartment || doctor.department,
-          ] as const),
-        ].filter(([department]) => Boolean(department?.trim())));
-
-        setDepartments(assignedDepartments);
-        setDepartmentDisplayByValue(displayByValue);
-        setApprovedDoctors(
-          approvedDirectory.filter((doctor) => doctor.isApproved && Boolean(doctor.department?.trim()))
-        );
-        setDoctorDirectory(approvedDirectory);
-        setSchedules(mergeDoctorNames(scheduleRecords, approvedDirectory));
       })
       .catch((error) => {
         if (!active) return;
@@ -313,7 +345,29 @@ export default function DoctorSchedulePage() {
     return () => {
       active = false;
     };
-  }, [buildApprovedDoctorDirectory, currentUser.id, currentUser.role, mergeDoctorNames]);
+  }, [currentUser.role, loadDoctorScheduleData]);
+
+  React.useEffect(() => {
+    if (currentUser.role !== "hospital") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadDoctorScheduleData().catch(() => undefined);
+      }
+    };
+
+    const handleFocus = () => {
+      loadDoctorScheduleData().catch(() => undefined);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [currentUser.role, loadDoctorScheduleData]);
 
   React.useEffect(() => {
     const subscription = watch((values, { name }) => {
