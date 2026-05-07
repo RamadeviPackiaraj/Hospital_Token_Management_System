@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AuthRoleProvider } from "@/components/auth/AuthRoleContext";
 import { I18nProvider } from "@/components/i18n";
-import { LogViewer } from "@/components/ui";
-import { LoggerRuntimeBridge } from "@/components/utility";
+import { ConditionalLogViewer, LoggerRuntimeBridge } from "@/components/utility";
 import { Toaster } from "react-hot-toast";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-time-picker/dist/TimePicker.css";
@@ -19,6 +18,8 @@ export const metadata: Metadata = {
   title: "Hospital Token Management System",
   description: "Minimal hospital token management system UI for authentication, queue flow, and daily operations."
 };
+
+const enableFrontendLogs = process.env.VITE_ENABLE_LOGS === "true";
 
 export default function RootLayout({
   children
@@ -70,7 +71,7 @@ export default function RootLayout({
                 },
               }}
             />
-            <LogViewer />
+            <ConditionalLogViewer enabled={enableFrontendLogs} />
           </AuthRoleProvider>
         </I18nProvider>
       </body>

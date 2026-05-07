@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Building2,
   CalendarClock,
@@ -29,13 +30,15 @@ function SummaryCard({
   value,
   note,
   icon,
+  href,
 }: {
   title: string;
   value: string;
   note: string;
   icon: React.ReactNode;
+  href?: string;
 }) {
-  return (
+  const cardContent = (
     <Card className="transition hover:border-[#0EA5A4]/40">
       <div className="flex items-center gap-4">
         <div className="flex size-11 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
@@ -48,6 +51,19 @@ function SummaryCard({
         </div>
       </div>
     </Card>
+  );
+
+  if (!href) {
+    return cardContent;
+  }
+
+  return (
+    <Link
+      href={href}
+      className="block rounded-[inherit] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0EA5A4] focus-visible:ring-offset-2"
+    >
+      {cardContent}
+    </Link>
   );
 }
 
@@ -211,36 +227,42 @@ export default function DashboardPage() {
             value={String(doctors.length)}
             note={copy.registeredDoctorAccounts}
             icon={<Stethoscope className="size-5" />}
+            href="/dashboard/doctors"
           />
           <SummaryCard
             title={copy.pendingDoctorApprovals}
             value={String(pendingDoctorApprovals.length)}
             note={copy.awaitingAdminReview}
             icon={<Clock3 className="size-5" />}
+            href="/dashboard/doctors?status=pending"
           />
           <SummaryCard
             title={copy.approvedDoctors}
             value={String(approvedDoctorsCount.length)}
             note={copy.doctorAccountsApproved}
             icon={<ShieldCheck className="size-5" />}
+            href="/dashboard/doctors?status=approved"
           />
           <SummaryCard
             title={copy.totalHospitals}
             value={String(hospitals.length)}
             note={copy.registeredHospitalAccounts}
             icon={<Building2 className="size-5" />}
+            href="/dashboard/hospitals"
           />
           <SummaryCard
             title={copy.pendingHospitalApprovals}
             value={String(pendingHospitalApprovals.length)}
             note={copy.awaitingAdminReview}
             icon={<Clock3 className="size-5" />}
+            href="/dashboard/hospitals?status=pending"
           />
           <SummaryCard
             title={copy.approvedHospitals}
             value={String(approvedHospitals.length)}
             note={copy.hospitalAccountsApproved}
             icon={<ShieldCheck className="size-5" />}
+            href="/dashboard/hospitals?status=approved"
           />
         </section>
       </div>
@@ -260,18 +282,21 @@ export default function DashboardPage() {
             value={String(pendingRequests.length)}
             note={copy.approvedRequests(approvedRequests.length)}
             icon={<ShieldCheck className="size-5" />}
+            href="/dashboard/doctors"
           />
           <SummaryCard
             title={copy.doctorSchedule}
             value={String(todayScheduleCount)}
             note={copy.activeDoctors(approvedDoctors.length)}
             icon={<CalendarClock className="size-5" />}
+            href="/dashboard/doctor-schedule"
           />
           <SummaryCard
             title={copy.patientEntry}
             value={String(todayAvailableSlots)}
             note={copy.openSlots}
             icon={<Ticket className="size-5" />}
+            href="/dashboard/patient-entry"
           />
         </section>
       </div>
@@ -290,18 +315,21 @@ export default function DashboardPage() {
           value={String(doctorSelections.length)}
           note={copy.totalHospitalRequests}
           icon={<Building2 className="size-5" />}
+          href="/dashboard/hospitals"
         />
         <SummaryCard
           title={copy.approvedHospitals}
           value={String(approvedSelections.length)}
           note={copy.activeHospitalAccess}
           icon={<ShieldCheck className="size-5" />}
+          href="/dashboard/hospitals"
         />
         <SummaryCard
           title={copy.pendingRequests}
           value={String(pendingSelections.length)}
           note={copy.waitingForReview}
           icon={<Clock3 className="size-5" />}
+          href="/dashboard/hospitals"
         />
       </section>
     </div>
