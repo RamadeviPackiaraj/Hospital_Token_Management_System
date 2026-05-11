@@ -13,17 +13,46 @@ interface MessageListProps {
 export function MessageList({ messages, currentSender }: MessageListProps) {
   const { language } = useI18n();
   const copy = messageListCopy[language];
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   const endRef = React.useRef<HTMLDivElement | null>(null);
+  const previousMessageIdRef = React.useRef<string | null>(null);
+  const previousConversationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const scrollContainer = scrollContainerRef.current;
+    const latestMessage = messages[messages.length - 1];
+    const currentConversationId = latestMessage?.conversationId ?? null;
+    const previousConversationId = previousConversationIdRef.current;
+    const previousMessageId = previousMessageIdRef.current;
+    const hasConversationChanged = previousConversationId !== currentConversationId;
+    const hasNewLatestMessage = previousMessageId !== latestMessage?.id;
+
+    if (!scrollContainer || !latestMessage) {
+      previousConversationIdRef.current = currentConversationId;
+      previousMessageIdRef.current = latestMessage?.id ?? null;
+      return;
+    }
+
+    const distanceFromBottom =
+      scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
+    const isNearBottom = distanceFromBottom < 80;
+
+    if (hasConversationChanged || (hasNewLatestMessage && isNearBottom)) {
+      endRef.current?.scrollIntoView({
+        behavior: hasConversationChanged ? "auto" : "smooth",
+        block: "end",
+      });
+    }
+
+    previousConversationIdRef.current = currentConversationId;
+    previousMessageIdRef.current = latestMessage.id;
   }, [messages]);
 
   let lastDateLabel = "";
 
   return (
     <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-      <div className="flex h-full min-h-[360px] flex-col overflow-y-auto px-4 py-4">
+      <div ref={scrollContainerRef} className="flex h-full min-h-[360px] flex-col overflow-y-auto px-4 py-4">
       {messages.length ? (
         messages.map((message) => {
           const dateLabel = formatChatDateLabel(message.createdAt);

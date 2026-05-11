@@ -11,13 +11,15 @@ export interface DashboardLayoutProps {
   header: HeaderProps;
   children: React.ReactNode;
   className?: string;
+  contentClassName?: string;
 }
 
 export function DashboardLayout({
   sidebar,
   header,
   children,
-  className
+  className,
+  contentClassName
 }: DashboardLayoutProps) {
   const [collapsed, toggleCollapsed] = useToggle(false);
   const [mobileOpen, toggleMobileOpen] = useToggle(false);
@@ -39,7 +41,7 @@ export function DashboardLayout({
             className
           )}
         >
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div className={cn("mx-auto w-full max-w-6xl", contentClassName)}>{children}</div>
         </main>
       </div>
     </div>
