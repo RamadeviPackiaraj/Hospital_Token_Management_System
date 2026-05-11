@@ -5,21 +5,16 @@ import { MessageSquareMore, Stethoscope } from "lucide-react";
 import { ChatContainer } from "@/components/chat";
 import { useDashboardContext } from "@/components/dashboard";
 import { useI18n } from "@/components/i18n";
-import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Badge, Card } from "@/components/ui";
 import { apiRequest, buildQuery } from "@/lib/api";
 import {
   CHAT_SOCKET_EVENTS,
-  clearSocketConversation,
   connectChatSocket,
   createSocketMessage,
-  deleteSocketMessage,
   mapSocketMessage,
   markSocketConversationRead,
   subscribeToConversation,
   unsubscribeFromConversation,
-  updateSocketMessage,
-  type ChatClearedPayload,
   type ChatConversationContext,
   type ChatMessagePayload,
   type ChatReadPayload,
@@ -120,8 +115,6 @@ export default function DashboardChatPage() {
   const [draft, setDraft] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [filter, setFilter] = React.useState<"all" | "read" | "unread">("all");
-  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
-  const [clearRequested, setClearRequested] = React.useState(false);
   const [socketStatus, setSocketStatus] = React.useState<ChatSocketStatus>("idle");
 
   const messages = useChatStore((state) => state.messages);
@@ -129,7 +122,6 @@ export default function DashboardChatPage() {
   const upsertMessage = useChatStore((state) => state.upsertMessage);
   const removeMessage = useChatStore((state) => state.removeMessage);
   const markConversationAsRead = useChatStore((state) => state.markConversationAsRead);
-  const clearConversation = useChatStore((state) => state.clearConversation);
 
   const role: Exclude<AuthRole, "admin"> | null = currentUser.role === "admin" ? null : currentUser.role;
   const copy = chatCopy[language];
@@ -270,10 +262,6 @@ export default function DashboardChatPage() {
         payload.readAt ? new Date(payload.readAt).getTime() : Date.now()
       );
     };
-    const handleConversationCleared = (payload: ChatClearedPayload) => {
-      clearConversation(payload.conversationId);
-    };
-
     setSocketStatus(socket.connected ? "connected" : "connecting");
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
@@ -283,7 +271,6 @@ export default function DashboardChatPage() {
     socket.on(CHAT_SOCKET_EVENTS.MESSAGE_UPDATED, handleMessageUpdated);
     socket.on(CHAT_SOCKET_EVENTS.MESSAGE_DELETED, handleMessageDeleted);
     socket.on(CHAT_SOCKET_EVENTS.CONVERSATION_READ_UPDATED, handleReadUpdated);
-    socket.on(CHAT_SOCKET_EVENTS.CONVERSATION_CLEARED, handleConversationCleared);
 
     return () => {
       socket.off("connect", handleConnect);
@@ -294,9 +281,8 @@ export default function DashboardChatPage() {
       socket.off(CHAT_SOCKET_EVENTS.MESSAGE_UPDATED, handleMessageUpdated);
       socket.off(CHAT_SOCKET_EVENTS.MESSAGE_DELETED, handleMessageDeleted);
       socket.off(CHAT_SOCKET_EVENTS.CONVERSATION_READ_UPDATED, handleReadUpdated);
-      socket.off(CHAT_SOCKET_EVENTS.CONVERSATION_CLEARED, handleConversationCleared);
     };
-  }, [clearConversation, markConversationAsRead, removeMessage, role, upsertMessage]);
+  }, [markConversationAsRead, removeMessage, role, upsertMessage]);
 
   React.useEffect(() => {
     if (!selectedContext || !selectedParticipant || !isApprovedParticipant(selectedParticipant)) return;
@@ -371,33 +357,6 @@ export default function DashboardChatPage() {
     });
 
     setDraft("");
-  }
-
-  function handleDeleteConfirm() {
-    if (!deleteTargetId) return;
-
-    void deleteSocketMessage({ id: deleteTargetId }).catch((error) => {
-      console.error("Failed to delete message:", error);
-    });
-    setDeleteTargetId(null);
-  }
-
-  function handleSaveEdit(messageId: string, value: string) {
-    void updateSocketMessage({ id: messageId, message: value }).catch((error) => {
-      console.error("Failed to update message:", error);
-    });
-  }
-
-  function handleClearConversation() {
-    if (!selectedContext || !selectedConversationId) return;
-
-    const context = createConversationPayload(selectedContext, selectedConversationId);
-
-    void clearSocketConversation(context).catch((error) => {
-      console.error("Failed to clear conversation:", error);
-    });
-
-    setClearRequested(false);
   }
 
   if (!role) {
@@ -494,14 +453,10 @@ export default function DashboardChatPage() {
             onSearchChange={setSearch}
             filter={filter}
             onFilterChange={setFilter}
-            onDelete={setDeleteTargetId}
-            onSaveEdit={handleSaveEdit}
             disabled={!isApproved}
             disabledMessage={disableReason}
             unreadCount={unreadCount}
             socketStatus={socketStatus}
-            onClear={selectedConversationId ? () => setClearRequested(true) : undefined}
-            clearDisabled={!selectedConversationId || !currentMessages.length}
           />
         ) : (
           <Card className="flex min-h-[560px] items-center justify-center p-4">
@@ -509,28 +464,6 @@ export default function DashboardChatPage() {
           </Card>
         )}
       </div>
-
-      <ConfirmationDialog
-        open={Boolean(deleteTargetId)}
-        title={copy.deleteMessage}
-        description={copy.deleteMessageDescription}
-        confirmLabel={copy.delete}
-        cancelLabel={copy.cancel}
-        confirmVariant="danger"
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTargetId(null)}
-      />
-
-      <ConfirmationDialog
-        open={clearRequested}
-        title={copy.clearConversation}
-        description={copy.clearConversationDescription}
-        confirmLabel={copy.clearChat}
-        cancelLabel={copy.cancel}
-        confirmVariant="danger"
-        onConfirm={handleClearConversation}
-        onCancel={() => setClearRequested(false)}
-      />
     </>
   );
 }

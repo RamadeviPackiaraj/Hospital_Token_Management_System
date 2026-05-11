@@ -11,6 +11,8 @@ export function SettingsLanguageContent() {
   return (
     <div className="space-y-6">
       <PageHero
+        backHref="/dashboard/settings"
+        backLabel={t("common.actions.back")}
         title={t("settings.languageTitle")}
         description={t("settings.languageDescription")}
         icon={<Languages className="size-5" />}

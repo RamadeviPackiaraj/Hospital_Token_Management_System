@@ -117,6 +117,8 @@ export function SettingsDoctorSubscriptionsContent() {
   return (
     <div className="space-y-6">
       <PageHero
+        backHref="/dashboard/settings/subscriptions"
+        backLabel={t("subscriptions.backToSubscriptions")}
         title={t("subscriptions.doctorsTitle")}
         description={t("subscriptions.doctorsDescription")}
         icon={<WalletCards className="size-5" />}

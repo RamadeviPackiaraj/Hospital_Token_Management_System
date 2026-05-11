@@ -8,16 +8,9 @@ import { formatChatDateLabel, type ChatMessage, type ChatSender } from "@/lib/ch
 interface MessageListProps {
   messages: ChatMessage[];
   currentSender: ChatSender;
-  onDelete: (messageId: string) => void;
-  onSaveEdit: (messageId: string, value: string) => void;
 }
 
-export function MessageList({
-  messages,
-  currentSender,
-  onDelete,
-  onSaveEdit,
-}: MessageListProps) {
+export function MessageList({ messages, currentSender }: MessageListProps) {
   const { language } = useI18n();
   const copy = messageListCopy[language];
   const endRef = React.useRef<HTMLDivElement | null>(null);
@@ -29,7 +22,8 @@ export function MessageList({
   let lastDateLabel = "";
 
   return (
-    <div className="flex max-h-[440px] flex-col overflow-y-auto rounded-md border border-[#E2E8F0] bg-[#F8FAFC] p-2">
+    <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
+      <div className="flex h-full min-h-[360px] flex-col overflow-y-auto px-4 py-4">
       {messages.length ? (
         messages.map((message) => {
           const dateLabel = formatChatDateLabel(message.createdAt);
@@ -40,16 +34,17 @@ export function MessageList({
           return (
             <div key={message.id} className="mb-2 last:mb-0">
               {showDateLabel ? (
-                <div className="mb-1 px-1">
-                  <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#64748B]">{localizedDateLabel}</p>
+                <div className="mb-3 mt-1 flex items-center gap-3 px-1">
+                  <div className="h-px flex-1 bg-[#D7E3ED]" />
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64748B]">
+                    {localizedDateLabel}
+                  </p>
+                  <div className="h-px flex-1 bg-[#D7E3ED]" />
                 </div>
               ) : null}
               <MessageRow
                 message={message}
-                canEdit={message.sender === currentSender}
                 currentSender={currentSender}
-                onDelete={onDelete}
-                onSaveEdit={onSaveEdit}
               />
             </div>
           );
@@ -61,6 +56,7 @@ export function MessageList({
       )}
 
       <div ref={endRef} />
+      </div>
     </div>
   );
 }

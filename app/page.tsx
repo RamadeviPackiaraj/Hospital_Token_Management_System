@@ -1,59 +1,69 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Stethoscope, Ticket } from "lucide-react";
+import { ArrowRight, Building2, Clock3, ShieldCheck, Stethoscope, Ticket } from "lucide-react";
 import { AuthTopbar } from "@/components/auth/AuthTopbar";
 import { Card } from "@/components/ui";
 
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#F8FAFC]">
-      <AuthTopbar />
+      <AuthTopbar showSignup={false} />
 
-      <section className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-6xl items-center px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,460px)] lg:items-center">
-          <div className="max-w-2xl space-y-6">
+      <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,460px)] lg:gap-8">
+          <div className="max-w-2xl space-y-5 pt-4">
             <div className="space-y-3">
               <p className="ui-label block leading-4 tracking-[0.2em]">
-                Hospital Token Management
+                Hospital Queue Management
               </p>
-            <h1 className="ui-page-title text-balance">
-              Hospital token management for doctors, hospitals, <br></br>and admins.
-            </h1>
+              <h1 className="ui-page-title max-w-[520px] text-balance">
+                Run patient tokens, staff access, and queue flow from one hospital dashboard.
+              </h1>
 
               <p className="max-w-xl ui-body-secondary">
-                Manage patient tokens, staff access, and daily queue flow in one simple hospital token management system.
+                A simple system for reception teams, doctors, and administrators to manage daily queue operations.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex">
               <Link
                 href="/signin"
                 className="focus-ring inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#0ea5a4] bg-[#0ea5a4] px-4 text-sm font-medium leading-5 text-white transition hover:bg-[#0b8b8b]"
               >
-                Sign In
+                Access Portal
                 <ArrowRight className="size-4" />
-              </Link>
-              <Link
-                href="/signup"
-                className="focus-ring inline-flex h-11 items-center justify-center rounded-lg border border-[#0EA5A4] bg-white px-4 text-sm font-medium leading-5 text-[#0EA5A4] transition hover:bg-[#F0FDFA]"
-              >
-                Sign Up
               </Link>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { label: "Daily tokens", value: "120+", icon: <Ticket className="size-4" /> },
-                { label: "Departments", value: "18", icon: <Building2 className="size-4" /> },
-                { label: "Doctors", value: "45+", icon: <Stethoscope className="size-4" /> }
+                {
+                  label: "Patients served",
+                  value: "120+",
+                  description: "daily token volume",
+                  icon: <Ticket className="size-4" />
+                },
+                {
+                  label: "Care units",
+                  value: "18",
+                  description: "departments managed",
+                  icon: <Building2 className="size-4" />
+                },
+                {
+                  label: "Active doctors",
+                  value: "45+",
+                  description: "schedules available",
+                  icon: <Stethoscope className="size-4" />
+                }
               ].map((item) => (
                 <Card key={item.label} className="min-h-[114px]">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="ui-meta">{item.label}</p>
+                    <p className="ui-card-title">{item.label}</p>
                     <div className="flex size-8 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                       {item.icon}
                     </div>
                   </div>
-                  <p className="mt-3 ui-card-title">{item.value}</p>
+                  <p className="mt-3 ui-section-title">{item.value}</p>
+                  <p className="mt-1 ui-meta">{item.description}</p>
                 </Card>
               ))}
             </div>
@@ -70,15 +80,21 @@ export default function HomePage() {
 
             <div className="grid gap-3 border-t border-[#E2E8F0] px-2 pb-2 pt-4 sm:grid-cols-2">
               <div className="min-h-[152px] rounded-lg bg-[#F8FAFC] p-4">
-                <p className="ui-meta">Fast patient flow</p>
+                <div className="flex items-center gap-2">
+                  <Clock3 className="size-4 text-[#0EA5A4]" />
+                  <p className="ui-meta">Queue coordination</p>
+                </div>
                 <p className="mt-2 ui-body">
-                  Organize queues, departments, and doctor availability from one dashboard.
+                  Track tokens, desks, and doctor availability from one place.
                 </p>
               </div>
               <div className="min-h-[152px] rounded-lg bg-[#F8FAFC] p-4">
-                <p className="ui-meta">Simple access</p>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-[#0EA5A4]" />
+                  <p className="ui-meta">Role-based access</p>
+                </div>
                 <p className="mt-2 ui-body">
-                  Separate access for hospital staff, doctors, and admins with clean sign-in flow.
+                  Give staff, doctors, and admins the right level of access.
                 </p>
               </div>
             </div>

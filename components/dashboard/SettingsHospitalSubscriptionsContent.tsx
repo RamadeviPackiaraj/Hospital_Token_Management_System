@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   Building2,
   Check,
   CreditCard,
@@ -215,15 +213,9 @@ export function SettingsHospitalSubscriptionsContent() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/dashboard/settings/subscriptions"
-        className="focus-ring inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
-      >
-        <ArrowLeft className="size-4" />
-        {t("subscriptions.backToSubscriptions")}
-      </Link>
-
       <PageHero
+        backHref="/dashboard/settings/subscriptions"
+        backLabel={t("subscriptions.backToSubscriptions")}
         title={t("subscriptions.hospitalsTitle")}
         description={t("subscriptions.hospitalsDescription")}
         icon={<WalletCards className="size-5" />}

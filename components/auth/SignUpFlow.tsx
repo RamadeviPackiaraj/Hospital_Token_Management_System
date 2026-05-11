@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { RoleSelector } from "@/components/auth/RoleSelector";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { FormWrapper } from "@/components/FormWrapper";
 import { Input } from "@/components/Input";
 import { PasswordInput } from "@/components/PasswordInput";
@@ -113,7 +114,7 @@ export function SignUpFlow() {
   const stateOptions = states.map((state) => ({ value: String(state.id), label: state.name }));
   const cityOptions = cities.map((city) => ({ value: String(city.id), label: city.name }));
   const departmentOptions = departments.map((department) => ({
-    label: department.name,
+    label: localizeDepartmentName(department.name, department.displayName),
     value: department.name,
   }));
 

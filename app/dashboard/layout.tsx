@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout";
 import { DashboardProvider } from "@/components/dashboard";
-import { useI18n } from "@/components/i18n";
+import { GlobalLanguageSwitcher, useI18n } from "@/components/i18n";
 import { Card } from "@/components/ui";
 import {
   clearMockSession,
@@ -248,6 +248,31 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
     return true;
   });
 
+  const settingsChildren: SidebarItem[] = [
+    {
+      href: "/dashboard/settings/language",
+      label: t("settings.languageTitle"),
+      active: pathname === "/dashboard/settings/language",
+    },
+    ...(currentUser.role === "admin"
+      ? [
+          {
+            href: "/dashboard/settings/departments",
+            label: t("settings.departments"),
+            active: pathname === "/dashboard/settings/departments",
+          },
+          {
+            href: "/dashboard/settings/subscriptions",
+            label: t("settings.subscriptions"),
+            active:
+              pathname === "/dashboard/settings/subscriptions" ||
+              pathname === "/dashboard/settings/subscriptions/hospitals" ||
+              pathname === "/dashboard/settings/subscriptions/doctors",
+          },
+        ]
+      : []),
+  ];
+
   return (
     <DashboardProvider
       value={{
@@ -274,6 +299,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
             href: item.href,
             icon: item.icon,
             label: t(item.labelKey),
+            children: item.href === "/dashboard/settings" ? settingsChildren : undefined,
             active:
               pathname === item.href ||
               (item.href === "/dashboard/departments" &&
@@ -284,6 +310,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
         header={{
           title: meta.title,
           subtitle: meta.subtitle,
+          actions: <GlobalLanguageSwitcher compact />,
           user: {
             name: currentUser.fullName,
             role: t(`dashboard.roles.${currentUser.role}`) || formatRoleLabel(currentUser.role)

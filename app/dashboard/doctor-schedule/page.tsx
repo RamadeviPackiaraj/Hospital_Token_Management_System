@@ -25,6 +25,7 @@ import {
   formatScheduleDate,
   generateTimeSlots,
 } from "@/lib/scheduling";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import {
   createDoctorSchedule,
   deleteDoctorSchedule,
@@ -265,7 +266,7 @@ export default function DoctorSchedulePage() {
     const assignmentDisplayMap = new Map(
       mergedAssignments.map((item) => [
         item.doctorId,
-        item.displayDepartment || item.department,
+        localizeDepartmentName(item.department, item.displayDepartment),
       ] as const)
     );
 
@@ -296,11 +297,11 @@ export default function DoctorSchedulePage() {
       [
         ...mergedAssignments.map((assignment) => [
           assignment.department,
-          assignment.displayDepartment || assignment.department,
+          localizeDepartmentName(assignment.department, assignment.displayDepartment),
         ] as const),
         ...approvedDirectory.map((doctor) => [
           doctor.department,
-          doctor.displayDepartment || doctor.department,
+          localizeDepartmentName(doctor.department, doctor.displayDepartment),
         ] as const),
       ].filter(([department]) => Boolean(department?.trim()))
     );

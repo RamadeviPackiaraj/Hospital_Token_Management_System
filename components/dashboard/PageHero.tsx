@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { Card, Badge } from "@/components/ui";
 
 interface PageHeroStat {
@@ -16,6 +18,8 @@ interface PageHeroProps {
   imageAlt: string;
   stats?: PageHeroStat[];
   supplementaryContent?: React.ReactNode;
+  backHref?: string;
+  backLabel?: string;
 }
 
 export function PageHero({
@@ -26,6 +30,8 @@ export function PageHero({
   imageAlt,
   stats = [],
   supplementaryContent,
+  backHref,
+  backLabel,
 }: PageHeroProps) {
   const [imageFailed, setImageFailed] = React.useState(false);
   const hasSupplementaryContent = Boolean(supplementaryContent);
@@ -43,6 +49,18 @@ export function PageHero({
         }
       >
         <div className="space-y-6">
+          {backHref && backLabel ? (
+            <div>
+              <Link
+                href={backHref}
+                className="focus-ring inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#64748B] transition hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
+              >
+                <ArrowLeft className="size-4" />
+                {backLabel}
+              </Link>
+            </div>
+          ) : null}
+
           <div className="flex items-center gap-4">
             <div className="flex size-12 items-center justify-center rounded-xl bg-[#F0FDFA] text-[#0EA5A4]">
               {icon}

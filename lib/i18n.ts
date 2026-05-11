@@ -7,9 +7,9 @@ export const LANGUAGE_STORAGE_KEY = "hospital_token_language";
 
 export const languageOptions = [
   { value: "en", label: "English" },
-  { value: "hi", label: "Hindi" },
-  { value: "ml", label: "Malayalam" },
-  { value: "ta", label: "Tamil" },
+  { value: "hi", label: "हिन्दी" },
+  { value: "ml", label: "മലയാളം" },
+  { value: "ta", label: "தமிழ்" },
 ] as const;
 
 export type AppLanguage = (typeof languageOptions)[number]["value"];
@@ -23,6 +23,12 @@ export function getLocalizedLanguageOptions(t: TranslateFn) {
   return languageOptions.map((option) => ({
     ...option,
     label: getLanguageLabel(option.value, t),
+  }));
+}
+
+export function getStaticLanguageOptions() {
+  return languageOptions.map((option) => ({
+    ...option,
   }));
 }
 

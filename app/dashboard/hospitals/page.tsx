@@ -3,25 +3,28 @@
 import * as React from "react";
 import {
   Building2,
-  Check,
   CircleCheckBig,
-  ClipboardList,
-  Clock3,
-  Mail,
-  MapPin,
-  Pencil,
+  ClockArrowUp,
+  CopyPlus,
+  Fingerprint,
+  Link2,
+  LoaderCircle,
   RotateCcw,
   Search,
   ShieldCheck,
-  Trash2,
   WalletCards,
-  X,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { Badge, Button, Card, Checkbox, Input, Select, Table } from "@/components/ui";
-import { useDashboardContext, PageHero, AdminUserEditModal } from "@/components/dashboard";
+import { Badge, Button, Card, Input, Select, Table } from "@/components/ui";
+import {
+  useDashboardContext,
+  PageHero,
+  AdminUserEditModal,
+  ApprovalActionGroup,
+  ApprovalStatusBadge,
+} from "@/components/dashboard";
 import { useI18n } from "@/components/i18n";
 import { formatDisplayDate } from "@/lib/utils";
 import {
@@ -55,11 +58,34 @@ type HospitalDirectoryItem = {
   status: string;
 };
 
-function badgeVariant(status: UserApprovalStatus) {
-  if (status === "approved") return "success";
-  if (status === "rejected") return "error";
-  return "warning";
-}
+type DoctorHospitalCopy = {
+  accessRequestTitle: string;
+  accessRequestDescription: string;
+  hospitalIdLabel: string;
+  hospitalIdPlaceholder: string;
+  searchResultsEmpty?: string;
+  selectedHospitalTitle?: string;
+  searchHelper?: string;
+  requestAccess: string;
+  requestHint: string;
+  requestUsage: string;
+  progressLabel: string;
+  pendingSidebarTitle: string;
+  pendingSidebarDescription: string;
+  pendingEmpty: string;
+  approvedSectionTitle: string;
+  approvedSectionDescription: string;
+  approvedEmpty: string;
+  hospitalIdCaption: string;
+  activeAccess: string;
+  accessActive: string;
+  accessWaiting: string;
+  copiedId: string;
+  requestBlocked: string;
+  invalidHospitalId: string;
+  hospitalAlreadyRequested: string;
+  requestSubmitted: string;
+};
 
 function splitLocation(location?: string | null) {
   const parts = (location || "")
@@ -74,34 +100,187 @@ function splitLocation(location?: string | null) {
   };
 }
 
-function requestBadgeVariant(status: HospitalSelection["status"]) {
-  return status === "approved" ? "success" : status === "rejected" ? "error" : "warning";
-}
-
 function getRequestDateLabel(requestedAt: string) {
   const formatted = formatDisplayDate(requestedAt);
   return formatted.replace(/ \d{2}:\d{2} (AM|PM)$/, "");
 }
 
+function normalizeHospitalLookupValue(value: string) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function getHospitalCode(hospital: HospitalDirectoryItem) {
+  const preferredId = String(hospital.userId || hospital.id || "").trim();
+  const suffix = preferredId.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase() || "0000";
+  return preferredId.toUpperCase().startsWith("HSP-") ? preferredId.toUpperCase() : `HSP-${suffix}`;
+}
+
+function matchesHospitalIdentifier(hospital: HospitalDirectoryItem, input: string) {
+  const normalizedInput = normalizeHospitalLookupValue(input);
+  if (!normalizedInput) return false;
+
+  const identifiers = [
+    hospital.id,
+    hospital.userId,
+    hospital.name,
+    hospital.displayName,
+    getHospitalCode(hospital),
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeHospitalLookupValue(value || ""));
+
+  return identifiers.includes(normalizedInput);
+}
+
+function matchesHospitalSearch(hospital: HospitalDirectoryItem, input: string) {
+  const term = normalizeHospitalLookupValue(input);
+  if (!term) return false;
+
+  const location = splitLocation(hospital.displayLocation || hospital.location);
+  const haystack = [
+    hospital.name,
+    hospital.displayName,
+    hospital.id,
+    hospital.userId,
+    getHospitalCode(hospital),
+    location.city,
+    location.state,
+    location.country,
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeHospitalLookupValue(value || ""))
+    .join(" ");
+
+  return haystack.includes(term);
+}
+
+const doctorHospitalCopy: Record<string, DoctorHospitalCopy> = {
+  en: {
+    accessRequestTitle: "Hospital Access Request",
+    accessRequestDescription: "Enter a hospital ID or code to request secure organizational access.",
+    hospitalIdLabel: "Search hospital",
+    hospitalIdPlaceholder: "Search by hospital name, city, or HSP-1023",
+    searchResultsEmpty: "No hospitals matched your search.",
+    selectedHospitalTitle: "Selected hospital",
+    searchHelper: "Search by hospital name, city/state, or hospital ID.",
+    requestAccess: "Request Access",
+    requestHint: "Approved hospitals move into active connections after review.",
+    requestUsage: "Each approved or pending relationship uses one slot.",
+    progressLabel: "Capacity usage",
+    pendingSidebarTitle: "Pending Requests",
+    pendingSidebarDescription: "Requests awaiting hospital or admin approval.",
+    pendingEmpty: "No pending requests right now.",
+    approvedSectionTitle: "Connected Hospitals",
+    approvedSectionDescription: "Approved access relationships available for operational work.",
+    approvedEmpty: "No approved hospital connections yet.",
+    hospitalIdCaption: "Hospital ID",
+    activeAccess: "Active access",
+    accessActive: "Access active",
+    accessWaiting: "Waiting for approval",
+    copiedId: "Hospital ID copied",
+    requestBlocked: "No remaining hospital slots available in this plan.",
+    invalidHospitalId: "Hospital ID not found. Check the code and try again.",
+    hospitalAlreadyRequested: "This hospital is already in your request queue.",
+    requestSubmitted: "Hospital access request submitted.",
+  },
+  hi: {
+    accessRequestTitle: "अस्पताल एक्सेस अनुरोध",
+    accessRequestDescription: "सुरक्षित संगठनात्मक एक्सेस के लिए अस्पताल आईडी या कोड दर्ज करें।",
+    hospitalIdLabel: "अस्पताल आईडी / कोड",
+    hospitalIdPlaceholder: "HSP-1023",
+    requestAccess: "एक्सेस अनुरोध भेजें",
+    requestHint: "समीक्षा के बाद स्वीकृत अस्पताल सक्रिय कनेक्शन में दिखेंगे।",
+    requestUsage: "हर स्वीकृत या लंबित संबंध एक स्लॉट उपयोग करता है।",
+    progressLabel: "क्षमता उपयोग",
+    pendingSidebarTitle: "लंबित अनुरोध",
+    pendingSidebarDescription: "अस्पताल या एडमिन स्वीकृति की प्रतीक्षा कर रहे अनुरोध।",
+    pendingEmpty: "अभी कोई लंबित अनुरोध नहीं है।",
+    approvedSectionTitle: "कनेक्टेड अस्पताल",
+    approvedSectionDescription: "स्वीकृत एक्सेस संबंध जिनके साथ आप काम कर सकते हैं।",
+    approvedEmpty: "अभी कोई स्वीकृत अस्पताल कनेक्शन नहीं है।",
+    hospitalIdCaption: "अस्पताल आईडी",
+    activeAccess: "सक्रिय एक्सेस",
+    accessActive: "एक्सेस सक्रिय",
+    accessWaiting: "स्वीकृति की प्रतीक्षा",
+    copiedId: "अस्पताल आईडी कॉपी की गई",
+    requestBlocked: "इस प्लान में कोई स्लॉट शेष नहीं है।",
+    invalidHospitalId: "अस्पताल आईडी नहीं मिली। कोड जांचकर फिर प्रयास करें।",
+    hospitalAlreadyRequested: "यह अस्पताल पहले से आपकी अनुरोध सूची में है।",
+    requestSubmitted: "अस्पताल एक्सेस अनुरोध भेज दिया गया है।",
+  },
+  ml: {
+    accessRequestTitle: "ആശുപത്രി ആക്സസ് അഭ്യർത്ഥന",
+    accessRequestDescription: "സുരക്ഷിത ആക്സസിന് ആശുപത്രി ഐഡിയോ കോഡോ നൽകുക.",
+    hospitalIdLabel: "ആശുപത്രി ഐഡി / കോഡ്",
+    hospitalIdPlaceholder: "HSP-1023",
+    requestAccess: "ആക്സസ് അഭ്യർത്ഥിക്കുക",
+    requestHint: "അംഗീകാരം ലഭിച്ച ശേഷം ആശുപത്രി സജീവ കണക്ഷനിലേക്ക് മാറും.",
+    requestUsage: "ഓരോ ബാക്കി അല്ലെങ്കിൽ അംഗീകൃത ബന്ധവും ഒരു സ്ലോട്ട് ഉപയോഗിക്കും.",
+    progressLabel: "ശേഷി ഉപയോഗം",
+    pendingSidebarTitle: "ബാക്കി അഭ്യർത്ഥനകൾ",
+    pendingSidebarDescription: "ആശുപത്രിയോ അഡ്മിനോ അംഗീകരിക്കാനുള്ള അഭ്യർത്ഥനകൾ.",
+    pendingEmpty: "ഇപ്പോൾ ബാക്കി അഭ്യർത്ഥനകളില്ല.",
+    approvedSectionTitle: "കണക്റ്റഡ് ആശുപത്രികൾ",
+    approvedSectionDescription: "പ്രവർത്തന ഉപയോഗത്തിനുള്ള അംഗീകൃത ആക്സസ് ബന്ധങ്ങൾ.",
+    approvedEmpty: "ഇപ്പോൾ അംഗീകൃത ആശുപത്രി ബന്ധങ്ങളില്ല.",
+    hospitalIdCaption: "ആശുപത്രി ഐഡി",
+    activeAccess: "സജീവ ആക്സസ്",
+    accessActive: "ആക്സസ് സജീവം",
+    accessWaiting: "അംഗീകാരത്തിനായി കാത്തിരിക്കുന്നു",
+    copiedId: "ആശുപത്രി ഐഡി കോപ്പി ചെയ്തു",
+    requestBlocked: "ഈ പ്ലാനിൽ ഇനി സ്ലോട്ടുകൾ ഇല്ല.",
+    invalidHospitalId: "ആശുപത്രി ഐഡി കണ്ടെത്താനായില്ല. കോഡ് വീണ്ടും പരിശോധിക്കുക.",
+    hospitalAlreadyRequested: "ഈ ആശുപത്രി ഇതിനകം നിങ്ങളുടെ അഭ്യർത്ഥന പട്ടികയിൽ ഉണ്ട്.",
+    requestSubmitted: "ആശുപത്രി ആക്സസ് അഭ്യർത്ഥിച്ചു.",
+  },
+  ta: {
+    accessRequestTitle: "மருத்துவமனை அணுகல் கோரிக்கை",
+    accessRequestDescription: "பாதுகாப்பான அமைப்பு அணுகலுக்காக மருத்துவமனை ஐடி அல்லது குறியீட்டை உள்ளிடவும்.",
+    hospitalIdLabel: "மருத்துவமனை ஐடி / குறியீடு",
+    hospitalIdPlaceholder: "HSP-1023",
+    requestAccess: "அணுகலை கோருங்கள்",
+    requestHint: "ஒப்புதல் கிடைத்த பிறகு மருத்துவமனைகள் செயலில் உள்ள இணைப்புகளுக்கு மாற்றப்படும்.",
+    requestUsage: "ஒவ்வொரு நிலுவை அல்லது ஒப்புதல் உறவும் ஒரு இடத்தை பயன்படுத்தும்.",
+    progressLabel: "திறன் பயன்பாடு",
+    pendingSidebarTitle: "நிலுவை கோரிக்கைகள்",
+    pendingSidebarDescription: "மருத்துவமனை அல்லது நிர்வாக ஒப்புதலுக்காக காத்திருக்கும் கோரிக்கைகள்.",
+    pendingEmpty: "இப்போது நிலுவை கோரிக்கைகள் இல்லை.",
+    approvedSectionTitle: "இணைக்கப்பட்ட மருத்துவமனைகள்",
+    approvedSectionDescription: "செயல்பாட்டிற்கு பயன்படுத்தக்கூடிய ஒப்புதல் பெற்ற அணுகல் இணைப்புகள்.",
+    approvedEmpty: "இன்னும் ஒப்புதல் பெற்ற மருத்துவமனை இணைப்புகள் இல்லை.",
+    hospitalIdCaption: "மருத்துவமனை ஐடி",
+    activeAccess: "செயலில் உள்ள அணுகல்",
+    accessActive: "அணுகல் செயலில் உள்ளது",
+    accessWaiting: "ஒப்புதலுக்காக காத்திருக்கிறது",
+    copiedId: "மருத்துவமனை ஐடி நகலெடுக்கப்பட்டது",
+    requestBlocked: "இந்த திட்டத்தில் மீதமுள்ள இடங்கள் இல்லை.",
+    invalidHospitalId: "மருத்துவமனை ஐடி கிடைக்கவில்லை. குறியீட்டை சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+    hospitalAlreadyRequested: "இந்த மருத்துவமனை ஏற்கனவே உங்கள் கோரிக்கை பட்டியலில் உள்ளது.",
+    requestSubmitted: "மருத்துவமனை அணுகல் கோரிக்கை சமர்ப்பிக்கப்பட்டது.",
+  },
+};
+
 export default function HospitalsPage() {
   const searchParams = useSearchParams();
   const { currentUser, refreshSession } = useDashboardContext();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const doctorCopy = doctorHospitalCopy[language] || doctorHospitalCopy.en;
   const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("pending");
   const [users, setUsers] = React.useState<MockUser[]>([]);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
   const [availableHospitals, setAvailableHospitals] = React.useState<HospitalDirectoryItem[]>([]);
   const [requests, setRequests] = React.useState<HospitalSelection[]>([]);
-  const [selectedHospitalIds, setSelectedHospitalIds] = React.useState<string[]>([]);
-  const [doctorSearch, setDoctorSearch] = React.useState("");
+  const [hospitalIdInput, setHospitalIdInput] = React.useState("");
+  const [selectedHospital, setSelectedHospital] = React.useState<HospitalDirectoryItem | null>(null);
   const [loadingDoctorView, setLoadingDoctorView] = React.useState(true);
   const [doctorError, setDoctorError] = React.useState("");
-  const [submittingSelection, setSubmittingSelection] = React.useState(false);
+  const [submittingRequest, setSubmittingRequest] = React.useState(false);
   const [removingHospitalId, setRemovingHospitalId] = React.useState<string | null>(null);
   const [subscriptionSummary, setSubscriptionSummary] = React.useState<DoctorSubscriptionSummary | null>(null);
+  const [actioningHospitalId, setActioningHospitalId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (currentUser.role !== "admin") return;
@@ -116,7 +295,7 @@ export default function HospitalsPage() {
     setStatusFilter(
       nextStatus === "pending" || nextStatus === "approved" || nextStatus === "rejected"
         ? nextStatus
-        : "all"
+        : "pending"
     );
   }, [searchParams]);
 
@@ -170,6 +349,8 @@ export default function HospitalsPage() {
     .map((user) => ({ ...user }));
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
+    setActioningHospitalId(userId);
+
     try {
       await apiRequest(`/admin/hospitals/${userId}/status`, {
         method: "PATCH",
@@ -193,6 +374,8 @@ export default function HospitalsPage() {
         data: { userId, status, error: message },
         toast: true,
       });
+    } finally {
+      setActioningHospitalId(null);
     }
   }
 
@@ -264,33 +447,49 @@ export default function HospitalsPage() {
     })();
   }
 
-  async function handleSubmitSelection() {
-    if (!selectedHospitalIds.length) return;
-
-    setSubmittingSelection(true);
+  async function handleSubmitRequest() {
+    setSubmittingRequest(true);
     setDoctorError("");
 
     try {
-      const nextRequests = await submitHospitalSelections(currentUser.id, selectedHospitalIds);
+      if (!(subscriptionSummary?.remainingHospitalSlots ?? 0)) {
+        throw new Error(doctorCopy.requestBlocked);
+      }
+
+      const matchedHospital =
+        selectedHospital ||
+        availableHospitals.find((hospital) => matchesHospitalIdentifier(hospital, hospitalIdInput));
+
+      if (!matchedHospital) {
+        throw new Error(doctorCopy.invalidHospitalId);
+      }
+
+      const alreadyRequested = requests.some((request) => request.hospitalId === matchedHospital.id);
+      if (alreadyRequested) {
+        throw new Error(doctorCopy.hospitalAlreadyRequested);
+      }
+
+      const nextRequests = await submitHospitalSelections(currentUser.id, [matchedHospital.id]);
       const nextSubscriptionSummary = await getDoctorSubscriptionSummary(currentUser.id);
       setRequests(nextRequests);
       setSubscriptionSummary(nextSubscriptionSummary);
-      setSelectedHospitalIds([]);
-      logger.success("Hospital selection submitted.", {
+      setHospitalIdInput("");
+      setSelectedHospital(null);
+      logger.success(doctorCopy.requestSubmitted, {
         source: "hospitals.doctor",
-        data: { hospitalIds: selectedHospitalIds },
+        data: { hospitalId: matchedHospital.id, hospitalCode: getHospitalCode(matchedHospital) },
         toast: true,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to submit hospital selection.";
+      const message = error instanceof Error ? error.message : "Unable to submit hospital access request.";
       setDoctorError(message);
-      logger.error("Unable to submit the hospital selection.", {
+      logger.error("Unable to submit the hospital access request.", {
         source: "hospitals.doctor",
-        data: { hospitalIds: selectedHospitalIds, error: message },
+        data: { hospitalIdInput, error: message },
         toast: true,
       });
     } finally {
-      setSubmittingSelection(false);
+      setSubmittingRequest(false);
     }
   }
 
@@ -309,7 +508,6 @@ export default function HospitalsPage() {
       const nextSubscriptionSummary = await getDoctorSubscriptionSummary(currentUser.id);
       setRequests(nextRequests);
       setSubscriptionSummary(nextSubscriptionSummary);
-      setSelectedHospitalIds((current) => current.filter((id) => id !== hospitalId));
       logger.success("Hospital selection reverted successfully.", {
         source: "hospitals.doctor",
         data: { hospitalId },
@@ -329,243 +527,233 @@ export default function HospitalsPage() {
   }
 
   if (currentUser.role === "doctor") {
-    const requestsByHospitalId = new Map(requests.map((request) => [request.hospitalId, request]));
     const approvedRequests = requests.filter((request) => request.status === "approved");
     const pendingRequests = requests.filter((request) => request.status === "pending");
+    const requestedHospitalIds = new Set(requests.map((request) => request.hospitalId));
     const usedSlots = subscriptionSummary?.usedHospitalSlots ?? approvedRequests.length + pendingRequests.length;
     const hospitalLimit = subscriptionSummary?.hospitalLimit ?? 1;
     const remainingSlots = Math.max(0, subscriptionSummary?.remainingHospitalSlots ?? hospitalLimit - usedSlots);
-    const filteredHospitals = availableHospitals.filter((hospital) => {
-      const term = doctorSearch.toLowerCase();
-      const matchesSearch =
-        (hospital.displayName || hospital.name).toLowerCase().includes(term) || hospital.email.toLowerCase().includes(term);
-      const notAlreadyRequested = !requestsByHospitalId.has(hospital.id);
-
-      return matchesSearch && notAlreadyRequested;
-    });
     const subscriptionAmount = subscriptionSummary?.ratePerHospital ?? 500;
-    const selectionLimitReached = selectedHospitalIds.length >= remainingSlots;
-    function updateHospitalSelection(hospitalId: string, nextChecked: boolean) {
-      setSelectedHospitalIds((current) => {
-        const alreadySelected = current.includes(hospitalId);
-
-        if (!nextChecked) {
-          return current.filter((id) => id !== hospitalId);
-        }
-
-        if (alreadySelected || current.length >= remainingSlots) {
-          return current;
-        }
-
-        return [...current, hospitalId];
-      });
-    }
+    const usagePercent = hospitalLimit > 0 ? Math.min(100, Math.round((usedSlots / hospitalLimit) * 100)) : 0;
+    const hospitalSearchResults = hospitalIdInput.trim()
+      ? availableHospitals
+          .filter((hospital) => !requestedHospitalIds.has(hospital.id))
+          .filter((hospital) => matchesHospitalSearch(hospital, hospitalIdInput))
+          .slice(0, 6)
+      : [];
+    const approvedHospitals = approvedRequests
+      .map((request) => {
+        const hospital = availableHospitals.find((item) => item.id === request.hospitalId);
+        if (!hospital) return null;
+        return { request, hospital };
+      })
+      .filter(Boolean) as Array<{ request: HospitalSelection; hospital: HospitalDirectoryItem }>;
 
     return (
       <div className="space-y-6">
         <PageHero
-        title={t("hospitals.doctorTitle")}
-        description={t("hospitals.doctorDescription")}
+          title={t("hospitals.doctorTitle")}
+          description={doctorCopy.accessRequestDescription}
           icon={<Building2 className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=900&q=80"
-        imageAlt={t("hospitals.doctorImageAlt")}
-        stats={[
-          { label: t("subscriptions.plan"), value: `Rs ${subscriptionAmount}` },
-          { label: t("subscriptions.hospitalLimit"), value: `${hospitalLimit} ${t("hospitals.hospitals")}` },
-          { label: t("common.remaining"), value: String(remainingSlots) },
-        ]}
-      />
+          imageAlt={t("hospitals.doctorImageAlt")}
+          stats={[
+            { label: t("subscriptions.plan"), value: `Rs ${subscriptionAmount}` },
+            { label: t("subscriptions.hospitalLimit"), value: `${hospitalLimit} ${t("hospitals.hospitals")}` },
+            { label: t("common.remaining"), value: String(remainingSlots) },
+          ]}
+        />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="space-y-4 border-[#DDEAF0] bg-[linear-gradient(180deg,#FFFFFF_0%,#FCFEFF_100%)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
+          <Card className="space-y-5 border-[#DCE9EE] p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
-                <WalletCards className="size-5" />
+                <CopyPlus className="size-5" />
               </div>
               <div className="space-y-1">
-                <h2 className="ui-section-title">{t("hospitals.chooseHospitals")}</h2>
-                <p className="ui-body-secondary">{t("hospitals.planRule")}</p>
+                <h2 className="ui-section-title">{doctorCopy.accessRequestTitle}</h2>
+                <p className="ui-body-secondary">{doctorCopy.requestHint}</p>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)] p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="ui-meta">{t("hospitals.approvedCount")}</p>
-                  <CircleCheckBig className="size-4 text-[#22C55E]" />
-                </div>
-                <p className="mt-1 ui-section-title leading-none">{approvedRequests.length}</p>
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#FCFEFF] p-4">
+                <p className="ui-meta">{t("hospitals.approvedCount")}</p>
+                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">{approvedRequests.length}</p>
               </div>
-              <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#FFFBEA_100%)] p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="ui-meta">{t("hospitals.pendingCount")}</p>
-                  <Clock3 className="size-4 text-[#F59E0B]" />
-                </div>
-                <p className="mt-1 ui-section-title leading-none">{pendingRequests.length}</p>
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#FCFEFF] p-4">
+                <p className="ui-meta">{t("hospitals.pendingCount")}</p>
+                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">{pendingRequests.length}</p>
               </div>
-              <div className="rounded-lg border border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDFA_100%)] p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="ui-meta">{t("hospitals.selectedCount")}</p>
-                  <Building2 className="size-4 text-[#0EA5A4]" />
-                </div>
-                <p className="mt-1 ui-section-title leading-none">{selectedHospitalIds.length}</p>
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#FCFEFF] p-4">
+                <p className="ui-meta">{doctorCopy.progressLabel}</p>
+                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">{usagePercent}%</p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
-                <Input
-                  value={doctorSearch}
-                  onChange={(event) => setDoctorSearch(event.target.value)}
-                  placeholder={t("hospitals.searchDoctorHospital")}
-                  className="border-[#D7E3EA] bg-white pl-10 shadow-sm"
-                />
-              </div>
-
-              {doctorError ? <p className="ui-body text-[#EF4444]">{doctorError}</p> : null}
-              {!doctorError && remainingSlots === 0 ? (
-                <p className="ui-body-secondary">{t("hospitals.allSlotsUsed")}</p>
-              ) : null}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                {filteredHospitals.map((hospital) => {
-                  const location = splitLocation(hospital.displayLocation || hospital.location);
-                  const checked = selectedHospitalIds.includes(hospital.id);
-                  const disableSelection = !checked && (submittingSelection || selectionLimitReached);
-
-                  return (
-                    <div
-                      key={hospital.id}
-                      role="checkbox"
-                      aria-checked={checked}
-                      aria-disabled={disableSelection}
-                      tabIndex={disableSelection ? -1 : 0}
-                      onClick={() => {
-                        if (disableSelection && !checked) return;
-                        updateHospitalSelection(hospital.id, !checked);
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_280px]">
+              <div className="space-y-4">
+                <label className="grid gap-2 text-sm text-[#0F172A]">
+                  <span className="font-medium">{doctorCopy.hospitalIdLabel}</span>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
+                    <Input
+                      value={hospitalIdInput}
+                      onChange={(event) => {
+                        setHospitalIdInput(event.target.value);
+                        setSelectedHospital(null);
                       }}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        if (disableSelection && !checked) return;
-                        updateHospitalSelection(hospital.id, !checked);
-                      }}
-                      className={`group relative flex cursor-pointer gap-4 overflow-hidden rounded-lg border bg-white p-4 transition ${checked ? "border-[#0EA5A4] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDFA_100%)] shadow-[0_12px_28px_rgba(14,165,164,0.10)]" : "border-[#E2E8F0] hover:border-[#0EA5A4]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.05)]"} ${disableSelection ? "cursor-not-allowed opacity-70" : ""}`}
-                    >
-                      <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 rounded-l-lg ${checked ? "bg-[#0EA5A4]" : "bg-transparent group-hover:bg-[#99F6E4]"}`} />
-                      <Checkbox
-                        checked={checked}
-                        disabled={disableSelection}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          updateHospitalSelection(hospital.id, event.target.checked);
-                        }}
-                      />
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
-                              <Building2 className="size-4" />
-                            </div>
-                            <p className="truncate ui-card-title">{hospital.displayName || hospital.name}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-start gap-2">
-                            <Mail className="mt-0.5 size-4 shrink-0 text-[#64748B]" />
-                            <p className="ui-body-secondary">{hospital.email}</p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <MapPin className="mt-0.5 size-4 shrink-0 text-[#64748B]" />
-                            <p className="ui-body-secondary">
-                              {[location.city, location.state].filter(Boolean).join(", ") || t("hospitals.locationUnavailable")}
-                            </p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <WalletCards className="mt-0.5 size-4 shrink-0 text-[#64748B]" />
-                            <p className="ui-body-secondary">{t("hospitals.usesOneSlot")}</p>
-                          </div>
-                        </div>
+                      placeholder={doctorCopy.hospitalIdPlaceholder}
+                      className="border-[#D7E3EA] bg-white pl-10 shadow-sm"
+                    />
+                  </div>
+                </label>
+
+                <p className="ui-body-secondary">{doctorCopy.searchHelper || "Search by hospital name, city/state, or hospital ID."}</p>
+
+                {hospitalIdInput.trim() ? (
+                  <div className="rounded-xl border border-[#E2E8F0] bg-white">
+                    {hospitalSearchResults.length ? (
+                      <div className="divide-y divide-[#EEF4F7]">
+                        {hospitalSearchResults.map((hospital) => {
+                          const location = splitLocation(hospital.displayLocation || hospital.location);
+                          const hospitalCode = getHospitalCode(hospital);
+
+                          return (
+                            <button
+                              key={hospital.id}
+                              type="button"
+                              className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-[#F8FAFC]"
+                              onClick={() => {
+                                setSelectedHospital(hospital);
+                                setHospitalIdInput(hospital.displayName || hospital.name);
+                              }}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-[#0F172A]">{hospital.displayName || hospital.name}</p>
+                                <p className="mt-1 text-xs text-[#64748B]">
+                                  {[location.city, location.state].filter(Boolean).join(", ") || t("hospitals.locationUnavailable")}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-xs font-medium uppercase tracking-[0.12em] text-[#0EA5A4]">
+                                {hospitalCode}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-[#64748B]">
+                        {doctorCopy.searchResultsEmpty || "No hospitals matched your search."}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {selectedHospital ? (
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
+                        <Fingerprint className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase tracking-[0.12em] text-[#64748B]">
+                          {doctorCopy.selectedHospitalTitle || "Selected hospital"}
+                        </p>
+                        <p className="mt-1 truncate text-sm font-semibold text-[#0F172A]">
+                          {selectedHospital.displayName || selectedHospital.name}
+                        </p>
+                        <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-[#0EA5A4]">
+                          {getHospitalCode(selectedHospital)}
+                        </p>
+                        <p className="mt-2 text-sm text-[#64748B]">
+                          {[splitLocation(selectedHospital.displayLocation || selectedHospital.location).city, splitLocation(selectedHospital.displayLocation || selectedHospital.location).state]
+                            .filter(Boolean)
+                            .join(", ") || t("hospitals.locationUnavailable")}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ) : null}
+
+                {doctorError ? <p className="ui-body text-[#EF4444]">{doctorError}</p> : null}
+
+                <Button
+                  className="h-11 px-5"
+                  onClick={() => void handleSubmitRequest()}
+                  loading={submittingRequest}
+                  disabled={!selectedHospital && !hospitalIdInput.trim() || remainingSlots === 0}
+                >
+                  {doctorCopy.requestAccess}
+                </Button>
+
+                <p className="ui-body-secondary">{doctorCopy.requestUsage}</p>
               </div>
 
-              {!loadingDoctorView && filteredHospitals.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                  <p className="ui-body-secondary">{t("hospitals.noApprovedHospitals")}</p>
+              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                <div className="flex items-center gap-2">
+                  <WalletCards className="size-4 text-[#0EA5A4]" />
+                  <p className="text-sm font-medium text-[#0F172A]">{doctorCopy.progressLabel}</p>
                 </div>
-              ) : null}
-
-              <Button
-                className="h-11 px-5"
-                onClick={() => void handleSubmitSelection()}
-                loading={submittingSelection}
-                disabled={selectedHospitalIds.length === 0 || remainingSlots === 0}
-              >
-                {t("hospitals.submitSelection")}
-              </Button>
+                <div className="mt-4 h-2 rounded-full bg-[#D9F3F1]">
+                  <div className="h-2 rounded-full bg-[#0EA5A4]" style={{ width: `${Math.max(usagePercent, 6)}%` }} />
+                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between text-sm text-[#64748B]">
+                    <span>{t("subscriptions.hospitalLimit")}</span>
+                    <span className="font-medium text-[#0F172A]">{hospitalLimit}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-[#64748B]">
+                    <span>{t("subscriptions.used")}</span>
+                    <span className="font-medium text-[#0F172A]">{usedSlots}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-[#64748B]">
+                    <span>{t("common.remaining")}</span>
+                    <span className="font-medium text-[#0F172A]">{remainingSlots}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
 
-          <Card className="space-y-4 border-[#DDEAF0] bg-[linear-gradient(180deg,#FFFFFF_0%,#FCFEFF_100%)] p-4 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
+          <Card className="space-y-4 border-[#DCE9EE] p-4 shadow-sm">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
-                  <ClipboardList className="size-4" />
+                  <ClockArrowUp className="size-4" />
                 </div>
-                <h2 className="ui-section-title">{t("hospitals.currentRequests")}</h2>
+                <h2 className="ui-section-title">{doctorCopy.pendingSidebarTitle}</h2>
               </div>
-              <p className="ui-body-secondary">{t("hospitals.currentStatus")}</p>
-              <p className="ui-meta">{t("hospitals.approvedPendingSummary", { approved: approvedRequests.length, pending: pendingRequests.length })}</p>
+              <p className="ui-body-secondary">{doctorCopy.pendingSidebarDescription}</p>
             </div>
 
             <div className="space-y-3">
-              {requests.map((request) => {
+              {pendingRequests.map((request) => {
                 const hospital = availableHospitals.find((item) => item.id === request.hospitalId) || null;
-                const isApproved = request.status === "approved";
-                const requestAccentClass = isApproved
-                  ? "bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)]"
-                  : request.status === "pending"
-                    ? "bg-[linear-gradient(135deg,#FFFFFF_0%,#FFFBEA_100%)]"
-                    : "bg-[linear-gradient(135deg,#FFFFFF_0%,#FEF2F2_100%)]";
+                const hospitalCode = hospital ? getHospitalCode(hospital) : request.hospitalId;
 
                 return (
-                  <div key={request.id} className={`rounded-lg border border-[#E2E8F0] ${requestAccentClass} p-4 shadow-sm`}>
+                  <div key={request.id} className="rounded-xl border border-[#E2E8F0] bg-[#FFFBEB] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-[#0EA5A4] shadow-sm">
-                            <Building2 className="size-4" />
-                          </div>
-                          <p className="truncate ui-section-title">
-                            {hospital?.displayName || hospital?.name || request.hospitalName || t("hospitals.hospitalRequest")}
-                          </p>
-                        </div>
-                        <p className="ui-meta">{t("hospitals.requestedOn", { date: getRequestDateLabel(request.requestedAt) })}</p>
-                        <p className="ui-meta">
-                          {request.status === "approved" ? t("hospitals.slotUsed") : t("hospitals.waitingReview")}
+                        <p className="truncate text-sm font-semibold text-[#0F172A]">
+                          {hospital?.displayName || hospital?.name || request.hospitalName || t("hospitals.hospitalRequest")}
                         </p>
+                        <p className="text-xs font-medium uppercase tracking-[0.12em] text-[#B45309]">{hospitalCode}</p>
+                        <p className="ui-meta">{t("hospitals.requestedOn", { date: getRequestDateLabel(request.requestedAt) })}</p>
+                        <p className="ui-meta">{doctorCopy.accessWaiting}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge status={requestBadgeVariant(request.status)}>
-                          {request.status === "approved"
-                            ? t("common.statuses.approved")
-                            : request.status === "rejected"
-                              ? t("common.statuses.rejected")
-                              : t("common.statuses.pending")}
-                        </Badge>
+                        <Badge status="warning">{t("common.statuses.pending")}</Badge>
                         <button
                           type="button"
                           className="ui-icon-button"
-                          disabled={submittingSelection || removingHospitalId === request.hospitalId}
+                          disabled={submittingRequest || removingHospitalId === request.hospitalId}
                           onClick={() => void handleRemoveSelection(request.hospitalId)}
                           aria-label={getRevertLabel(request.status)}
                           title={getRevertLabel(request.status)}
                         >
-                          <RotateCcw className="size-4" />
+                          {removingHospitalId === request.hospitalId ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
                         </button>
                       </div>
                     </div>
@@ -573,14 +761,83 @@ export default function HospitalsPage() {
                 );
               })}
 
-              {!loadingDoctorView && requests.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                  <p className="ui-body-secondary">{t("hospitals.noRequests")}</p>
+              {!loadingDoctorView && pendingRequests.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                  <p className="ui-body-secondary">{doctorCopy.pendingEmpty}</p>
                 </div>
               ) : null}
             </div>
           </Card>
         </div>
+
+        <Card className="border-[#DCE9EE] p-5 shadow-sm">
+          <div className="flex items-start gap-3 border-b border-[#E2E8F0] pb-4">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
+              <Link2 className="size-5" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="ui-section-title">{doctorCopy.approvedSectionTitle}</h2>
+              <p className="ui-body-secondary">{doctorCopy.approvedSectionDescription}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {approvedHospitals.map(({ request, hospital }) => {
+              const location = splitLocation(hospital.displayLocation || hospital.location);
+              const hospitalCode = getHospitalCode(hospital);
+
+              return (
+                <div key={request.id} className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-9 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
+                          <Building2 className="size-4" />
+                        </div>
+                        <p className="truncate text-base font-semibold text-[#0F172A]">{hospital.displayName || hospital.name}</p>
+                      </div>
+                      <p className="mt-3 text-xs font-medium uppercase tracking-[0.12em] text-[#0EA5A4]">
+                        {doctorCopy.hospitalIdCaption}: {hospitalCode}
+                      </p>
+                      <p className="mt-2 ui-meta">
+                        {[location.city, location.state].filter(Boolean).join(", ") || t("hospitals.locationUnavailable")}
+                      </p>
+                    </div>
+                    <Badge status="success">{doctorCopy.accessActive}</Badge>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between rounded-lg bg-[#F8FAFC] px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-[#0F172A]">
+                      <CircleCheckBig className="size-4 text-[#22C55E]" />
+                      <span>{doctorCopy.activeAccess}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-[#0EA5A4] transition hover:text-[#0F766E]"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(hospitalCode);
+                        logger.success(doctorCopy.copiedId, {
+                          source: "hospitals.doctor",
+                          data: { hospitalId: hospital.id, hospitalCode },
+                          toast: true,
+                        });
+                      }}
+                    >
+                      <RotateCcw className="size-4" />
+                      {doctorCopy.hospitalIdCaption}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {!loadingDoctorView && approvedHospitals.length === 0 ? (
+            <div className="mt-5 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <p className="ui-body-secondary">{doctorCopy.approvedEmpty}</p>
+            </div>
+          ) : null}
+        </Card>
       </div>
     );
   }
@@ -630,10 +887,10 @@ export default function HospitalsPage() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               options={[
-                { label: t("common.statuses.allStatuses"), value: "all" },
                 { label: t("common.statuses.pending"), value: "pending" },
                 { label: t("common.statuses.approved"), value: "approved" },
                 { label: t("common.statuses.rejected"), value: "rejected" },
+                { label: t("common.statuses.allStatuses"), value: "all" },
               ]}
             />
           </label>
@@ -681,57 +938,35 @@ export default function HospitalsPage() {
             {
               key: "approvalStatus",
               header: t("common.actions.status"),
+              className: "min-w-[140px] align-middle",
               render: (row) => (
-                <Badge status={badgeVariant(row.approvalStatus)} className="font-medium">
-                  {row.approvalStatus === "approved"
-                    ? t("common.statuses.approved")
-                    : row.approvalStatus === "rejected"
-                      ? t("common.statuses.rejected")
-                      : t("common.statuses.pending")}
-                </Badge>
+                <ApprovalStatusBadge
+                  status={row.approvalStatus}
+                  approvedLabel={t("common.statuses.approved")}
+                  pendingLabel={t("common.statuses.pending")}
+                  rejectedLabel={t("common.statuses.rejected")}
+                />
               ),
             },
             {
               key: "actions",
               header: t("hospitals.actions"),
-              className: "min-w-[220px]",
+              className: "min-w-[320px] align-middle",
+              headerClassName: "min-w-[320px]",
               render: (row) => (
-                <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#22C55E] bg-transparent px-3 text-sm font-medium text-[#22C55E] transition hover:bg-green-50"
-                    onClick={() => void updateStatus(row.id, "approved")}
-                  >
-                    <Check className="size-4" />
-                    {t("common.actions.approve")}
-                  </button>
-                  <button
-                    type="button"
-                    className="focus-ring inline-flex h-9 items-center gap-1 rounded-md border border-[#EF4444] bg-transparent px-3 text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
-                    onClick={() => setRejectTarget(row)}
-                  >
-                    <X className="size-4" />
-                    {t("common.actions.reject")}
-                  </button>
-                  <button
-                    type="button"
-                    className="ui-icon-button text-[#0EA5A4] hover:text-[#0EA5A4]"
-                    onClick={() => setEditTarget(row)}
-                    aria-label={`Edit ${row.displayHospitalName || row.hospitalName || row.fullName}`}
-                    title={t("hospitals.editHospital")}
-                  >
-                    <Pencil className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="ui-icon-button text-[#EF4444] hover:text-[#EF4444] hover:border-[#EF4444]"
-                    onClick={() => setDeleteTarget(row)}
-                    aria-label={`Delete ${row.displayHospitalName || row.hospitalName || row.fullName}`}
-                    title={t("hospitals.deleteHospital")}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
+                <ApprovalActionGroup
+                  status={row.approvalStatus}
+                  approveLabel={t("common.actions.approve")}
+                  rejectLabel={t("common.actions.reject")}
+                  editLabel={t("common.actions.edit")}
+                  deleteLabel={t("common.actions.delete")}
+                  itemName={row.displayHospitalName || row.hospitalName || row.fullName}
+                  busy={actioningHospitalId === row.id}
+                  onApprove={() => void updateStatus(row.id, "approved")}
+                  onReject={() => setRejectTarget(row)}
+                  onEdit={() => setEditTarget(row)}
+                  onDelete={() => setDeleteTarget(row)}
+                />
               ),
             },
           ]}

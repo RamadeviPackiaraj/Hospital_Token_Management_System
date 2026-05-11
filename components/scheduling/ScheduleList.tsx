@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling/Card";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/utility";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
 import { formatScheduleDate, formatScheduleTime, getScheduleCounts } from "@/lib/scheduling";
 
@@ -82,7 +83,7 @@ export function ScheduleList({
           const endTime =
             schedule.endTime ?? schedule.slots[schedule.slots.length - 1]?.time ?? "--";
           const doctorName = schedule.displayDoctorName || schedule.doctorName;
-          const department = schedule.displayDepartment || schedule.department;
+          const department = localizeDepartmentName(schedule.department, schedule.displayDepartment);
 
           return (
             <div

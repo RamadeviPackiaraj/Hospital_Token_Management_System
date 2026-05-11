@@ -1,5 +1,7 @@
 export * from "./DashboardContext";
 export * from "./AdminUserEditModal";
+export * from "./ApprovalActionGroup";
+export * from "./ApprovalStatusBadge";
 export * from "./LanguageSettingsPanel";
 export * from "./PageHero";
 export * from "./SettingsDepartmentsContent";

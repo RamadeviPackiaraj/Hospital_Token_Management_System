@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { CardBody, CardTitle, Label } from "@/components/ui/Typography";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { formatScheduleDate, formatTimeTo12Hour } from "@/lib/scheduling";
 import type { PatientTokenRecord, PatientTokenStatus } from "@/lib/scheduling-types";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ export function TokenCard({
   const styles = getCardStyles(token.status);
   const patientName = token.displayPatientName || token.patientName;
   const doctorName = token.displayDoctorName || token.doctorName;
-  const department = token.displayDepartment || token.department;
+  const department = localizeDepartmentName(token.department, token.displayDepartment);
   const editTokenLabel = `${t("patientEntry.editToken")} ${token.tokenNumber}`;
   const deleteTokenLabel = `${t("common.actions.delete")} ${t("patientEntry.token").toLowerCase()} ${token.tokenNumber}`;
   const actionButtonClass = cn(

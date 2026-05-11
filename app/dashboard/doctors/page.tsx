@@ -1,11 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Check, Pencil, Search, ShieldCheck, Trash2, UserRoundCheck, X } from "lucide-react";
+import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
 import { Badge, Button, Card, Input, Select, Table } from "@/components/ui";
-import { useDashboardContext, PageHero, AdminUserEditModal } from "@/components/dashboard";
+import {
+  useDashboardContext,
+  PageHero,
+  AdminUserEditModal,
+  ApprovalActionGroup,
+  ApprovalStatusBadge,
+} from "@/components/dashboard";
 import { useI18n } from "@/components/i18n";
 import { formatDisplayDate } from "@/lib/utils";
 import {
@@ -13,10 +19,12 @@ import {
   type UserApprovalStatus,
 } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { deleteAdminDoctor, getAdminDoctors, updateAdminDoctorProfile } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
 
 type DoctorRow = Record<string, unknown> & MockUser;
+type AdminDoctorActionIntent = "reject" | "deactivate";
 type HospitalDoctorRequest = {
   id: string;
   userId: string;
@@ -29,12 +37,6 @@ type HospitalDoctorRequest = {
   status: "pending" | "approved" | "rejected";
   createdAt?: string;
 };
-
-function badgeVariant(status: UserApprovalStatus) {
-  if (status === "approved") return "success";
-  if (status === "rejected") return "error";
-  return "warning";
-}
 
 function requestBadgeVariant(status: HospitalDoctorRequest["status"]) {
   if (status === "approved") return "success";
@@ -50,9 +52,10 @@ export default function DoctorsPage() {
   const { currentUser, refreshSession } = useDashboardContext();
   const { t } = useI18n();
   const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("pending");
   const [users, setUsers] = React.useState<MockUser[]>([]);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
+  const [rejectIntent, setRejectIntent] = React.useState<AdminDoctorActionIntent>("reject");
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
   const [hospitalRequests, setHospitalRequests] = React.useState<HospitalDoctorRequest[]>([]);
@@ -61,6 +64,7 @@ export default function DoctorsPage() {
   const [loadingHospitalView, setLoadingHospitalView] = React.useState(true);
   const [hospitalError, setHospitalError] = React.useState("");
   const [actioningDoctorId, setActioningDoctorId] = React.useState<string | null>(null);
+  const [adminActioningDoctorId, setAdminActioningDoctorId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (currentUser.role !== "admin") return;
@@ -77,7 +81,7 @@ export default function DoctorsPage() {
     setStatusFilter(
       nextStatus === "pending" || nextStatus === "approved" || nextStatus === "rejected"
         ? nextStatus
-        : "all"
+        : "pending"
     );
   }, []);
 
@@ -144,6 +148,8 @@ export default function DoctorsPage() {
     .map((user) => ({ ...user }));
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
+    setAdminActioningDoctorId(userId);
+
     try {
       await apiRequest(`/admin/doctors/${userId}/status`, {
         method: "PATCH",
@@ -165,6 +171,8 @@ export default function DoctorsPage() {
         data: { userId, status, error: message },
         toast: true,
       });
+    } finally {
+      setAdminActioningDoctorId(null);
     }
   }
 
@@ -253,6 +261,12 @@ export default function DoctorsPage() {
     if (!rejectTarget) return;
     void updateStatus(rejectTarget.id, "rejected");
     setRejectTarget(null);
+    setRejectIntent("reject");
+  }
+
+  function openRejectDialog(target: MockUser, intent: AdminDoctorActionIntent) {
+    setRejectTarget(target);
+    setRejectIntent(intent);
   }
 
   function handleSaveDoctor(user: MockUser) {
@@ -399,7 +413,7 @@ export default function DoctorsPage() {
                 header: t("doctors.details"),
                 render: (row) => (
                   <div className="space-y-1">
-                    <p className="ui-card-body">{formatDoctorDetail(row.displayDepartment || row.department)}</p>
+                    <p className="ui-card-body">{formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment))}</p>
                     <p className="ui-card-meta">
                       {t("doctors.requestedOn", {
                         date: row.createdAt
@@ -506,10 +520,10 @@ export default function DoctorsPage() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               options={[
-                { label: t("common.statuses.allStatuses"), value: "all" },
                 { label: t("common.statuses.pending"), value: "pending" },
                 { label: t("common.statuses.approved"), value: "approved" },
                 { label: t("common.statuses.rejected"), value: "rejected" },
+                { label: t("common.statuses.allStatuses"), value: "all" },
               ]}
             />
           </label>
@@ -539,7 +553,7 @@ export default function DoctorsPage() {
                 render: (row) => (
                   <div className="space-y-1">
                     <p className="ui-card-body">{row.mobileNumber}</p>
-                    <p className="ui-card-meta">{t("doctors.department")}: {formatDoctorDetail(row.displayDepartment || row.department, t("common.notProvided"))}</p>
+                    <p className="ui-card-meta">{t("doctors.department")}: {formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment), t("common.notProvided"))}</p>
                     <p className="ui-card-meta">{t("doctors.specialization")}: {formatDoctorDetail(row.displaySpecialization || row.specialization, t("common.notProvided"))}</p>
                     <p className="ui-card-meta">{t("doctors.registrationId")}: {formatDoctorDetail(row.medicalRegistrationId, t("common.notProvided"))}</p>
                   </div>
@@ -558,59 +572,39 @@ export default function DoctorsPage() {
             {
               key: "approvalStatus",
               header: t("common.actions.status"),
+              className: "min-w-[140px] align-middle",
               render: (row) => (
-                <Badge status={badgeVariant(row.approvalStatus)} className="font-medium">
-                  {row.approvalStatus === "approved"
-                    ? t("common.statuses.approved")
-                    : row.approvalStatus === "rejected"
-                      ? t("common.statuses.rejected")
-                      : t("common.statuses.pending")}
-                </Badge>
+                <ApprovalStatusBadge
+                  status={row.approvalStatus}
+                  approvedLabel={t("common.statuses.approved")}
+                  pendingLabel={t("common.statuses.pending")}
+                  rejectedLabel={t("common.statuses.rejected")}
+                />
               ),
             },
             {
               key: "actions",
-                header: t("doctors.actions"),
-                className: "min-w-[220px]",
-                render: (row) => (
-                  <div className="flex items-center justify-start gap-3 whitespace-nowrap">
-                    <Button
-                      variant="successOutline"
-                      size="sm"
-                      leftIcon={<Check className="size-4" />}
-                      onClick={() => void updateStatus(row.id, "approved")}
-                    >
-                      {t("common.actions.approve")}
-                    </Button>
-                    <Button
-                      variant="dangerOutline"
-                      size="sm"
-                      leftIcon={<X className="size-4" />}
-                      onClick={() => setRejectTarget(row)}
-                    >
-                      {t("common.actions.reject")}
-                    </Button>
-                    <button
-                      type="button"
-                      className="ui-icon-button text-[#0EA5A4] hover:text-[#0EA5A4]"
-                      onClick={() => setEditTarget(row)}
-                      aria-label={`Edit ${row.displayFullName || row.fullName}`}
-                      title={t("doctors.editDoctor")}
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-icon-button text-[#EF4444] hover:text-[#EF4444] hover:border-[#EF4444]"
-                      onClick={() => setDeleteTarget(row)}
-                      aria-label={`Delete ${row.displayFullName || row.fullName}`}
-                      title={t("doctors.deleteDoctor")}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                ),
-              },
+              header: t("doctors.actions"),
+              className: "min-w-[320px] align-middle",
+              headerClassName: "min-w-[320px]",
+              render: (row) => (
+                <ApprovalActionGroup
+                  status={row.approvalStatus}
+                  approveLabel={t("common.actions.approve")}
+                  rejectLabel={t("common.actions.reject")}
+                  editLabel={t("common.actions.edit")}
+                  reviewLabel="Review"
+                  deactivateLabel="Deactivate"
+                  deleteLabel={t("common.actions.delete")}
+                  itemName={row.displayFullName || row.fullName}
+                  busy={adminActioningDoctorId === row.id}
+                  onApprove={() => void updateStatus(row.id, "approved")}
+                  onReject={() => openRejectDialog(row, row.approvalStatus === "approved" ? "deactivate" : "reject")}
+                  onEdit={() => setEditTarget(row)}
+                  onDelete={() => setDeleteTarget(row)}
+                />
+              ),
+            },
           ]}
           data={doctorRows}
           pageSize={6}
@@ -620,13 +614,20 @@ export default function DoctorsPage() {
 
       <ConfirmationDialog
         open={Boolean(rejectTarget)}
-        title={t("doctors.rejectDialogTitle")}
-        description={t("doctors.rejectDialogDescription")}
-        confirmLabel={t("doctors.confirmReject")}
+        title={rejectIntent === "deactivate" ? "Deactivate Doctor" : t("doctors.rejectDialogTitle")}
+        description={
+          rejectIntent === "deactivate"
+            ? "This will disable the doctor account while keeping the profile and registration data available for future review."
+            : t("doctors.rejectDialogDescription")
+        }
+        confirmLabel={rejectIntent === "deactivate" ? "Confirm Deactivate" : t("doctors.confirmReject")}
         cancelLabel={t("common.actions.cancel")}
         confirmVariant="danger"
         onConfirm={confirmRejectDoctor}
-        onCancel={() => setRejectTarget(null)}
+        onCancel={() => {
+          setRejectTarget(null);
+          setRejectIntent("reject");
+        }}
       />
       <AdminUserEditModal
         open={Boolean(editTarget)}

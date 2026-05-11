@@ -32,6 +32,7 @@ import {
 import { generateAnnouncement, type AnnouncementLanguage } from "@/lib/announcement-api";
 import { playAudio } from "@/lib/audioPlayer";
 import { speakAnnouncementText } from "@/lib/browser-tts";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { logger } from "@/lib/logger";
 import type { DoctorScheduleRecord, PatientTokenRecord } from "@/lib/scheduling-types";
 import {
@@ -129,7 +130,7 @@ export default function PatientEntryPage() {
           Object.fromEntries(
             (bootstrap.departments || []).map((department, index) => [
               department,
-              bootstrap.displayDepartments?.[index] || department,
+              localizeDepartmentName(department, bootstrap.displayDepartments?.[index]),
             ])
           )
         );

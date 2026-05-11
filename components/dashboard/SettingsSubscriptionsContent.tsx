@@ -10,6 +10,8 @@ export function SettingsSubscriptionsContent() {
   return (
     <div className="space-y-6">
       <PageHero
+        backHref="/dashboard/settings"
+        backLabel={t("common.actions.back")}
         title={t("subscriptions.workspaceTitle")}
         description={t("subscriptions.workspaceDescription")}
         icon={<WalletCards className="size-5" />}

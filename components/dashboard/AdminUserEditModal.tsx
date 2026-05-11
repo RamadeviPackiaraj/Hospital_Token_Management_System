@@ -8,6 +8,7 @@ import { OTPInput } from "@/components/OTPInput";
 import { Button, Input, Select } from "@/components/ui";
 import { Modal } from "@/components/overlay/Modal";
 import type { MockUser } from "@/lib/auth-flow";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import {
   getDepartments,
   requestAdminUserEmailChange,
@@ -184,7 +185,10 @@ export function AdminUserEditModal({
   const countryOptions = countries.map((country) => ({ label: country.name, value: String(country.id) }));
   const stateOptions = states.map((state) => ({ label: state.name, value: String(state.id) }));
   const cityOptions = cities.map((city) => ({ label: city.name, value: String(city.id) }));
-  const departmentOptions = departments.map((department) => ({ label: department.name, value: department.name }));
+  const departmentOptions = departments.map((department) => ({
+    label: localizeDepartmentName(department.name, department.displayName),
+    value: department.name,
+  }));
   const roleScenes = React.useMemo(
     () => ({
       doctor: {

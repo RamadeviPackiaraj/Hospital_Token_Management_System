@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling";
 import { Select } from "@/components/ui";
 import { SectionTitle, BodySecondary } from "@/components/ui/Typography";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { type PatientTokenRecord, type PatientTokenStatus } from "@/lib/scheduling-types";
 import { TokenCard } from "./TokenCard";
 
@@ -34,13 +35,13 @@ export function TokenList({
 
     departments.forEach((department) => {
       if (department?.trim()) {
-        labelsByValue.set(department, department);
+        labelsByValue.set(department, localizeDepartmentName(department));
       }
     });
 
     tokens.forEach((token) => {
       if (token.department?.trim()) {
-        labelsByValue.set(token.department, token.displayDepartment || token.department);
+          labelsByValue.set(token.department, localizeDepartmentName(token.department, token.displayDepartment));
       }
     });
 

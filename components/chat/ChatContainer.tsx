@@ -24,14 +24,10 @@ interface ChatContainerProps {
   onSearchChange: (value: string) => void;
   filter: "all" | "read" | "unread";
   onFilterChange: (value: "all" | "read" | "unread") => void;
-  onDelete: (messageId: string) => void;
-  onSaveEdit: (messageId: string, value: string) => void;
   disabled?: boolean;
   disabledMessage?: string;
   unreadCount: number;
   socketStatus?: ChatSocketStatus;
-  onClear?: () => void;
-  clearDisabled?: boolean;
 }
 
 export function ChatContainer({
@@ -48,20 +44,16 @@ export function ChatContainer({
   onSearchChange,
   filter,
   onFilterChange,
-  onDelete,
-  onSaveEdit,
   disabled = false,
   disabledMessage,
   unreadCount,
   socketStatus = "idle",
-  onClear,
-  clearDisabled = false,
 }: ChatContainerProps) {
   const { t } = useI18n();
 
   return (
-    <Card className="p-4">
-      <div className="flex flex-col gap-3">
+    <Card className="flex min-h-[620px] flex-col p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <ChatHeader
           title={title}
           subtitle={subtitle}
@@ -72,18 +64,14 @@ export function ChatContainer({
           resultCount={messages.length}
           unreadCount={unreadCount}
           socketStatus={socketStatus}
-          onClear={onClear}
-          clearDisabled={clearDisabled}
         />
 
         <MessageList
           messages={messages}
           currentSender={currentSender}
-          onDelete={onDelete}
-          onSaveEdit={onSaveEdit}
         />
 
-        <div className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+        <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-[16px] font-medium text-[#0F172A]">{t("chat.quickActionsTitle")}</p>
             <p className="text-[12px] text-[#64748B]">{t("chat.quickActionsTapToSend")}</p>

@@ -17,6 +17,7 @@ import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Button, Card, Input, Select, Table } from "@/components/ui";
 import { useI18n } from "@/components/i18n";
 import { useDashboardContext, PageHero } from "@/components/dashboard";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import {
   addDepartment,
   deleteHospitalDepartmentAssignment,
@@ -298,6 +299,8 @@ export function SettingsDepartmentsContent() {
     return (
       <div className="space-y-6">
         <PageHero
+          backHref="/dashboard/settings"
+          backLabel={t("common.actions.back")}
           title={t("departmentsFeature.title")}
           description={t("departmentsFeature.description")}
           icon={<LayoutList className="size-5" />}
@@ -331,7 +334,7 @@ export function SettingsDepartmentsContent() {
                 value={selectedDepartment}
                 onChange={(event) => setSelectedDepartment(event.target.value)}
                 options={departments.map((department) => ({
-                  label: department.displayName || department.name,
+                  label: localizeDepartmentName(department.name, department.displayName),
                   value: department.name,
                 }))}
                 placeholder={t("departmentsFeature.selectDepartment")}
@@ -376,7 +379,7 @@ export function SettingsDepartmentsContent() {
                       value={editingAssignmentDepartment}
                       onChange={(event) => setEditingAssignmentDepartment(event.target.value)}
                       options={departments.map((department) => ({
-                        label: department.displayName || department.name,
+                        label: localizeDepartmentName(department.name, department.displayName),
                         value: department.name,
                       }))}
                       placeholder={t("departmentsFeature.selectDepartment")}
@@ -386,7 +389,7 @@ export function SettingsDepartmentsContent() {
                       <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
                         <LayoutList className="size-4" />
                       </span>
-                      <span>{row.displayDepartment || row.department}</span>
+                      <span>{localizeDepartmentName(row.department, row.displayDepartment)}</span>
                     </div>
                   ),
               },
@@ -433,7 +436,7 @@ export function SettingsDepartmentsContent() {
                           setAssignmentDeleteTarget({
                             doctorId: row.doctorId,
                             doctorName: row.displayDoctorName || row.doctorName,
-                            department: row.displayDepartment || row.department,
+                            department: localizeDepartmentName(row.department, row.displayDepartment),
                           })
                         }
                       >
@@ -478,7 +481,7 @@ export function SettingsDepartmentsContent() {
         <div className="mt-4 space-y-3">
           {departments.map((department) => (
             <div key={department.id} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-              <p className="text-sm font-medium text-[#0F172A]">{department.displayName || department.name}</p>
+              <p className="text-sm font-medium text-[#0F172A]">{localizeDepartmentName(department.name, department.displayName)}</p>
             </div>
           ))}
         </div>
@@ -489,6 +492,8 @@ export function SettingsDepartmentsContent() {
   return (
     <div className="space-y-6">
       <PageHero
+        backHref="/dashboard/settings"
+        backLabel={t("common.actions.back")}
         title={t("departmentsFeature.managementTitle")}
         description={t("departmentsFeature.managementDescription")}
         icon={<LayoutList className="size-5" />}
@@ -551,7 +556,7 @@ export function SettingsDepartmentsContent() {
                       <FolderCog className="size-4" />
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{row.displayName || row.name}</span>
+                      <span className="font-medium">{localizeDepartmentName(row.name, row.displayName)}</span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#F0FDFA] px-2 py-1 text-xs font-medium text-[#0F766E]">
                         <Sparkles className="size-3.5" />
                         {t("departmentsFeature.active")}
