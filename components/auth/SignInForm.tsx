@@ -47,14 +47,14 @@ export function SignInForm() {
     setServerError("");
 
     try {
-      const challenge = await beginMockSignin(values);
-      logger.success("Login success: OTP sent successfully.", {
+      const session = await beginMockSignin(values);
+      logger.success("Login successful.", {
         source: "auth.signin",
-        data: { email: values.email, role: challenge.role },
+        data: { email: values.email, role: session.role },
         toast: true,
       });
-      setSelectedRole(challenge.role);
-      router.push(`/verify-otp?mode=${challenge.mode}&role=${challenge.role}`);
+      setSelectedRole(session.role);
+      router.push(`/dashboard?role=${session.role}`);
     } catch (signInError) {
       const message = signInError instanceof Error ? signInError.message : "Unable to sign in.";
       logger.error(`Login error: ${message}`, {

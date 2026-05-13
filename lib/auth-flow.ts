@@ -341,22 +341,42 @@ export function mapAdminEntityToMockUser(entity: AdminEntityItem): MockUser {
   };
 }
 
-export async function beginMockSignin(payload: SignInPayload): Promise<PendingAuthChallenge> {
-  await apiRequest("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  }, { auth: false });
+export async function beginMockSignin(payload: SignInPayload): Promise<MockSession> {
+  const loginResponse = await apiRequest<{ token: string; role: string }>(
+    "/auth/login",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    { auth: false }
+  );
 
-  const storedRole =
-    typeof window === "undefined" ? null : window.localStorage.getItem("hospital_token_selected_role");
-  const roleHint = isAuthRole(storedRole) ? storedRole : "doctor";
-  const challenge: PendingAuthChallenge = {
+  const token = loginResponse.token;
+  if (!token) {
+    throw new Error("Login token not received.");
+  }
+
+  setAuthToken(token);
+  const me = await apiRequest<{ user: Record<string, unknown>; profile?: Record<string, unknown> }>(
+    "/users/me"
+  );
+  const currentUser = mapMeToMockUser(me as unknown as { user: any; profile?: any });
+
+  const session: MockSession = {
+    userId: currentUser.id,
+    role: currentUser.role,
+    mobileNumber: currentUser.mobileNumber,
     mode: "signin",
-    role: roleHint || "doctor",
-    email: payload.email,
+    name: currentUser.fullName,
+    email: currentUser.email,
+    token,
   };
-  setStoredJson(PENDING_AUTH_KEY, challenge);
-  return challenge;
+
+  saveMockSession(session);
+  saveCurrentUser(currentUser);
+  clearPendingAuthChallenge();
+
+  return session;
 }
 
 export async function beginMockSignup(payload: SignupPayload): Promise<PendingAuthChallenge> {
@@ -430,11 +450,12 @@ export async function resendMockOtp() {
     throw new Error("Resend is unavailable. Please restart the authentication flow.");
   }
 
-  const path =
-    challenge.mode === "signin" ? "/auth/resend-login-otp" : "/auth/resend-register-otp";
+  if (challenge.mode !== "signup") {
+    throw new Error("OTP resend is only available during signup.");
+  }
 
   await apiRequest(
-    path,
+    "/auth/resend-register-otp",
     {
       method: "POST",
       body: JSON.stringify({ email: challenge.email }),
@@ -456,51 +477,17 @@ export async function verifyMockOtp(payload: VerifyOtpPayload): Promise<{
     throw new Error("No pending authentication request found.");
   }
 
-  if (challenge.mode === "signup") {
-    await apiRequest("/auth/verify-register-otp", {
-      method: "POST",
-      body: JSON.stringify({ email: challenge.email, otp: payload.otp }),
-    }, { auth: false });
-
-    clearPendingAuthChallenge();
-    return { mode: "signup" };
+  if (challenge.mode !== "signup") {
+    throw new Error("OTP verification is only available during signup.");
   }
 
-  const loginData = await apiRequest<{ token: string; role: string }>(
-    "/auth/verify-login-otp",
-    {
-      method: "POST",
-      body: JSON.stringify({ email: challenge.email, otp: payload.otp }),
-    },
-    { auth: false }
-  );
+  await apiRequest("/auth/verify-register-otp", {
+    method: "POST",
+    body: JSON.stringify({ email: challenge.email, otp: payload.otp }),
+  }, { auth: false });
 
-  const token = loginData.token;
-  if (!token) {
-    throw new Error("Login token not received.");
-  }
-
-  setAuthToken(token);
-  const me = await apiRequest<{ user: Record<string, unknown>; profile?: Record<string, unknown> }>(
-    "/users/me"
-  );
-  const currentUser = mapMeToMockUser(me as unknown as { user: any; profile?: any });
-
-  const session: MockSession = {
-    userId: currentUser.id,
-    role: currentUser.role,
-    mobileNumber: currentUser.mobileNumber,
-    mode: "signin",
-    name: currentUser.fullName,
-    email: currentUser.email,
-    token,
-  };
-
-  saveMockSession(session);
-  saveCurrentUser(currentUser);
   clearPendingAuthChallenge();
-
-  return { mode: "signin", session };
+  return { mode: "signup" };
 }
 
 export function saveMockSession(session: MockSession) {
