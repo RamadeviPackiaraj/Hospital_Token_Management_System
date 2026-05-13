@@ -38,8 +38,8 @@ export function Header({
   const { t } = useI18n();
 
   return (
-    <header className={cn("sticky top-0 z-30 h-14 border-b border-[#0d9488] bg-[#0EA5A4]", className)}>
-      <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
+    <header className={cn("sticky top-0 z-30 h-12 border-b border-[#0d9488] bg-[#0EA5A4]", className)}>
+      <div className="flex h-12 items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="ghost"
@@ -49,7 +49,7 @@ export function Header({
             leftIcon={<Menu className="size-4" />}
           />
           <div className="min-w-0">
-            <h1 className="ui-page-title truncate text-white">{title}</h1>
+            <h1 className="truncate text-[22px] font-medium leading-7 text-white">{title}</h1>
             {subtitle ? <p className="ui-meta truncate text-white/80">{subtitle}</p> : null}
           </div>
         </div>
@@ -57,7 +57,7 @@ export function Header({
         <div className="flex items-center gap-2 sm:gap-3">
           {actions ? <div className="min-w-0">{actions}</div> : null}
 
-          <div className="hidden min-w-0 items-center gap-3 rounded-lg border border-white/20 bg-white/10 px-3 py-2 sm:flex">
+          <div className="hidden min-w-0 items-center gap-3 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 sm:flex">
             <Avatar name={user.name} src={user.imageSrc} size="sm" />
             <div className="min-w-0">
               <p className="ui-body truncate font-medium text-white">{user.name}</p>
@@ -69,7 +69,7 @@ export function Header({
             <Button
               variant="secondary"
               size="sm"
-              className="h-10 rounded-md border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+              className="h-9 rounded-md border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white"
               leftIcon={<LogOut className="size-4" />}
               onClick={onLogout}
             >

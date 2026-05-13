@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,8 @@ export interface TableColumn<T> {
   render?: (row: T) => React.ReactNode;
   className?: string;
   headerClassName?: string;
+  sortable?: boolean;
+  sortValue?: (row: T) => string | number | boolean | null | undefined;
 }
 
 export interface TableProps<T extends Record<string, unknown>> {
@@ -20,6 +23,11 @@ export interface TableProps<T extends Record<string, unknown>> {
   pageSize?: number;
   rowKey?: keyof T | ((row: T, index: number) => React.Key);
   className?: string;
+  stickyHeader?: boolean;
+  initialSort?: {
+    key: string;
+    direction: "asc" | "desc";
+  };
 }
 
 const SKELETON_ROWS = 5;
@@ -50,29 +58,74 @@ export function Table<T extends Record<string, unknown>>({
   emptyMessage = "No records found.",
   pageSize = 10,
   rowKey,
-  className
+  className,
+  stickyHeader = false,
+  initialSort
 }: TableProps<T>) {
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [sortState, setSortState] = React.useState<{ key: string; direction: "asc" | "desc" } | null>(initialSort || null);
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
 
+  const sortedData = React.useMemo(() => {
+    if (!sortState) {
+      return data;
+    }
+
+    const column = columns.find((item) => String(item.key) === sortState.key);
+    if (!column) {
+      return data;
+    }
+
+    const sorted = [...data].sort((left, right) => {
+      const leftValue = column.sortValue ? column.sortValue(left) : (left[column.key as keyof T] as string | number | boolean | null | undefined);
+      const rightValue = column.sortValue ? column.sortValue(right) : (right[column.key as keyof T] as string | number | boolean | null | undefined);
+
+      if (leftValue == null && rightValue == null) return 0;
+      if (leftValue == null) return 1;
+      if (rightValue == null) return -1;
+
+      if (typeof leftValue === "number" && typeof rightValue === "number") {
+        return sortState.direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
+      }
+
+      const leftText = String(leftValue).toLowerCase();
+      const rightText = String(rightValue).toLowerCase();
+      return sortState.direction === "asc" ? leftText.localeCompare(rightText) : rightText.localeCompare(leftText);
+    });
+
+    return sorted;
+  }, [columns, data, sortState]);
+
   const paginatedData = React.useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
-    return data.slice(startIndex, startIndex + pageSize);
-  }, [currentPage, data, pageSize]);
+    return sortedData.slice(startIndex, startIndex + pageSize);
+  }, [currentPage, sortedData, pageSize]);
 
-  const showPagination = !loading && data.length > pageSize;
-  const showEmptyState = !loading && data.length === 0;
+  const showPagination = !loading && sortedData.length > pageSize;
+  const showEmptyState = !loading && sortedData.length === 0;
+
+  function toggleSort(column: TableColumn<T>) {
+    if (!column.sortable) return;
+    setCurrentPage(1);
+    setSortState((current) => {
+      const key = String(column.key);
+      if (!current || current.key !== key) {
+        return { key, direction: "asc" };
+      }
+      return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+    });
+  }
 
   return (
     <div className={cn("space-y-4", className)}>
       <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-panel">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[#E2E8F0] text-left">
-            <thead className="bg-[#F8FAFC]">
+            <thead className={cn("bg-[#F8FAFC]", stickyHeader && "sticky top-0 z-10")}>
               <tr>
                 {columns.map((column) => (
                   <th
@@ -83,7 +136,22 @@ export function Table<T extends Record<string, unknown>>({
                       column.headerClassName
                     )}
                   >
-                    {column.header}
+                    {column.sortable ? (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-left transition hover:text-[#0F172A]"
+                        onClick={() => toggleSort(column)}
+                      >
+                        <span>{column.header}</span>
+                        {sortState?.key === String(column.key) ? (
+                          sortState.direction === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
+                        ) : (
+                          <ArrowUpDown className="size-3.5 opacity-60" />
+                        )}
+                      </button>
+                    ) : (
+                      column.header
+                    )}
                   </th>
                 ))}
               </tr>
@@ -106,12 +174,12 @@ export function Table<T extends Record<string, unknown>>({
                 : paginatedData.map((row, index) => (
                     <tr
                       key={resolveRowKey(row, index, rowKey)}
-                      className="transition-colors duration-200 hover:bg-[#F9FAFB]"
+                      className="transition-colors duration-200 hover:bg-[#F8FAFC]"
                     >
                       {columns.map((column) => (
                         <td
                           key={String(column.key)}
-                          className={cn("px-4 py-3 ui-body", column.className)}
+                          className={cn("px-4 py-2.5 ui-body", column.className)}
                         >
                           {column.render
                             ? column.render(row)
@@ -135,7 +203,7 @@ export function Table<T extends Record<string, unknown>>({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="ui-body-secondary">
             Showing {(currentPage - 1) * pageSize + 1}-
-            {Math.min(currentPage * pageSize, data.length)} of {data.length}
+            {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length}
           </p>
           <div className="flex items-center gap-2">
             <Button

@@ -17,7 +17,8 @@ import {
 import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { Badge, Button, Card, Input, Select, Table } from "@/components/ui";
+import { OperationalDetailsModal } from "@/components/calls/OperationalDetailsModal";
+import { Badge, Button, Card, FilterBar, Input, Table } from "@/components/ui";
 import {
   useDashboardContext,
   PageHero,
@@ -44,6 +45,7 @@ import {
   type DoctorSubscriptionSummary,
 } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
+import { useCallStore } from "@/store/callStore";
 
 type HospitalRow = Record<string, unknown> & MockUser;
 type HospitalDirectoryItem = {
@@ -267,10 +269,12 @@ export default function HospitalsPage() {
   const doctorCopy = doctorHospitalCopy[language] || doctorHospitalCopy.en;
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("pending");
+  const [sortOrder, setSortOrder] = React.useState("registered-desc");
   const [users, setUsers] = React.useState<MockUser[]>([]);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
+  const [detailsTarget, setDetailsTarget] = React.useState<MockUser | null>(null);
   const [availableHospitals, setAvailableHospitals] = React.useState<HospitalDirectoryItem[]>([]);
   const [requests, setRequests] = React.useState<HospitalSelection[]>([]);
   const [hospitalIdInput, setHospitalIdInput] = React.useState("");
@@ -281,6 +285,8 @@ export default function HospitalsPage() {
   const [removingHospitalId, setRemovingHospitalId] = React.useState<string | null>(null);
   const [subscriptionSummary, setSubscriptionSummary] = React.useState<DoctorSubscriptionSummary | null>(null);
   const [actioningHospitalId, setActioningHospitalId] = React.useState<string | null>(null);
+  const activeCalls = useCallStore((state) => state.activeCalls);
+  const callLogs = useCallStore((state) => state.callLogs);
 
   React.useEffect(() => {
     if (currentUser.role !== "admin") return;
@@ -346,7 +352,52 @@ export default function HospitalsPage() {
 
       return matchesSearch && matchesStatus;
     })
-    .map((user) => ({ ...user }));
+    .map((user) => ({ ...user }))
+    .sort((left, right) => {
+      const leftName = left.displayHospitalName || left.hospitalName || left.fullName;
+      const rightName = right.displayHospitalName || right.hospitalName || right.fullName;
+      if (sortOrder === "name-asc") return leftName.localeCompare(rightName);
+      if (sortOrder === "name-desc") return rightName.localeCompare(leftName);
+      if (sortOrder === "status-asc") return left.approvalStatus.localeCompare(right.approvalStatus);
+      if (sortOrder === "status-desc") return right.approvalStatus.localeCompare(left.approvalStatus);
+      if (sortOrder === "registered-asc") return (left.registrationDate || "").localeCompare(right.registrationDate || "");
+      return (right.registrationDate || "").localeCompare(left.registrationDate || "");
+    });
+
+  const scopedHospitalDetailActiveCalls = detailsTarget
+    ? activeCalls.filter(
+        (call) =>
+          call.hospitalId === detailsTarget.id ||
+          call.hospitalName ===
+            (detailsTarget.displayHospitalName || detailsTarget.hospitalName || detailsTarget.fullName)
+      )
+    : [];
+  const scopedHospitalDetailLogs = detailsTarget
+    ? callLogs
+        .filter(
+          (log) =>
+            log.hospitalId === detailsTarget.id ||
+            log.hospitalName ===
+              (detailsTarget.displayHospitalName || detailsTarget.hospitalName || detailsTarget.fullName)
+        )
+        .slice(0, 6)
+    : [];
+  const scopedHospitalTimelineItems = [
+    ...scopedHospitalDetailActiveCalls.map((call) => ({
+      id: `hospital-active-${call.id}`,
+      title: `${call.doctorName} raised ${call.messageLabel}`,
+      description: `${call.department} department is waiting on hospital response.`,
+      occurredAt: call.startedAt,
+      tone: "active" as const,
+    })),
+    ...scopedHospitalDetailLogs.map((log) => ({
+      id: `hospital-log-${log.id}`,
+      title: `${log.messageLabel} ${log.finalStatus}`,
+      description: `${log.doctorName} - ended by ${log.endedBy}.`,
+      occurredAt: log.endedAt,
+      tone: "resolved" as const,
+    })),
+  ].sort((left, right) => right.occurredAt - left.occurredAt);
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
     setActioningHospitalId(userId);
@@ -355,7 +406,30 @@ export default function HospitalsPage() {
       await apiRequest(`/admin/hospitals/${userId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
-      });
+    });
+
+  const hospitalDetailActiveCalls = detailsTarget
+    ? activeCalls.filter((call) => call.hospitalId === detailsTarget.id || call.hospitalName === (detailsTarget.displayHospitalName || detailsTarget.hospitalName || detailsTarget.fullName))
+    : [];
+  const hospitalDetailLogs = detailsTarget
+    ? callLogs.filter((log) => log.hospitalId === detailsTarget.id || log.hospitalName === (detailsTarget.displayHospitalName || detailsTarget.hospitalName || detailsTarget.fullName)).slice(0, 6)
+    : [];
+  const hospitalTimelineItems = [
+    ...hospitalDetailActiveCalls.map((call) => ({
+      id: `hospital-active-${call.id}`,
+      title: `${call.doctorName} raised ${call.messageLabel}`,
+      description: `${call.department} department is waiting on hospital response.`,
+      occurredAt: call.startedAt,
+      tone: "active" as const,
+    })),
+    ...hospitalDetailLogs.map((log) => ({
+      id: `hospital-log-${log.id}`,
+      title: `${log.messageLabel} ${log.finalStatus}`,
+      description: `${log.doctorName} · ended by ${log.endedBy}.`,
+      occurredAt: log.endedAt,
+      tone: "resolved" as const,
+    })),
+  ].sort((left, right) => right.occurredAt - left.occurredAt);
       const updated = await getAdminHospitals();
       setUsers(updated);
       await refreshSession();
@@ -564,8 +638,8 @@ export default function HospitalsPage() {
           ]}
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="space-y-5 border-[#DCE9EE] p-5 shadow-sm">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <Card className="space-y-4 border-[#DCE9EE] p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                 <CopyPlus className="size-5" />
@@ -577,21 +651,21 @@ export default function HospitalsPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#FCFEFF] p-4">
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#FCFEFF] p-3">
                 <p className="ui-meta">{t("hospitals.approvedCount")}</p>
-                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">{approvedRequests.length}</p>
+                <p className="mt-2 text-[22px] font-medium leading-7 text-[#0F172A]">{approvedRequests.length}</p>
               </div>
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#FCFEFF] p-4">
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#FCFEFF] p-3">
                 <p className="ui-meta">{t("hospitals.pendingCount")}</p>
-                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">{pendingRequests.length}</p>
+                <p className="mt-2 text-[22px] font-medium leading-7 text-[#0F172A]">{pendingRequests.length}</p>
               </div>
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#FCFEFF] p-4">
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#FCFEFF] p-3">
                 <p className="ui-meta">{doctorCopy.progressLabel}</p>
-                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">{usagePercent}%</p>
+                <p className="mt-2 text-[22px] font-medium leading-7 text-[#0F172A]">{usagePercent}%</p>
               </div>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_280px]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_260px]">
               <div className="space-y-4">
                 <label className="grid gap-2 text-sm text-[#0F172A]">
                   <span className="font-medium">{doctorCopy.hospitalIdLabel}</span>
@@ -612,7 +686,7 @@ export default function HospitalsPage() {
                 <p className="ui-body-secondary">{doctorCopy.searchHelper || "Search by hospital name, city/state, or hospital ID."}</p>
 
                 {hospitalIdInput.trim() ? (
-                  <div className="rounded-xl border border-[#E2E8F0] bg-white">
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white">
                     {hospitalSearchResults.length ? (
                       <div className="divide-y divide-[#EEF4F7]">
                         {hospitalSearchResults.map((hospital) => {
@@ -651,7 +725,7 @@ export default function HospitalsPage() {
                 ) : null}
 
                 {selectedHospital ? (
-                  <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                  <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                     <div className="flex items-start gap-3">
                       <div className="flex size-9 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
                         <Fingerprint className="size-4" />
@@ -679,7 +753,8 @@ export default function HospitalsPage() {
                 {doctorError ? <p className="ui-body text-[#EF4444]">{doctorError}</p> : null}
 
                 <Button
-                  className="h-11 px-5"
+                  size="sm"
+                  className="px-4"
                   onClick={() => void handleSubmitRequest()}
                   loading={submittingRequest}
                   disabled={!selectedHospital && !hospitalIdInput.trim() || remainingSlots === 0}
@@ -690,7 +765,7 @@ export default function HospitalsPage() {
                 <p className="ui-body-secondary">{doctorCopy.requestUsage}</p>
               </div>
 
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                 <div className="flex items-center gap-2">
                   <WalletCards className="size-4 text-[#0EA5A4]" />
                   <p className="text-sm font-medium text-[#0F172A]">{doctorCopy.progressLabel}</p>
@@ -716,7 +791,7 @@ export default function HospitalsPage() {
             </div>
           </Card>
 
-          <Card className="space-y-4 border-[#DCE9EE] p-4 shadow-sm">
+          <Card className="space-y-3 border-[#DCE9EE] p-4 shadow-sm">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0EA5A4]">
@@ -733,7 +808,7 @@ export default function HospitalsPage() {
                 const hospitalCode = hospital ? getHospitalCode(hospital) : request.hospitalId;
 
                 return (
-                  <div key={request.id} className="rounded-xl border border-[#E2E8F0] bg-[#FFFBEB] p-4">
+                  <div key={request.id} className="rounded-lg border border-[#E2E8F0] bg-[#FFFBEB] p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-2">
                         <p className="truncate text-sm font-semibold text-[#0F172A]">
@@ -762,7 +837,7 @@ export default function HospitalsPage() {
               })}
 
               {!loadingDoctorView && pendingRequests.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
                   <p className="ui-body-secondary">{doctorCopy.pendingEmpty}</p>
                 </div>
               ) : null}
@@ -770,7 +845,7 @@ export default function HospitalsPage() {
           </Card>
         </div>
 
-        <Card className="border-[#DCE9EE] p-5 shadow-sm">
+        <Card className="border-[#DCE9EE] p-4 shadow-sm">
           <div className="flex items-start gap-3 border-b border-[#E2E8F0] pb-4">
             <div className="flex size-10 items-center justify-center rounded-lg bg-[#F0FDFA] text-[#0EA5A4]">
               <Link2 className="size-5" />
@@ -781,13 +856,13 @@ export default function HospitalsPage() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             {approvedHospitals.map(({ request, hospital }) => {
               const location = splitLocation(hospital.displayLocation || hospital.location);
               const hospitalCode = getHospitalCode(hospital);
 
               return (
-                <div key={request.id} className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                <div key={request.id} className="rounded-lg border border-[#E2E8F0] bg-white p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -866,36 +941,29 @@ export default function HospitalsPage() {
         ]}
       />
 
-      <Card className="p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2 text-sm text-[#0F172A]">
-            {t("common.actions.search")}
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("hospitals.searchHospitalEmail")}
-                className="pl-10"
-              />
-            </div>
-          </label>
-
-          <label className="grid gap-2 text-sm text-[#0F172A]">
-            {t("common.actions.status")}
-            <Select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              options={[
-                { label: t("common.statuses.pending"), value: "pending" },
-                { label: t("common.statuses.approved"), value: "approved" },
-                { label: t("common.statuses.rejected"), value: "rejected" },
-                { label: t("common.statuses.allStatuses"), value: "all" },
-              ]}
-            />
-          </label>
-        </div>
-      </Card>
+      <FilterBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={t("hospitals.searchHospitalEmail")}
+        statusValue={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={[
+          { label: t("common.statuses.pending"), value: "pending" },
+          { label: t("common.statuses.approved"), value: "approved" },
+          { label: t("common.statuses.rejected"), value: "rejected" },
+          { label: t("common.statuses.allStatuses"), value: "all" },
+        ]}
+        sortValue={sortOrder}
+        onSortChange={setSortOrder}
+        sortOptions={[
+          { label: "Registered: newest first", value: "registered-desc" },
+          { label: "Registered: oldest first", value: "registered-asc" },
+          { label: "Hospital: A to Z", value: "name-asc" },
+          { label: "Hospital: Z to A", value: "name-desc" },
+          { label: "Status: A to Z", value: "status-asc" },
+          { label: "Status: Z to A", value: "status-desc" },
+        ]}
+      />
 
       <Card className="p-4">
         <Table<HospitalRow>
@@ -903,6 +971,8 @@ export default function HospitalsPage() {
             {
               key: "profile",
               header: t("hospitals.profile"),
+              sortable: true,
+              sortValue: (row) => row.displayHospitalName || row.hospitalName || row.fullName,
               render: (row) => (
                 <div className="flex items-center gap-3">
                   <Avatar name={row.displayHospitalName || row.hospitalName || row.fullName} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
@@ -917,17 +987,24 @@ export default function HospitalsPage() {
             {
               key: "details",
               header: t("hospitals.details"),
+              sortable: true,
+              sortValue: (row) => row.displayCity || row.city || "",
               render: (row) => (
                 <div className="space-y-1">
                   <p className="ui-body">{row.mobileNumber}</p>
                   <p className="ui-meta">{row.displayCity || row.city}, {row.displayState || row.state}</p>
                   <p className="ui-meta">{row.displayCountry || row.country}</p>
+                  <Button variant="ghost" size="sm" className="mt-2 px-0 text-[#0EA5A4]" onClick={() => setDetailsTarget(row)}>
+                    Operational details
+                  </Button>
                 </div>
               ),
             },
             {
               key: "registrationDate",
               header: t("hospitals.registered"),
+              sortable: true,
+              sortValue: (row) => row.registrationDate || "",
               render: (row) => (
                 <div className="space-y-1">
                   <p className="ui-body">{formatDisplayDate(row.registrationDate || "")}</p>
@@ -939,6 +1016,8 @@ export default function HospitalsPage() {
               key: "approvalStatus",
               header: t("common.actions.status"),
               className: "min-w-[140px] align-middle",
+              sortable: true,
+              sortValue: (row) => row.approvalStatus,
               render: (row) => (
                 <ApprovalStatusBadge
                   status={row.approvalStatus}
@@ -972,6 +1051,7 @@ export default function HospitalsPage() {
           ]}
           data={hospitalRows}
           pageSize={6}
+          stickyHeader
           emptyMessage={t("hospitals.noHospitalsFiltered")}
         />
       </Card>
@@ -1002,6 +1082,14 @@ export default function HospitalsPage() {
         confirmVariant="danger"
         onConfirm={handleDeleteHospital}
         onCancel={() => setDeleteTarget(null)}
+      />
+      <OperationalDetailsModal
+        open={Boolean(detailsTarget)}
+        title={`${detailsTarget?.displayHospitalName || detailsTarget?.hospitalName || detailsTarget?.fullName || "Hospital"} Operations`}
+        onClose={() => setDetailsTarget(null)}
+        activeCalls={scopedHospitalDetailActiveCalls}
+        recentLogs={scopedHospitalDetailLogs}
+        timelineItems={scopedHospitalTimelineItems}
       />
     </div>
   );

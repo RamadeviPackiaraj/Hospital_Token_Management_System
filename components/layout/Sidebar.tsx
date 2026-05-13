@@ -47,7 +47,7 @@ function SidebarPanel({
         collapsed ? "w-[88px]" : "w-full max-w-xs"
       )}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-4 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-4 py-3">
         <div className={cn("min-w-0", collapsed && "sr-only")}>{brand}</div>
         <Button
           variant="ghost"
@@ -58,14 +58,14 @@ function SidebarPanel({
         />
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto p-3" aria-label="Sidebar navigation">
+      <nav className="flex-1 space-y-1.5 overflow-y-auto p-3" aria-label="Sidebar navigation">
         {items.map((item) => (
           <div key={item.href} className="space-y-1">
             <div className="flex items-center gap-2">
               <Link
                 href={item.href}
                 className={cn(
-                  "focus-ring flex min-h-11 flex-1 items-center gap-3 rounded-lg border-r-2 px-3 py-3 text-sm font-medium transition-all duration-200",
+                  "focus-ring flex min-h-10 flex-1 items-center gap-3 rounded-lg border-r-2 px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   item.active
                     ? "border-[#BEEFEB] border-r-[#0EA5A4] bg-[#F0FDFA] text-[#0EA5A4]"
                     : "border-transparent text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
@@ -106,7 +106,7 @@ function SidebarPanel({
                     key={child.href}
                     href={child.href}
                     className={cn(
-                      "focus-ring mt-1 flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                      "focus-ring mt-1 flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
                       child.active
                         ? "bg-[#F0FDFA] font-medium text-[#0EA5A4]"
                         : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"

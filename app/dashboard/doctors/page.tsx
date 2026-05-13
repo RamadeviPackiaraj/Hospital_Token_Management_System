@@ -4,7 +4,8 @@ import * as React from "react";
 import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { Badge, Button, Card, Input, Select, Table } from "@/components/ui";
+import { OperationalDetailsModal } from "@/components/calls/OperationalDetailsModal";
+import { Badge, Button, Card, FilterBar, Table } from "@/components/ui";
 import {
   useDashboardContext,
   PageHero,
@@ -22,6 +23,7 @@ import { apiRequest } from "@/lib/api";
 import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { deleteAdminDoctor, getAdminDoctors, updateAdminDoctorProfile } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
+import { useCallStore } from "@/store/callStore";
 
 type DoctorRow = Record<string, unknown> & MockUser;
 type AdminDoctorActionIntent = "reject" | "deactivate";
@@ -53,18 +55,23 @@ export default function DoctorsPage() {
   const { t } = useI18n();
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("pending");
+  const [sortOrder, setSortOrder] = React.useState("registered-desc");
   const [users, setUsers] = React.useState<MockUser[]>([]);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
   const [rejectIntent, setRejectIntent] = React.useState<AdminDoctorActionIntent>("reject");
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
+  const [detailsTarget, setDetailsTarget] = React.useState<MockUser | null>(null);
   const [hospitalRequests, setHospitalRequests] = React.useState<HospitalDoctorRequest[]>([]);
   const [hospitalSearch, setHospitalSearch] = React.useState("");
   const [hospitalStatusFilter, setHospitalStatusFilter] = React.useState("all");
+  const [hospitalSortOrder, setHospitalSortOrder] = React.useState("requested-desc");
   const [loadingHospitalView, setLoadingHospitalView] = React.useState(true);
   const [hospitalError, setHospitalError] = React.useState("");
   const [actioningDoctorId, setActioningDoctorId] = React.useState<string | null>(null);
   const [adminActioningDoctorId, setAdminActioningDoctorId] = React.useState<string | null>(null);
+  const activeCalls = useCallStore((state) => state.activeCalls);
+  const callLogs = useCallStore((state) => state.callLogs);
 
   React.useEffect(() => {
     if (currentUser.role !== "admin") return;
@@ -145,7 +152,48 @@ export default function DoctorsPage() {
 
       return matchesSearch && matchesStatus;
     })
-    .map((user) => ({ ...user }));
+    .map((user) => ({ ...user }))
+    .sort((left, right) => {
+      if (sortOrder === "name-asc") return (left.displayFullName || left.fullName).localeCompare(right.displayFullName || right.fullName);
+      if (sortOrder === "name-desc") return (right.displayFullName || right.fullName).localeCompare(left.displayFullName || left.fullName);
+      if (sortOrder === "status-asc") return left.approvalStatus.localeCompare(right.approvalStatus);
+      if (sortOrder === "status-desc") return right.approvalStatus.localeCompare(left.approvalStatus);
+      if (sortOrder === "registered-asc") return (left.registrationDate || "").localeCompare(right.registrationDate || "");
+      return (right.registrationDate || "").localeCompare(left.registrationDate || "");
+    });
+
+  const scopedDoctorDetailActiveCalls = detailsTarget
+    ? activeCalls.filter(
+        (call) =>
+          call.doctorId === detailsTarget.id ||
+          call.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName)
+      )
+    : [];
+  const scopedDoctorDetailLogs = detailsTarget
+    ? callLogs
+        .filter(
+          (log) =>
+            log.doctorId === detailsTarget.id ||
+            log.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName)
+        )
+        .slice(0, 6)
+    : [];
+  const scopedDoctorTimelineItems = [
+    ...scopedDoctorDetailActiveCalls.map((call) => ({
+      id: `doctor-active-${call.id}`,
+      title: `${call.messageLabel} is active`,
+      description: `${call.hospitalName} is handling an active ${call.priority} operational call.`,
+      occurredAt: call.startedAt,
+      tone: "active" as const,
+    })),
+    ...scopedDoctorDetailLogs.map((log) => ({
+      id: `doctor-log-${log.id}`,
+      title: `${log.messageLabel} ${log.finalStatus}`,
+      description: `${log.hospitalName} - ended by ${log.endedBy}.`,
+      occurredAt: log.endedAt,
+      tone: "resolved" as const,
+    })),
+  ].sort((left, right) => right.occurredAt - left.occurredAt);
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
     setAdminActioningDoctorId(userId);
@@ -337,7 +385,37 @@ export default function DoctorsPage() {
       const matchesStatus =
         hospitalStatusFilter === "all" || doctor.status === hospitalStatusFilter;
       return matchesSearch && matchesStatus;
+    }).sort((left, right) => {
+      if (hospitalSortOrder === "name-asc") return left.name.localeCompare(right.name);
+      if (hospitalSortOrder === "name-desc") return right.name.localeCompare(left.name);
+      if (hospitalSortOrder === "status-asc") return left.status.localeCompare(right.status);
+      if (hospitalSortOrder === "status-desc") return right.status.localeCompare(left.status);
+      if (hospitalSortOrder === "requested-asc") return (left.createdAt || "").localeCompare(right.createdAt || "");
+      return (right.createdAt || "").localeCompare(left.createdAt || "");
     });
+
+  const doctorDetailActiveCalls = detailsTarget
+    ? activeCalls.filter((call) => call.doctorId === detailsTarget.id || call.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName))
+    : [];
+  const doctorDetailLogs = detailsTarget
+    ? callLogs.filter((log) => log.doctorId === detailsTarget.id || log.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName)).slice(0, 6)
+    : [];
+  const doctorTimelineItems = [
+    ...doctorDetailActiveCalls.map((call) => ({
+      id: `doctor-active-${call.id}`,
+      title: `${call.messageLabel} is active`,
+      description: `${call.hospitalName} is handling an active ${call.priority} operational call.`,
+      occurredAt: call.startedAt,
+      tone: "active" as const,
+    })),
+    ...doctorDetailLogs.map((log) => ({
+      id: `doctor-log-${log.id}`,
+      title: `${log.messageLabel} ${log.finalStatus}`,
+      description: `${log.hospitalName} · ended by ${log.endedBy}.`,
+      occurredAt: log.endedAt,
+      tone: "resolved" as const,
+    })),
+  ].sort((left, right) => right.occurredAt - left.occurredAt);
 
     return (
       <div className="space-y-6">
@@ -360,37 +438,32 @@ export default function DoctorsPage() {
           ]}
         />
 
-        <Card className="p-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="ui-field-label">{t("common.actions.search")}</span>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
-                <Input
-                  value={hospitalSearch}
-                  onChange={(event) => setHospitalSearch(event.target.value)}
-                  placeholder={t("doctors.searchDoctorEmail")}
-                  className="pl-10"
-                />
-              </div>
-            </label>
-
-            <label className="grid gap-2">
-              <span className="ui-field-label">{t("common.actions.status")}</span>
-              <Select
-                value={hospitalStatusFilter}
-                onChange={(event) => setHospitalStatusFilter(event.target.value)}
-              options={[
-                { label: t("common.statuses.allStatuses"), value: "all" },
-                { label: t("common.statuses.pending"), value: "pending" },
-                { label: t("common.statuses.approved"), value: "approved" },
-                { label: t("common.statuses.rejected"), value: "rejected" },
-              ]}
-              />
-            </label>
-          </div>
-          {hospitalError ? <p className="mt-3 text-sm font-normal leading-5 text-[#EF4444]">{hospitalError}</p> : null}
-        </Card>
+        <div className="space-y-3">
+          <FilterBar
+            searchValue={hospitalSearch}
+            onSearchChange={setHospitalSearch}
+            searchPlaceholder={t("doctors.searchDoctorEmail")}
+            statusValue={hospitalStatusFilter}
+            onStatusChange={setHospitalStatusFilter}
+            statusOptions={[
+              { label: t("common.statuses.allStatuses"), value: "all" },
+              { label: t("common.statuses.pending"), value: "pending" },
+              { label: t("common.statuses.approved"), value: "approved" },
+              { label: t("common.statuses.rejected"), value: "rejected" },
+            ]}
+            sortValue={hospitalSortOrder}
+            onSortChange={setHospitalSortOrder}
+            sortOptions={[
+              { label: "Requested: newest first", value: "requested-desc" },
+              { label: "Requested: oldest first", value: "requested-asc" },
+              { label: "Doctor: A to Z", value: "name-asc" },
+              { label: "Doctor: Z to A", value: "name-desc" },
+              { label: "Status: A to Z", value: "status-asc" },
+              { label: "Status: Z to A", value: "status-desc" },
+            ]}
+          />
+          {hospitalError ? <p className="text-sm font-normal leading-5 text-[#EF4444]">{hospitalError}</p> : null}
+        </div>
 
         <Card className="p-4">
           <Table<HospitalDoctorRequest>
@@ -398,6 +471,8 @@ export default function DoctorsPage() {
               {
                 key: "doctor",
                 header: t("doctors.doctor"),
+                sortable: true,
+                sortValue: (row) => row.displayName || row.name,
                 render: (row) => (
                   <div className="flex items-center gap-3">
                     <Avatar name={row.displayName || row.name} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
@@ -411,6 +486,8 @@ export default function DoctorsPage() {
               {
                 key: "details",
                 header: t("doctors.details"),
+                sortable: true,
+                sortValue: (row) => row.createdAt || "",
                 render: (row) => (
                   <div className="space-y-1">
                     <p className="ui-card-body">{formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment))}</p>
@@ -427,6 +504,8 @@ export default function DoctorsPage() {
               {
                 key: "status",
                 header: t("common.actions.status"),
+                sortable: true,
+                sortValue: (row) => row.status,
                 render: (row) => (
                   <Badge status={requestBadgeVariant(row.status)} className="font-medium">
                     {row.status === "approved"
@@ -468,6 +547,7 @@ export default function DoctorsPage() {
             data={filteredRequests}
             loading={loadingHospitalView}
             pageSize={6}
+            stickyHeader
             emptyMessage={t("doctors.noRequestsFiltered")}
           />
         </Card>
@@ -499,36 +579,29 @@ export default function DoctorsPage() {
         ]}
       />
 
-      <Card className="p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="ui-field-label">{t("common.actions.search")}</span>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#64748B]" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("doctors.searchNameEmail")}
-                className="pl-10"
-              />
-            </div>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="ui-field-label">{t("common.actions.status")}</span>
-            <Select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              options={[
-                { label: t("common.statuses.pending"), value: "pending" },
-                { label: t("common.statuses.approved"), value: "approved" },
-                { label: t("common.statuses.rejected"), value: "rejected" },
-                { label: t("common.statuses.allStatuses"), value: "all" },
-              ]}
-            />
-          </label>
-        </div>
-      </Card>
+      <FilterBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={t("doctors.searchNameEmail")}
+        statusValue={statusFilter}
+        onStatusChange={setStatusFilter}
+        statusOptions={[
+          { label: t("common.statuses.pending"), value: "pending" },
+          { label: t("common.statuses.approved"), value: "approved" },
+          { label: t("common.statuses.rejected"), value: "rejected" },
+          { label: t("common.statuses.allStatuses"), value: "all" },
+        ]}
+        sortValue={sortOrder}
+        onSortChange={setSortOrder}
+        sortOptions={[
+          { label: "Registered: newest first", value: "registered-desc" },
+          { label: "Registered: oldest first", value: "registered-asc" },
+          { label: "Doctor: A to Z", value: "name-asc" },
+          { label: "Doctor: Z to A", value: "name-desc" },
+          { label: "Status: A to Z", value: "status-asc" },
+          { label: "Status: Z to A", value: "status-desc" },
+        ]}
+      />
 
       <Card className="p-4">
         <Table<DoctorRow>
@@ -536,6 +609,8 @@ export default function DoctorsPage() {
             {
               key: "profile",
               header: t("doctors.profile"),
+              sortable: true,
+              sortValue: (row) => row.displayFullName || row.fullName,
               render: (row) => (
                 <div className="flex items-center gap-3">
                   <Avatar name={row.displayFullName || row.fullName} size="sm" className="bg-[#F0FDFA] text-[#0EA5A4]" />
@@ -550,18 +625,25 @@ export default function DoctorsPage() {
             {
               key: "details",
               header: t("doctors.details"),
+                sortable: true,
+                sortValue: (row) => row.department || "",
                 render: (row) => (
                   <div className="space-y-1">
                     <p className="ui-card-body">{row.mobileNumber}</p>
                     <p className="ui-card-meta">{t("doctors.department")}: {formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment), t("common.notProvided"))}</p>
                     <p className="ui-card-meta">{t("doctors.specialization")}: {formatDoctorDetail(row.displaySpecialization || row.specialization, t("common.notProvided"))}</p>
                     <p className="ui-card-meta">{t("doctors.registrationId")}: {formatDoctorDetail(row.medicalRegistrationId, t("common.notProvided"))}</p>
+                    <Button variant="ghost" size="sm" className="mt-2 px-0 text-[#0EA5A4]" onClick={() => setDetailsTarget(row)}>
+                      Operational details
+                    </Button>
                   </div>
                 ),
               },
             {
               key: "registrationDate",
               header: t("doctors.registered"),
+                sortable: true,
+                sortValue: (row) => row.registrationDate || "",
                 render: (row) => (
                   <div className="space-y-1">
                     <p className="ui-card-body">{formatDisplayDate(row.registrationDate || "")}</p>
@@ -573,6 +655,8 @@ export default function DoctorsPage() {
               key: "approvalStatus",
               header: t("common.actions.status"),
               className: "min-w-[140px] align-middle",
+              sortable: true,
+              sortValue: (row) => row.approvalStatus,
               render: (row) => (
                 <ApprovalStatusBadge
                   status={row.approvalStatus}
@@ -608,6 +692,7 @@ export default function DoctorsPage() {
           ]}
           data={doctorRows}
           pageSize={6}
+          stickyHeader
           emptyMessage={t("doctors.noDoctorsFiltered")}
         />
       </Card>
@@ -645,6 +730,14 @@ export default function DoctorsPage() {
         confirmVariant="danger"
         onConfirm={handleDeleteDoctor}
         onCancel={() => setDeleteTarget(null)}
+      />
+      <OperationalDetailsModal
+        open={Boolean(detailsTarget)}
+        title={`${detailsTarget?.displayFullName || detailsTarget?.fullName || "Doctor"} Operations`}
+        onClose={() => setDetailsTarget(null)}
+        activeCalls={scopedDoctorDetailActiveCalls}
+        recentLogs={scopedDoctorDetailLogs}
+        timelineItems={scopedDoctorTimelineItems}
       />
     </div>
   );

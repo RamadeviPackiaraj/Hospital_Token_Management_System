@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { AuthRoleProvider } from "@/components/auth/AuthRoleContext";
 import { I18nProvider } from "@/components/i18n";
 import { ConditionalLogViewer, LoggerRuntimeBridge } from "@/components/utility";
@@ -7,12 +6,6 @@ import { Toaster } from "react-hot-toast";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-time-picker/dist/TimePicker.css";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-inter"
-});
 
 export const metadata: Metadata = {
   title: "Hospital Token Management System",
@@ -28,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} bg-[#F8FAFC] text-[#0F172A]`}>
+      <body className="bg-[#F8FAFC] text-[#0F172A]" style={{ ["--font-inter" as string]: '"Segoe UI"' }}>
         <I18nProvider>
           <AuthRoleProvider>
             <LoggerRuntimeBridge />

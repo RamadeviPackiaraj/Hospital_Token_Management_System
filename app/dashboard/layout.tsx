@@ -6,8 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   CalendarClock,
+  ClipboardList,
   LayoutDashboard,
-  MessageSquareMore,
+  PhoneCall,
   Ticket,
   Settings,
   Stethoscope,
@@ -28,6 +29,73 @@ import {
 } from "@/lib/auth-flow";
 import type { SidebarItem } from "@/components/layout/Sidebar";
 
+type AppShellLanguage = "en" | "hi" | "ml" | "ta";
+
+const operationalNavCopy: Record<
+  AppShellLanguage,
+  {
+    calls: string;
+    callLogs: string;
+    callsTitleDoctor: string;
+    callsTitleHospital: string;
+    callsSubtitleDoctor: string;
+    callsSubtitleHospital: string;
+    callLogsTitle: string;
+    callLogsSubtitle: string;
+    callMessagesTitle: string;
+    callMessagesDescription: string;
+  }
+> = {
+  en: {
+    calls: "Calls",
+    callLogs: "Call Logs",
+    callsTitleDoctor: "Doctor Calls",
+    callsTitleHospital: "Hospital Active Calls",
+    callsSubtitleDoctor: "Manage operational call workflows with hospitals",
+    callsSubtitleHospital: "Monitor and resolve doctor operational calls",
+    callLogsTitle: "Call Logs",
+    callLogsSubtitle: "Review operational audit history",
+    callMessagesTitle: "Custom Call Messages",
+    callMessagesDescription: "Manage doctor operational message templates",
+  },
+  hi: {
+    calls: "कॉल्स",
+    callLogs: "कॉल लॉग्स",
+    callsTitleDoctor: "डॉक्टर कॉल्स",
+    callsTitleHospital: "अस्पताल सक्रिय कॉल्स",
+    callsSubtitleDoctor: "अस्पतालों के साथ परिचालन कॉल वर्कफ़्लो प्रबंधित करें",
+    callsSubtitleHospital: "डॉक्टर परिचालन कॉल्स की निगरानी और समाधान करें",
+    callLogsTitle: "कॉल लॉग्स",
+    callLogsSubtitle: "परिचालन ऑडिट इतिहास देखें",
+    callMessagesTitle: "कस्टम कॉल संदेश",
+    callMessagesDescription: "डॉक्टर परिचालन संदेश टेम्पलेट प्रबंधित करें",
+  },
+  ml: {
+    calls: "കോളുകൾ",
+    callLogs: "കാൾ ലോഗുകൾ",
+    callsTitleDoctor: "ഡോക്ടർ കോളുകൾ",
+    callsTitleHospital: "ആശുപത്രി സജീവ കോളുകൾ",
+    callsSubtitleDoctor: "ആശുപത്രികളുമായി പ്രവർത്തന കോൾ പ്രവാഹം നിയന്ത്രിക്കുക",
+    callsSubtitleHospital: "ഡോക്ടർ പ്രവർത്തന കോളുകൾ നിരീക്ഷിച്ച് അവസാനിപ്പിക്കുക",
+    callLogsTitle: "കാൾ ലോഗുകൾ",
+    callLogsSubtitle: "പ്രവർത്തന ഓഡിറ്റ് ചരിത്രം പരിശോധിക്കുക",
+    callMessagesTitle: "കസ്റ്റം കോൾ സന്ദേശങ്ങൾ",
+    callMessagesDescription: "ഡോക്ടർ പ്രവർത്തന സന്ദേശ ടെംപ്ലേറ്റുകൾ നിയന്ത്രിക്കുക",
+  },
+  ta: {
+    calls: "அழைப்புகள்",
+    callLogs: "அழைப்பு பதிவுகள்",
+    callsTitleDoctor: "மருத்துவர் அழைப்புகள்",
+    callsTitleHospital: "மருத்துவமனை செயலில் உள்ள அழைப்புகள்",
+    callsSubtitleDoctor: "மருத்துவமனைகளுடன் செயல்பாட்டு அழைப்பு பணிப்போக்கை நிர்வகிக்கவும்",
+    callsSubtitleHospital: "மருத்துவர் செயல்பாட்டு அழைப்புகளை கண்காணித்து முடிக்கவும்",
+    callLogsTitle: "அழைப்பு பதிவுகள்",
+    callLogsSubtitle: "செயல்பாட்டு ஆய்வு வரலாற்றைப் பார்க்கவும்",
+    callMessagesTitle: "தனிப்பயன் அழைப்பு செய்திகள்",
+    callMessagesDescription: "மருத்துவர் செயல்பாட்டு செய்தி மாதிரிகளை நிர்வகிக்கவும்",
+  },
+};
+
 const menuItems = [
   { labelKey: "dashboard.nav.dashboard", href: "/dashboard", icon: <LayoutDashboard className="size-4" /> },
   { labelKey: "dashboard.nav.doctors", href: "/dashboard/doctors", icon: <Stethoscope className="size-4" /> },
@@ -35,11 +103,12 @@ const menuItems = [
   { labelKey: "dashboard.nav.doctorSchedule", href: "/dashboard/doctor-schedule", icon: <CalendarClock className="size-4" /> },
   { labelKey: "dashboard.nav.patientEntry", href: "/dashboard/patient-entry", icon: <Ticket className="size-4" /> },
   { labelKey: "dashboard.nav.hospitals", href: "/dashboard/hospitals", icon: <Building2 className="size-4" /> },
-  { labelKey: "dashboard.nav.chat", href: "/dashboard/chat", icon: <MessageSquareMore className="size-4" /> },
+  { labelKey: "dashboard.nav.chat", href: "/dashboard/calls", icon: <PhoneCall className="size-4" /> },
+  { labelKey: "dashboard.nav.chat", href: "/dashboard/call-logs", icon: <ClipboardList className="size-4" /> },
   { labelKey: "dashboard.nav.settings", href: "/dashboard/settings", icon: <Settings className="size-4" /> }
 ] as const satisfies Array<Omit<SidebarItem, "label"> & { labelKey: string }>;
 
-function pageMeta(pathname: string, role: MockUser["role"], t: (key: string) => string) {
+function pageMeta(pathname: string, role: MockUser["role"], t: (key: string) => string, copy: (typeof operationalNavCopy)[AppShellLanguage]) {
   if (pathname === "/dashboard/hospitals") {
     return {
       title: role === "doctor" ? t("dashboard.meta.hospitalSelection") : t("dashboard.meta.hospitals"),
@@ -68,10 +137,17 @@ function pageMeta(pathname: string, role: MockUser["role"], t: (key: string) => 
     };
   }
 
-  if (pathname === "/dashboard/chat") {
+  if (pathname === "/dashboard/calls") {
     return {
-      title: role === "doctor" ? t("dashboard.meta.doctorChat") : t("dashboard.meta.hospitalChat"),
-      subtitle: role === "doctor" ? t("dashboard.meta.chatHospitals") : t("dashboard.meta.chatDoctors")
+      title: role === "doctor" ? copy.callsTitleDoctor : copy.callsTitleHospital,
+      subtitle: role === "doctor" ? copy.callsSubtitleDoctor : copy.callsSubtitleHospital
+    };
+  }
+
+  if (pathname === "/dashboard/call-logs") {
+    return {
+      title: copy.callLogsTitle,
+      subtitle: copy.callLogsSubtitle
     };
   }
 
@@ -110,6 +186,13 @@ function pageMeta(pathname: string, role: MockUser["role"], t: (key: string) => 
     };
   }
 
+  if (pathname === "/dashboard/settings/call-messages") {
+    return {
+      title: copy.callMessagesTitle,
+      subtitle: copy.callMessagesDescription
+    };
+  }
+
   if (pathname === "/dashboard/settings") {
     return {
       title: t("dashboard.meta.settings"),
@@ -136,7 +219,7 @@ function pageMeta(pathname: string, role: MockUser["role"], t: (key: string) => 
 export default function DashboardShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [session, setSession] = React.useState<MockSession | null>(null);
   const [currentUser, setCurrentUser] = React.useState<MockUser | null>(null);
   const [ready, setReady] = React.useState(false);
@@ -219,7 +302,8 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
     );
   }
 
-  const meta = pageMeta(pathname, currentUser.role, t);
+  const operationalCopy = operationalNavCopy[language as AppShellLanguage] || operationalNavCopy.en;
+  const meta = pageMeta(pathname, currentUser.role, t, operationalCopy);
   const visibleMenuItems = menuItems.filter((item) => {
     if (currentUser.role === "hospital") {
       return (
@@ -241,7 +325,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
         item.href !== "/dashboard/departments" &&
         item.href !== "/dashboard/doctor-schedule" &&
         item.href !== "/dashboard/patient-entry" &&
-        item.href !== "/dashboard/chat"
+        item.href !== "/dashboard/calls"
       );
     }
 
@@ -268,6 +352,15 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
               pathname === "/dashboard/settings/subscriptions" ||
               pathname === "/dashboard/settings/subscriptions/hospitals" ||
               pathname === "/dashboard/settings/subscriptions/doctors",
+          },
+        ]
+      : []),
+    ...(currentUser.role === "doctor"
+      ? [
+          {
+            href: "/dashboard/settings/call-messages",
+            label: operationalCopy.callMessagesTitle,
+            active: pathname === "/dashboard/settings/call-messages",
           },
         ]
       : []),
@@ -298,7 +391,12 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
           items: visibleMenuItems.map((item) => ({
             href: item.href,
             icon: item.icon,
-            label: t(item.labelKey),
+            label:
+              item.href === "/dashboard/calls"
+                ? operationalCopy.calls
+                : item.href === "/dashboard/call-logs"
+                  ? operationalCopy.callLogs
+                  : t(item.labelKey),
             children: item.href === "/dashboard/settings" ? settingsChildren : undefined,
             active:
               pathname === item.href ||

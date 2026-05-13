@@ -37,7 +37,7 @@ export function DashboardLayout({
         <Header {...header} onMenuClick={toggleMobileOpen} />
         <main
           className={cn(
-            "flex-1 bg-[#F8FAFC] px-4 py-6 sm:px-6 lg:px-8",
+            "flex-1 bg-[#F8FAFC] px-4 py-4 sm:px-6 sm:py-5 lg:px-6 lg:py-6",
             className
           )}
         >
