@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout";
 import { DashboardProvider } from "@/components/dashboard";
+import { CallStoreBridge } from "@/components/calls/CallStoreBridge";
 import { GlobalLanguageSwitcher, useI18n } from "@/components/i18n";
 import { Card } from "@/components/ui";
 import {
@@ -375,6 +376,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
         signOut
       }}
     >
+      <CallStoreBridge />
       <DashboardLayout
         sidebar={{
           brand: (

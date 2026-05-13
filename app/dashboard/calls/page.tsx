@@ -8,7 +8,6 @@ import { ActiveCallsList } from "@/components/calls/ActiveCallsList";
 import { CallMessageSelector } from "@/components/calls/CallMessageSelector";
 import { VoiceAlertBridge } from "@/components/voice-alerts/VoiceAlertBridge";
 import { Card } from "@/components/ui";
-import { MOCK_HOSPITAL_TARGETS } from "@/data/mock-calls";
 import { useI18n } from "@/components/i18n";
 import { useCallStore } from "@/store/callStore";
 
@@ -19,9 +18,11 @@ export default function CallsPage() {
   const startCall = useCallStore((state) => state.startCall);
   const endCall = useCallStore((state) => state.endCall);
   const getMessagesForDoctor = useCallStore((state) => state.getMessagesForDoctor);
+  const getTargetsForDoctor = useCallStore((state) => state.getTargetsForDoctor);
+  const targetHospitals = getTargetsForDoctor(currentUser.id);
 
-  const [targetHospitalId, setTargetHospitalId] = React.useState(MOCK_HOSPITAL_TARGETS[0]?.id || "");
-  const doctorMessages = getMessagesForDoctor(currentUser.id).slice(0, 3);
+  const [targetHospitalId, setTargetHospitalId] = React.useState(targetHospitals[0]?.id || "");
+  const doctorMessages = getMessagesForDoctor(currentUser.id);
 
   const [selectedMessageId, setSelectedMessageId] = React.useState(doctorMessages[0]?.id || "");
 
@@ -31,19 +32,25 @@ export default function CallsPage() {
     }
   }, [doctorMessages, selectedMessageId]);
 
+  React.useEffect(() => {
+    if (!targetHospitals.some((hospital) => hospital.id === targetHospitalId)) {
+      setTargetHospitalId(targetHospitals[0]?.id || "");
+    }
+  }, [targetHospitalId, targetHospitals]);
+
   const currentDoctorCall = activeCalls.find((call) => call.doctorId === currentUser.id);
   const targetHospital =
-    MOCK_HOSPITAL_TARGETS.find((hospital) => hospital.id === targetHospitalId) || MOCK_HOSPITAL_TARGETS[0];
+    targetHospitals.find((hospital) => hospital.id === targetHospitalId) || targetHospitals[0];
   const selectedMessage = doctorMessages.find((message) => message.id === selectedMessageId) || doctorMessages[0];
   const hospitalActiveCalls = activeCalls;
   const completedCalls = useCallStore((state) => state.callLogs.filter((log) => log.finalStatus === "completed").length);
 
-  function handleStartCall() {
+  async function handleStartCall() {
     if (!selectedMessage || !targetHospital || currentUser.role !== "doctor" || currentDoctorCall) {
       return;
     }
 
-    startCall({
+    await startCall({
       doctorId: currentUser.id,
       doctorName: currentUser.displayFullName || currentUser.fullName,
       department: currentUser.displayDepartment || currentUser.department || "General Medicine",
@@ -75,7 +82,7 @@ export default function CallsPage() {
           <CallMessageSelector
             targetHospitalId={targetHospitalId}
             onTargetHospitalChange={setTargetHospitalId}
-            targetHospitalOptions={MOCK_HOSPITAL_TARGETS.map((hospital) => ({
+            targetHospitalOptions={targetHospitals.map((hospital) => ({
               label: `${hospital.name}, ${hospital.city}`,
               value: hospital.id,
             }))}
@@ -83,11 +90,13 @@ export default function CallsPage() {
             onSelectedMessageChange={setSelectedMessageId}
             availableMessages={doctorMessages}
             canStart={Boolean(selectedMessage && targetHospital && !currentDoctorCall)}
-            onStart={handleStartCall}
+            onStart={() => {
+              void handleStartCall();
+            }}
             canEnd={Boolean(currentDoctorCall)}
             onEnd={() => {
               if (currentDoctorCall) {
-                endCall(currentDoctorCall.id, "doctor");
+                void endCall(currentDoctorCall.id, "doctor");
               }
             }}
           />
@@ -124,7 +133,9 @@ export default function CallsPage() {
         calls={hospitalActiveCalls}
         emptyTitle="No active calls"
         emptyDescription="Doctor calls will appear here."
-        onEnd={(callId) => endCall(callId, "hospital")}
+        onEnd={(callId) => {
+          void endCall(callId, "hospital");
+        }}
       />
     </section>
   );

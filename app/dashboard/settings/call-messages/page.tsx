@@ -18,8 +18,6 @@ const defaultEditorState: EditorState = {
   priority: "routine",
 };
 
-const MAX_MESSAGES = 3;
-
 export default function CallMessagesSettingsPage() {
   const { currentUser } = useDashboardContext();
   const getMessagesForDoctor = useCallStore((state) => state.getMessagesForDoctor);
@@ -27,7 +25,7 @@ export default function CallMessagesSettingsPage() {
   const updateCustomMessage = useCallStore((state) => state.updateCustomMessage);
   const deleteCustomMessage = useCallStore((state) => state.deleteCustomMessage);
 
-  const messages = getMessagesForDoctor(currentUser.id).slice(0, MAX_MESSAGES);
+  const messages = getMessagesForDoctor(currentUser.id);
   const [editorState, setEditorState] = React.useState<EditorState>(defaultEditorState);
   const [open, setOpen] = React.useState(false);
 
@@ -41,16 +39,16 @@ export default function CallMessagesSettingsPage() {
     setOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const value = editorState.label.trim();
     if (!value) {
       return;
     }
 
     if (editorState.id) {
-      updateCustomMessage(currentUser.id, editorState.id, { label: value, priority: editorState.priority });
+      await updateCustomMessage(currentUser.id, editorState.id, { label: value, priority: editorState.priority });
     } else {
-      addCustomMessage(currentUser.id, { label: value, priority: editorState.priority });
+      await addCustomMessage(currentUser.id, { label: value, priority: editorState.priority });
     }
 
     setOpen(false);
@@ -73,14 +71,13 @@ export default function CallMessagesSettingsPage() {
           <div>
             <h1 className="text-[24px] font-medium leading-8 text-[#0F172A]">Call Messages</h1>
             <p className="mt-1 text-sm text-[#64748B]">
-              Manage the three doctor to hospital operational messages shown on the Calls page.
+              Manage doctor to hospital operational messages shown on the Calls page.
             </p>
           </div>
           <Button
             variant="primary"
             leftIcon={<MessageSquarePlus className="size-4" />}
             onClick={openAddModal}
-            disabled={messages.length >= MAX_MESSAGES}
           >
             Add Message
           </Button>
@@ -99,7 +96,14 @@ export default function CallMessagesSettingsPage() {
                 <Button variant="outline" size="sm" leftIcon={<Pencil className="size-4" />} onClick={() => openEditModal(message)}>
                   Edit
                 </Button>
-                <Button variant="dangerOutline" size="sm" leftIcon={<Trash2 className="size-4" />} onClick={() => deleteCustomMessage(currentUser.id, message.id)}>
+                <Button
+                  variant="dangerOutline"
+                  size="sm"
+                  leftIcon={<Trash2 className="size-4" />}
+                  onClick={() => {
+                    void deleteCustomMessage(currentUser.id, message.id);
+                  }}
+                >
                   Delete
                 </Button>
               </div>
@@ -118,7 +122,12 @@ export default function CallMessagesSettingsPage() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSave}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                void handleSave();
+              }}
+            >
               Save
             </Button>
           </>

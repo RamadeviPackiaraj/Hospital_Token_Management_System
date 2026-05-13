@@ -12,6 +12,7 @@ export interface HospitalCallTarget {
   id: string;
   name: string;
   city: string;
+  hospitalProfileId?: string;
 }
 
 export interface OperationalMessageTemplate {
@@ -33,6 +34,9 @@ export interface ActiveCall {
   priority: CallPriority;
   startedAt: number;
   status: "active";
+  doctorProfileId?: string;
+  hospitalProfileId?: string;
+  hospitalUserId?: string;
 }
 
 export interface CallLogEntry extends Omit<ActiveCall, "status"> {
