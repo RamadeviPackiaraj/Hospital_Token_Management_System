@@ -24,7 +24,6 @@ export function getCallMessageTemplates() {
 
 export function createCallMessageTemplate(payload: {
   label: string;
-  priority: OperationalMessageTemplate["priority"];
 }) {
   return apiRequest<OperationalMessageTemplate>("/calls/message-templates", {
     method: "POST",
@@ -36,7 +35,6 @@ export function updateCallMessageTemplate(
   templateId: string,
   payload: {
     label: string;
-    priority: OperationalMessageTemplate["priority"];
   }
 ) {
   return apiRequest<OperationalMessageTemplate>(`/calls/message-templates/${templateId}`, {

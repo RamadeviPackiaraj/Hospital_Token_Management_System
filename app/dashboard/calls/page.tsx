@@ -9,7 +9,7 @@ import { CallMessageSelector } from "@/components/calls/CallMessageSelector";
 import { VoiceAlertBridge } from "@/components/voice-alerts/VoiceAlertBridge";
 import { Card } from "@/components/ui";
 import { useI18n } from "@/components/i18n";
-import { useCallStore } from "@/store/callStore";
+import { selectDoctorMessages, selectDoctorTargets, useCallStore } from "@/store/callStore";
 
 export default function CallsPage() {
   const { currentUser } = useDashboardContext();
@@ -17,12 +17,10 @@ export default function CallsPage() {
   const activeCalls = useCallStore((state) => state.activeCalls);
   const startCall = useCallStore((state) => state.startCall);
   const endCall = useCallStore((state) => state.endCall);
-  const getMessagesForDoctor = useCallStore((state) => state.getMessagesForDoctor);
-  const getTargetsForDoctor = useCallStore((state) => state.getTargetsForDoctor);
-  const targetHospitals = getTargetsForDoctor(currentUser.id);
+  const doctorMessages = useCallStore(React.useMemo(() => selectDoctorMessages(currentUser.id), [currentUser.id]));
+  const targetHospitals = useCallStore(React.useMemo(() => selectDoctorTargets(currentUser.id), [currentUser.id]));
 
   const [targetHospitalId, setTargetHospitalId] = React.useState(targetHospitals[0]?.id || "");
-  const doctorMessages = getMessagesForDoctor(currentUser.id);
 
   const [selectedMessageId, setSelectedMessageId] = React.useState(doctorMessages[0]?.id || "");
 

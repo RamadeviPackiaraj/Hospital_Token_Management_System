@@ -44,12 +44,12 @@ type CallStoreState = {
   getTargetsForDoctor: (doctorId: string) => HospitalCallTarget[];
   addCustomMessage: (
     doctorId: string,
-    message: Omit<OperationalMessageTemplate, "id" | "source">
+    message: Pick<OperationalMessageTemplate, "label">
   ) => Promise<void>;
   updateCustomMessage: (
     doctorId: string,
     messageId: string,
-    updates: Partial<Pick<OperationalMessageTemplate, "label" | "priority">>
+    updates: Partial<Pick<OperationalMessageTemplate, "label">>
   ) => Promise<void>;
   deleteCustomMessage: (doctorId: string, messageId: string) => Promise<void>;
   reorderCustomMessage: (doctorId: string, messageId: string, direction: "up" | "down") => void;
@@ -62,6 +62,9 @@ function sortActiveCalls(calls: ActiveCall[]) {
 function sortCallLogs(calls: CallLogEntry[]) {
   return [...calls].sort((left, right) => right.endedAt - left.endedAt);
 }
+
+const EMPTY_DOCTOR_MESSAGES: OperationalMessageTemplate[] = [];
+const EMPTY_DOCTOR_TARGETS: HospitalCallTarget[] = [];
 
 function createDefaultState() {
   return {
@@ -108,11 +111,33 @@ function upsertDoctorMessage(
   return nextMessages;
 }
 
+function getDoctorMessages(
+  customMessagesByDoctor: Record<string, OperationalMessageTemplate[]>,
+  doctorId: string
+) {
+  return customMessagesByDoctor[doctorId] ?? EMPTY_DOCTOR_MESSAGES;
+}
+
+function getDoctorTargets(
+  doctorTargets: Record<string, HospitalCallTarget[]>,
+  doctorId: string
+) {
+  return doctorTargets[doctorId] ?? EMPTY_DOCTOR_TARGETS;
+}
+
+export function selectDoctorMessages(doctorId: string) {
+  return (state: CallStoreState) => getDoctorMessages(state.customMessagesByDoctor, doctorId);
+}
+
+export function selectDoctorTargets(doctorId: string) {
+  return (state: CallStoreState) => getDoctorTargets(state.doctorTargets, doctorId);
+}
+
 let realtimeCleanup: (() => void) | null = null;
 
 async function materializePredefinedMessages(
   messages: OperationalMessageTemplate[],
-  overrides: Partial<Record<string, Omit<OperationalMessageTemplate, "id" | "source"> | null>> = {}
+  overrides: Partial<Record<string, Pick<OperationalMessageTemplate, "label"> | null>> = {}
 ) {
   const nextDefinitions = messages
     .map((message) => {
@@ -123,10 +148,9 @@ async function materializePredefinedMessages(
 
       return {
         label: override?.label || message.label,
-        priority: override?.priority || message.priority,
       };
     })
-    .filter(Boolean) as Array<Pick<OperationalMessageTemplate, "label" | "priority">>;
+    .filter(Boolean) as Array<Pick<OperationalMessageTemplate, "label">>;
 
   const createdTemplates: OperationalMessageTemplate[] = [];
   for (const definition of nextDefinitions) {
@@ -205,7 +229,7 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
           customMessagesByDoctor: {
             ...state.customMessagesByDoctor,
             [currentUser.id]: upsertDoctorMessage(
-              state.customMessagesByDoctor[currentUser.id] || [],
+              getDoctorMessages(state.customMessagesByDoctor, currentUser.id),
               template
             ),
           },
@@ -216,7 +240,7 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
         set((state) => ({
           customMessagesByDoctor: {
             ...state.customMessagesByDoctor,
-            [currentUser.id]: (state.customMessagesByDoctor[currentUser.id] || []).map((message) =>
+            [currentUser.id]: getDoctorMessages(state.customMessagesByDoctor, currentUser.id).map((message) =>
               message.id === template.id ? template : message
             ),
           },
@@ -227,7 +251,7 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
         set((state) => ({
           customMessagesByDoctor: {
             ...state.customMessagesByDoctor,
-            [currentUser.id]: (state.customMessagesByDoctor[currentUser.id] || []).filter(
+            [currentUser.id]: getDoctorMessages(state.customMessagesByDoctor, currentUser.id).filter(
               (message) => message.id !== id
             ),
           },
@@ -298,36 +322,36 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
     }));
   },
 
-  getMessagesForDoctor: (doctorId) => get().customMessagesByDoctor[doctorId] || [],
+  getMessagesForDoctor: (doctorId) => getDoctorMessages(get().customMessagesByDoctor, doctorId),
 
-  getTargetsForDoctor: (doctorId) => get().doctorTargets[doctorId] || [],
+  getTargetsForDoctor: (doctorId) => getDoctorTargets(get().doctorTargets, doctorId),
 
   addCustomMessage: async (doctorId, message) => {
     const created = await createCallMessageTemplate({
       label: message.label,
-      priority: message.priority,
     });
 
     set((state) => ({
       customMessagesByDoctor: {
         ...state.customMessagesByDoctor,
-        [doctorId]: upsertDoctorMessage(state.customMessagesByDoctor[doctorId] || [], created),
+        [doctorId]: upsertDoctorMessage(getDoctorMessages(state.customMessagesByDoctor, doctorId), created),
       },
     }));
   },
 
   updateCustomMessage: async (doctorId, messageId, updates) => {
-    const current = (get().customMessagesByDoctor[doctorId] || []).find((message) => message.id === messageId);
+    const current = getDoctorMessages(get().customMessagesByDoctor, doctorId).find(
+      (message) => message.id === messageId
+    );
     if (!current) {
       return;
     }
 
     if (current.source === "predefined") {
-      const baseMessages = get().customMessagesByDoctor[doctorId] || [];
+      const baseMessages = getDoctorMessages(get().customMessagesByDoctor, doctorId);
       const materialized = await materializePredefinedMessages(baseMessages, {
         [messageId]: {
           label: updates.label || current.label,
-          priority: updates.priority || current.priority,
         },
       });
 
@@ -340,25 +364,58 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
       return;
     }
 
-    const updated = await updateCallMessageTemplate(messageId, {
+    // Optimistic update for custom messages
+    const optimisticUpdated = {
+      ...current,
       label: updates.label || current.label,
-      priority: updates.priority || current.priority,
-    });
-
+    };
     set((state) => ({
       customMessagesByDoctor: {
         ...state.customMessagesByDoctor,
-        [doctorId]: (state.customMessagesByDoctor[doctorId] || []).map((message) =>
-          message.id === messageId ? updated : message
+        [doctorId]: getDoctorMessages(state.customMessagesByDoctor, doctorId).map((message) =>
+          message.id === messageId ? optimisticUpdated : message
         ),
       },
     }));
+
+    try {
+      const updated = await updateCallMessageTemplate(messageId, {
+        label: updates.label || current.label,
+      });
+
+      // Update with server response
+      set((state) => ({
+        customMessagesByDoctor: {
+          ...state.customMessagesByDoctor,
+          [doctorId]: getDoctorMessages(state.customMessagesByDoctor, doctorId).map((message) =>
+            message.id === messageId ? updated : message
+          ),
+        },
+      }));
+    } catch (error) {
+      // Revert on failure
+      set((state) => ({
+        customMessagesByDoctor: {
+          ...state.customMessagesByDoctor,
+          [doctorId]: getDoctorMessages(state.customMessagesByDoctor, doctorId).map((message) =>
+            message.id === messageId ? current : message
+          ),
+        },
+      }));
+      throw error;
+    }
   },
 
   deleteCustomMessage: async (doctorId, messageId) => {
-    const current = (get().customMessagesByDoctor[doctorId] || []).find((message) => message.id === messageId);
-    if (current?.source === "predefined") {
-      const baseMessages = get().customMessagesByDoctor[doctorId] || [];
+    const current = getDoctorMessages(get().customMessagesByDoctor, doctorId).find(
+      (message) => message.id === messageId
+    );
+    if (!current) {
+      return;
+    }
+
+    if (current.source === "predefined") {
+      const baseMessages = getDoctorMessages(get().customMessagesByDoctor, doctorId);
       const materialized = await materializePredefinedMessages(baseMessages, {
         [messageId]: null,
       });
@@ -372,14 +429,28 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
       return;
     }
 
-    await deleteCallMessageTemplate(messageId);
-
+    // Optimistic update for custom messages
     set((state) => ({
       customMessagesByDoctor: {
         ...state.customMessagesByDoctor,
-        [doctorId]: (state.customMessagesByDoctor[doctorId] || []).filter((message) => message.id !== messageId),
+        [doctorId]: getDoctorMessages(state.customMessagesByDoctor, doctorId).filter(
+          (message) => message.id !== messageId
+        ),
       },
     }));
+
+    try {
+      await deleteCallMessageTemplate(messageId);
+    } catch (error) {
+      // Revert on failure
+      set((state) => ({
+        customMessagesByDoctor: {
+          ...state.customMessagesByDoctor,
+          [doctorId]: upsertDoctorMessage(getDoctorMessages(state.customMessagesByDoctor, doctorId), current),
+        },
+      }));
+      throw error;
+    }
   },
 
   reorderCustomMessage: (_doctorId, _messageId, _direction) => {

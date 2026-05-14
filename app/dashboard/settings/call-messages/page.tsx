@@ -4,28 +4,24 @@ import * as React from "react";
 import { MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
 import { Modal } from "@/components/overlay";
 import { useDashboardContext } from "@/components/dashboard";
-import { Button, Card, Input, Select } from "@/components/ui";
-import { useCallStore } from "@/store/callStore";
+import { Button, Card, Input } from "@/components/ui";
+import { selectDoctorMessages, useCallStore } from "@/store/callStore";
 
 type EditorState = {
   id?: string;
   label: string;
-  priority: "routine" | "priority" | "critical";
 };
 
 const defaultEditorState: EditorState = {
   label: "",
-  priority: "routine",
 };
 
 export default function CallMessagesSettingsPage() {
   const { currentUser } = useDashboardContext();
-  const getMessagesForDoctor = useCallStore((state) => state.getMessagesForDoctor);
+  const messages = useCallStore(React.useMemo(() => selectDoctorMessages(currentUser.id), [currentUser.id]));
   const addCustomMessage = useCallStore((state) => state.addCustomMessage);
   const updateCustomMessage = useCallStore((state) => state.updateCustomMessage);
   const deleteCustomMessage = useCallStore((state) => state.deleteCustomMessage);
-
-  const messages = getMessagesForDoctor(currentUser.id);
   const [editorState, setEditorState] = React.useState<EditorState>(defaultEditorState);
   const [open, setOpen] = React.useState(false);
 
@@ -34,8 +30,8 @@ export default function CallMessagesSettingsPage() {
     setOpen(true);
   }
 
-  function openEditModal(message: { id: string; label: string; priority: "routine" | "priority" | "critical" }) {
-    setEditorState(message);
+  function openEditModal(message: { id: string; label: string }) {
+    setEditorState({ id: message.id, label: message.label });
     setOpen(true);
   }
 
@@ -46,9 +42,9 @@ export default function CallMessagesSettingsPage() {
     }
 
     if (editorState.id) {
-      await updateCustomMessage(currentUser.id, editorState.id, { label: value, priority: editorState.priority });
+      await updateCustomMessage(currentUser.id, editorState.id, { label: value });
     } else {
-      await addCustomMessage(currentUser.id, { label: value, priority: editorState.priority });
+      await addCustomMessage(currentUser.id, { label: value });
     }
 
     setOpen(false);
@@ -140,20 +136,6 @@ export default function CallMessagesSettingsPage() {
             value={editorState.label}
             onChange={(event) => setEditorState((state) => ({ ...state, label: event.target.value }))}
             placeholder="Example: Call Next Patient"
-          />
-        </label>
-        <label className="grid gap-2">
-          <span className="text-xs font-medium text-[#64748B]">Priority</span>
-          <Select
-            value={editorState.priority}
-            onChange={(event) =>
-              setEditorState((state) => ({ ...state, priority: event.target.value as EditorState["priority"] }))
-            }
-            options={[
-              { label: "Routine", value: "routine" },
-              { label: "Priority", value: "priority" },
-              { label: "Critical", value: "critical" },
-            ]}
           />
         </label>
       </Modal>
