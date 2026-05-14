@@ -1,46 +1,22 @@
 "use client";
 
-import { Building2, CheckCircle2, MessageSquareText, PhoneIncoming } from "lucide-react";
+import { Activity, Building2, MessageSquareText, PhoneIncoming, Radio, TimerReset } from "lucide-react";
+import { CallDuration } from "@/components/calls/CallDuration";
 import { Card, EndCallButton, Select, StartCallButton } from "@/components/ui";
-import { localizeCallMessageLabel, type OperationalMessageTemplate } from "@/lib/calls";
+import { localizeCallMessageLabel, type ActiveCall, type OperationalMessageTemplate } from "@/lib/calls";
 import type { AppLanguage } from "@/lib/i18n";
 
 const callSelectorCopy = {
   en: {
-    title: "Start Call",
-    description: "Choose one hospital and one operational message.",
+    title: "Operational Message Board",
+    description: "Each message works independently. Messages stay on the left and call on or off controls stay on the right.",
     hospital: "Hospital",
-    helper: "Doctor to hospital message",
-    empty: "No call messages available yet.",
-    start: "Start Call",
-    end: "End Call",
-  },
-  ta: {
-    title: "அழைப்பை தொடங்கு",
-    description: "ஒரு மருத்துவமனையும் ஒரு செயல்பாட்டு செய்தியையும் தேர்வு செய்யவும்.",
-    hospital: "மருத்துவமனை",
-    helper: "மருத்துவரிடமிருந்து மருத்துவமனைக்கு செய்தி",
-    empty: "இன்னும் அழைப்பு செய்திகள் இல்லை.",
-    start: "அழைப்பை தொடங்கு",
-    end: "அழைப்பை முடி",
-  },
-  hi: {
-    title: "कॉल शुरू करें",
-    description: "एक अस्पताल और एक संचालन संदेश चुनें।",
-    hospital: "अस्पताल",
-    helper: "डॉक्टर से अस्पताल संदेश",
-    empty: "अभी कोई कॉल संदेश उपलब्ध नहीं है।",
-    start: "कॉल शुरू करें",
-    end: "कॉल समाप्त करें",
-  },
-  ml: {
-    title: "കോൾ ആരംഭിക്കുക",
-    description: "ഒരു ആശുപത്രിയും ഒരു പ്രവർത്തന സന്ദേശവും തിരഞ്ഞെടുക്കുക.",
-    hospital: "ആശുപത്രി",
-    helper: "ഡോക്ടറിൽ നിന്ന് ആശുപത്രിയിലേക്ക് സന്ദേശം",
-    empty: "ഇപ്പോൾ കോൾ സന്ദേശങ്ങളില്ല.",
-    start: "കോൾ ആരംഭിക്കുക",
-    end: "കോൾ അവസാനിപ്പിക്കുക",
+    empty: "No operational messages available yet.",
+    start: "Call On",
+    end: "Call End",
+    statusReady: "Ready",
+    statusLive: "Live",
+    duration: "Live duration",
   },
 } as const;
 
@@ -48,28 +24,22 @@ export function CallMessageSelector({
   targetHospitalId,
   onTargetHospitalChange,
   targetHospitalOptions,
-  selectedMessageId,
-  onSelectedMessageChange,
   availableMessages,
-  canStart,
-  onStart,
-  canEnd,
-  onEnd,
+  activeCallsByMessageId,
+  onStartMessage,
+  onEndMessage,
   language,
 }: {
   targetHospitalId: string;
   onTargetHospitalChange: (value: string) => void;
   targetHospitalOptions: Array<{ label: string; value: string }>;
-  selectedMessageId: string;
-  onSelectedMessageChange: (messageId: string) => void;
   availableMessages: OperationalMessageTemplate[];
-  canStart: boolean;
-  onStart: () => void;
-  canEnd: boolean;
-  onEnd: () => void;
+  activeCallsByMessageId: Record<string, ActiveCall | undefined>;
+  onStartMessage: (messageId: string) => void;
+  onEndMessage: (messageId: string) => void;
   language: AppLanguage;
 }) {
-  const copy = callSelectorCopy[language] || callSelectorCopy.en;
+  const copy = callSelectorCopy.en;
 
   return (
     <Card className="space-y-5 p-5 shadow-sm">
@@ -95,48 +65,79 @@ export function CallMessageSelector({
         />
       </label>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3">
         {availableMessages.length ? (
           availableMessages.map((message) => {
-            const active = selectedMessageId === message.id;
+            const activeCall = activeCallsByMessageId[message.id];
+            const isLive = Boolean(activeCall);
+
             return (
-              <button
+              <div
                 key={message.id}
-                type="button"
-                onClick={() => onSelectedMessageChange(message.id)}
-                className={`group rounded-2xl border p-4 text-left transition ${
-                  active
+                className={`rounded-2xl border p-4 transition ${
+                  isLive
                     ? "border-[#0EA5A4] bg-[linear-gradient(180deg,#F0FDFA_0%,#F8FAFC_100%)] shadow-sm"
-                    : "border-[#E2E8F0] bg-white hover:border-[#0EA5A4] hover:bg-[#FCFFFE]"
+                    : "border-[#E2E8F0] bg-white"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="mb-3 inline-flex size-9 items-center justify-center rounded-xl bg-[#ECFEFF] text-[#0EA5A4]">
-                      <MessageSquareText className="size-4" />
-                    </span>
-                    <p className="text-sm font-semibold text-[#0F172A]">{localizeCallMessageLabel(message.label, language)}</p>
-                    <p className="mt-2 text-xs text-[#64748B]">{copy.helper}</p>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <div className="min-w-0">
+                    <div className="flex items-start gap-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#ECFEFF] text-[#0EA5A4]">
+                        <MessageSquareText className="size-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-[#0F172A]">
+                            {localizeCallMessageLabel(message.label, language)}
+                          </p>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                              isLive ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#F1F5F9] text-[#475569]"
+                            }`}
+                          >
+                            {isLive ? <Radio className="size-3.5" /> : <Activity className="size-3.5" />}
+                            {isLive ? copy.statusLive : copy.statusReady}
+                          </span>
+                        </div>
+                        <div className="mt-3 inline-flex items-center gap-2 text-xs text-[#64748B]">
+                          <TimerReset className="size-3.5 text-[#0EA5A4]" />
+                          <span>{copy.duration}:</span>
+                          <span className="font-semibold text-[#0F172A]">
+                            {activeCall ? <CallDuration startedAt={activeCall.startedAt} /> : "00:00"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {active ? <CheckCircle2 className="size-5 text-[#0EA5A4]" /> : null}
+
+                  <div className="flex flex-wrap justify-end gap-3">
+                    <StartCallButton
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => onStartMessage(message.id)}
+                      disabled={isLive}
+                    >
+                      {copy.start}
+                    </StartCallButton>
+                    <EndCallButton
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => onEndMessage(message.id)}
+                      disabled={!isLive}
+                    >
+                      {copy.end}
+                    </EndCallButton>
+                  </div>
                 </div>
-              </button>
+              </div>
             );
           })
         ) : (
-          <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-sm text-[#64748B] md:col-span-3">
+          <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-sm text-[#64748B]">
             {copy.empty}
           </div>
         )}
-      </div>
-
-      <div className="flex flex-wrap justify-end gap-3">
-        <StartCallButton size="sm" className="rounded-xl" onClick={onStart} disabled={!canStart}>
-          {copy.start}
-        </StartCallButton>
-        <EndCallButton size="sm" className="rounded-xl" onClick={onEnd} disabled={!canEnd}>
-          {copy.end}
-        </EndCallButton>
       </div>
     </Card>
   );

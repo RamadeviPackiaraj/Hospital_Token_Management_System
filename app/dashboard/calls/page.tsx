@@ -106,13 +106,6 @@ export default function CallsPage() {
   const targetHospitals = useCallStore(React.useMemo(() => selectDoctorTargets(currentUser.id), [currentUser.id]));
 
   const [targetHospitalId, setTargetHospitalId] = React.useState(targetHospitals[0]?.id || "");
-  const [selectedMessageId, setSelectedMessageId] = React.useState(doctorMessages[0]?.id || "");
-
-  React.useEffect(() => {
-    if (!doctorMessages.some((message) => message.id === selectedMessageId)) {
-      setSelectedMessageId(doctorMessages[0]?.id || "");
-    }
-  }, [doctorMessages, selectedMessageId]);
 
   React.useEffect(() => {
     if (!targetHospitals.some((hospital) => hospital.id === targetHospitalId)) {
@@ -120,14 +113,26 @@ export default function CallsPage() {
     }
   }, [targetHospitalId, targetHospitals]);
 
-  const currentDoctorCall = activeCalls.find((call) => call.doctorId === currentUser.id);
+  const doctorActiveCalls = activeCalls.filter((call) => call.doctorId === currentUser.id);
   const targetHospital = targetHospitals.find((hospital) => hospital.id === targetHospitalId) || targetHospitals[0];
-  const selectedMessage = doctorMessages.find((message) => message.id === selectedMessageId) || doctorMessages[0];
   const hospitalActiveCalls = activeCalls;
   const completedCalls = useCallStore((state) => state.callLogs.filter((log) => log.finalStatus === "completed").length);
+  const activeCallsByMessageId = Object.fromEntries(
+    doctorActiveCalls
+      .filter((call) => call.hospitalId === targetHospital?.id)
+      .map((call) => [call.messageId, call] as const)
+  );
 
-  async function handleStartCall() {
-    if (!selectedMessage || !targetHospital || currentUser.role !== "doctor" || currentDoctorCall) {
+  async function handleStartCall(messageId: string) {
+    const selectedMessage = doctorMessages.find((message) => message.id === messageId);
+    if (!selectedMessage || !targetHospital || currentUser.role !== "doctor") {
+      return;
+    }
+
+    const existingCall = doctorActiveCalls.find(
+      (call) => call.hospitalId === targetHospital.id && call.messageId === messageId
+    );
+    if (existingCall) {
       return;
     }
 
@@ -176,13 +181,13 @@ export default function CallsPage() {
       <section className="space-y-6">
         <PageHero
           title={copy.doctorTitle}
-          description={copy.doctorDescription}
+          description="Run many operational alerts at the same time. Each message row has its own call on and call end controls, live status, and timer."
           icon={<PhoneCall className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=900&q=80"
           imageAlt="Doctor operational calls"
           stats={[
             { label: copy.messages, value: String(doctorMessages.length) },
-            { label: copy.active, value: currentDoctorCall ? "1" : "0" },
+            { label: copy.active, value: String(doctorActiveCalls.length) },
             { label: copy.completed, value: String(completedCalls) },
           ]}
         />
@@ -195,24 +200,26 @@ export default function CallsPage() {
               label: `${hospital.name}, ${hospital.city}`,
               value: hospital.id,
             }))}
-            selectedMessageId={selectedMessageId}
-            onSelectedMessageChange={setSelectedMessageId}
             availableMessages={doctorMessages}
+            activeCallsByMessageId={activeCallsByMessageId}
             language={language}
-            canStart={Boolean(selectedMessage && targetHospital && !currentDoctorCall)}
-            onStart={() => {
-              void handleStartCall();
+            onStartMessage={(messageId) => {
+              void handleStartCall(messageId);
             }}
-            canEnd={Boolean(currentDoctorCall)}
-            onEnd={() => {
+            onEndMessage={(messageId) => {
+              const currentDoctorCall = activeCallsByMessageId[messageId];
               if (currentDoctorCall) {
                 void handleEndCall(currentDoctorCall.id, "doctor");
               }
             }}
           />
 
-          {currentDoctorCall ? (
-            <ActiveCallCard call={currentDoctorCall} language={language} />
+          {doctorActiveCalls.length ? (
+            <div className="grid gap-4">
+              {doctorActiveCalls.map((call) => (
+                <ActiveCallCard key={call.id} call={call} language={language} />
+              ))}
+            </div>
           ) : (
             <Card className="p-5 shadow-sm">
               <div className="flex items-start gap-3">
