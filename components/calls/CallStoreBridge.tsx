@@ -15,11 +15,10 @@ export function CallStoreBridge() {
     let active = true;
 
     const run = async () => {
+      connectRealtime(currentUser);
+
       try {
         await bootstrap(currentUser);
-        if (active) {
-          connectRealtime(currentUser);
-        }
       } catch {
         if (active) {
           disconnectRealtime();

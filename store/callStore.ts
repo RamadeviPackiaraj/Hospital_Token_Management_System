@@ -7,6 +7,7 @@ import {
   createCallMessageTemplate,
   deleteCallMessageTemplate,
   endCall as endCallRequest,
+  getActiveCalls,
   getCallBootstrap,
   updateCallMessageTemplate,
 } from "@/lib/call-api";
@@ -263,6 +264,18 @@ export const useCallStore = create<CallStoreState>()((set, get) => ({
       isRealtimeConnected: true,
       realtimeUserId: currentUser.id,
     });
+
+    void getActiveCalls()
+      .then((calls) => {
+        set((state) => ({
+          activeCalls: sortActiveCalls(
+            calls.reduce((nextCalls, call) => upsertActiveCall(nextCalls, call), state.activeCalls)
+          ),
+        }));
+      })
+      .catch(() => {
+        // Realtime is the primary path; this sync just backfills calls created during startup.
+      });
   },
 
   disconnectRealtime: () => {
