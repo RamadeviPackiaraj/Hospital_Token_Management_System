@@ -1,10 +1,12 @@
 "use client";
 
+import * as React from "react";
 import { Volume2 } from "lucide-react";
 import { Card } from "@/components/ui";
 import { useVoiceNotification } from "@/hooks/useVoiceNotification";
 import type { ActiveCall } from "@/lib/calls";
 import type { AppLanguage } from "@/lib/i18n";
+import { logger } from "@/lib/logger";
 
 export function VoiceAlertBridge({
   activeCalls,
@@ -14,6 +16,37 @@ export function VoiceAlertBridge({
   language: AppLanguage;
 }) {
   useVoiceNotification(activeCalls, language, true);
+  const seenCallIdsRef = React.useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    const seenCallIds = seenCallIdsRef.current;
+
+    if (seenCallIds.size === 0) {
+      activeCalls.forEach((call) => {
+        seenCallIds.add(call.id);
+      });
+      return;
+    }
+
+    activeCalls.forEach((call) => {
+      if (seenCallIds.has(call.id)) {
+        return;
+      }
+
+      seenCallIds.add(call.id);
+      logger.info(`doctor call {${call.messageLabel}}`, {
+        toast: true,
+        source: "hospital-call-notification",
+      });
+    });
+
+    const activeCallIds = new Set(activeCalls.map((call) => call.id));
+    Array.from(seenCallIds).forEach((callId) => {
+      if (!activeCallIds.has(callId)) {
+        seenCallIds.delete(callId);
+      }
+    });
+  }, [activeCalls]);
 
   return (
     <Card className="p-4 shadow-sm">
