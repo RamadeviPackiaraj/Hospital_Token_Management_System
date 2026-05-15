@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Volume2 } from "lucide-react";
-import { Card } from "@/components/ui";
+import { BellRing } from "lucide-react";
 import { useVoiceNotification } from "@/hooks/useVoiceNotification";
 import { localizeCallDepartmentLabel, localizeCallMessageLabel, type ActiveCall } from "@/lib/calls";
 import type { AppLanguage } from "@/lib/i18n";
@@ -10,35 +9,20 @@ import { logger } from "@/lib/logger";
 
 const voiceAlertCopy = {
   en: {
-    title: "Voice Notification",
-    description: "New doctor calls are announced in the hospital module using the selected application language.",
     toast: "{{doctor}} from {{department}}: {{message}}",
-  },
-  ta: {
-    title: "குரல் அறிவிப்பு",
-    description: "புதிய மருத்துவர் அழைப்புகள் தேர்ந்தெடுக்கப்பட்ட பயன்பாட்டு மொழியில் மருத்துவமனை பகுதியில் அறிவிக்கப்படும்.",
-    toast: "{{department}} பிரிவிலிருந்து {{doctor}}: {{message}}",
-  },
-  hi: {
-    title: "वॉइस सूचना",
-    description: "नई डॉक्टर कॉल चुनी गई एप्लिकेशन भाषा में अस्पताल मॉड्यूल में सुनाई जाएगी।",
-    toast: "{{department}} से {{doctor}}: {{message}}",
-  },
-  ml: {
-    title: "ശബ്ദ അറിയിപ്പ്",
-    description: "തിരഞ്ഞെടുത്ത ഭാഷയിൽ പുതിയ ഡോക്ടർ കോളുകൾ ആശുപത്രി മോഡ്യൂളിൽ അറിയിക്കും.",
-    toast: "{{department}} ൽ നിന്ന് {{doctor}}: {{message}}",
   },
 } as const;
 
 export function VoiceAlertBridge({
   activeCalls,
   language,
+  compact = false,
 }: {
   activeCalls: ActiveCall[];
   language: AppLanguage;
+  compact?: boolean;
 }) {
-  useVoiceNotification(activeCalls, language, true);
+  const { isSpeaking } = useVoiceNotification(activeCalls, language, true);
   const seenCallIdsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
@@ -57,10 +41,9 @@ export function VoiceAlertBridge({
       }
 
       seenCallIds.add(call.id);
-      const copy = voiceAlertCopy[language] || voiceAlertCopy.en;
       const department = localizeCallDepartmentLabel(call.department, language);
       const message = localizeCallMessageLabel(call.messageLabel, language);
-      const toastMessage = copy.toast
+      const toastMessage = voiceAlertCopy.en.toast
         .replace("{{doctor}}", call.doctorName)
         .replace("{{department}}", department)
         .replace("{{message}}", message);
@@ -79,19 +62,33 @@ export function VoiceAlertBridge({
     });
   }, [activeCalls, language]);
 
-  const copy = voiceAlertCopy[language] || voiceAlertCopy.en;
-
-  return (
-    <Card className="p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-[#F8FAFC] text-[#0EA5A4]">
-          <Volume2 className="size-4" />
-        </div>
-        <div>
-          <p className="text-base font-medium text-[#0F172A]">{copy.title}</p>
-          <p className="mt-1 text-sm text-[#64748B]">{copy.description}</p>
-        </div>
+  const icon = (
+    <div className="relative flex size-10 items-center justify-center">
+      {isSpeaking ? (
+        <>
+          <span className="absolute inset-0 rounded-full bg-[#5EEAD4]/50 animate-ping" aria-hidden="true" />
+          <span className="absolute inset-[-6px] rounded-full border border-[#99F6E4] animate-pulse" aria-hidden="true" />
+        </>
+      ) : null}
+      <div
+        className={`relative flex size-10 items-center justify-center rounded-full bg-white text-[#0EA5A4] shadow-sm transition-transform ${
+          isSpeaking ? "scale-110" : "scale-100"
+        }`}
+        aria-label="Voice alert status"
+        title={isSpeaking ? "Voice alert playing" : "Voice alert ready"}
+      >
+        <BellRing className={`size-4.5 ${isSpeaking ? "animate-pulse" : ""}`} />
       </div>
-    </Card>
+    </div>
   );
+
+  if (compact) {
+    return (
+      <div className="flex items-center justify-center rounded-xl border border-[#D1FAE5] bg-[linear-gradient(180deg,#F0FDFA_0%,#FFFFFF_100%)] p-3">
+        {icon}
+      </div>
+    );
+  }
+
+  return <div className="flex items-center justify-center">{icon}</div>;
 }

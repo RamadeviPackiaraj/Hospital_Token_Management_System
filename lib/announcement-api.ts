@@ -25,3 +25,16 @@ export async function generateAnnouncement(payload: GenerateAnnouncementPayload)
     body: JSON.stringify(payload),
   });
 }
+
+export interface GenerateTextAnnouncementPayload {
+  text: string;
+  language: AnnouncementLanguage;
+  gender?: "male" | "female";
+}
+
+export async function generateTextAnnouncement(payload: GenerateTextAnnouncementPayload) {
+  return apiRequest<GenerateAnnouncementResponse>("/generate-announcement/text", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

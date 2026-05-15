@@ -178,7 +178,7 @@ export default function CallsPage() {
 
   if (currentUser.role === "doctor") {
     return (
-      <section className="space-y-6">
+      <section className="space-y-4">
         <PageHero
           title={copy.doctorTitle}
           description="Run many operational alerts at the same time. Each message row has its own call on and call end controls, live status, and timer."
@@ -192,7 +192,7 @@ export default function CallsPage() {
           ]}
         />
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <CallMessageSelector
             targetHospitalId={targetHospitalId}
             onTargetHospitalChange={setTargetHospitalId}
@@ -215,7 +215,7 @@ export default function CallsPage() {
           />
 
           {doctorActiveCalls.length ? (
-            <div className="grid gap-4">
+            <div className="grid gap-3">
               {doctorActiveCalls.map((call) => (
                 <ActiveCallCard key={call.id} call={call} language={language} />
               ))}
@@ -239,7 +239,7 @@ export default function CallsPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHero
         title={copy.hospitalTitle}
         description={copy.hospitalDescription}
@@ -251,8 +251,8 @@ export default function CallsPage() {
           { label: copy.completed, value: String(completedCalls) },
           { label: copy.voiceAlerts, value: copy.voiceOn },
         ]}
+        supplementaryContent={<VoiceAlertBridge activeCalls={activeCalls} language={language} compact />}
       />
-      <VoiceAlertBridge activeCalls={activeCalls} language={language} />
       <ActiveCallsList
         calls={hospitalActiveCalls}
         language={language}

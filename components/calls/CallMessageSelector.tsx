@@ -18,7 +18,7 @@ const callSelectorCopy = {
     statusLive: "Live",
     duration: "Live duration",
   },
-} as const;
+} as const; 
 
 export function CallMessageSelector({
   targetHospitalId,
@@ -42,14 +42,14 @@ export function CallMessageSelector({
   const copy = callSelectorCopy.en;
 
   return (
-    <Card className="space-y-5 p-5 shadow-sm">
+    <Card className="space-y-4 p-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <span className="flex size-11 items-center justify-center rounded-2xl bg-[#ECFEFF] text-[#0EA5A4] shadow-sm">
-          <PhoneIncoming className="size-5" />
+        <span className="flex size-10 items-center justify-center rounded-2xl bg-[#ECFEFF] text-[#0EA5A4] shadow-sm">
+          <PhoneIncoming className="size-4.5" />
         </span>
         <div>
           <p className="text-base font-semibold text-[#0F172A]">{copy.title}</p>
-          <p className="mt-1 text-sm text-[#64748B]">{copy.description}</p>
+          <p className="mt-0.5 text-sm text-[#64748B]">{copy.description}</p>
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export function CallMessageSelector({
         />
       </label>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         {availableMessages.length ? (
           availableMessages.map((message) => {
             const activeCall = activeCallsByMessageId[message.id];
@@ -80,7 +80,7 @@ export function CallMessageSelector({
                     : "border-[#E2E8F0] bg-white"
                 }`}
               >
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex items-start gap-3">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#ECFEFF] text-[#0EA5A4]">
@@ -100,7 +100,7 @@ export function CallMessageSelector({
                             {isLive ? copy.statusLive : copy.statusReady}
                           </span>
                         </div>
-                        <div className="mt-3 inline-flex items-center gap-2 text-xs text-[#64748B]">
+                        <div className="mt-2 inline-flex items-center gap-2 text-xs text-[#64748B]">
                           <TimerReset className="size-3.5 text-[#0EA5A4]" />
                           <span>{copy.duration}:</span>
                           <span className="font-semibold text-[#0F172A]">
@@ -111,7 +111,7 @@ export function CallMessageSelector({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap justify-end gap-3">
+                  <div className="flex flex-wrap justify-end gap-2">
                     <StartCallButton
                       size="sm"
                       className="rounded-xl"
