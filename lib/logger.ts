@@ -80,9 +80,9 @@ function showToast(type: LogLevel, message: string, destructive = false) {
   toast(message, {
     style: {
       ...toastBaseStyle,
-      border: "1px solid #E2E8F0",
-      background: "#FFFFFF",
-      color: "#0F172A",
+      border: "1px solid #BAE6FD",
+      background: "#F0FDFF",
+      color: "#0F4C5C",
     },
   });
 }

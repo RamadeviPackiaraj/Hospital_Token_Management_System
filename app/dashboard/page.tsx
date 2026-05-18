@@ -19,6 +19,7 @@ import { Badge, Card } from "@/components/ui";
 import { useDashboardContext } from "@/components/dashboard";
 import { useI18n } from "@/components/i18n";
 import type { MockUser } from "@/lib/auth-flow";
+import type { ActiveCall, CallLogEntry } from "@/lib/calls";
 import {
   getAdminDoctors,
   getAdminHospitals,
@@ -31,6 +32,7 @@ import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { getDoctorSchedules, getPatientTokens, getScheduleBootstrap, getScheduleSummary } from "@/lib/schedule-api";
 import type { DoctorScheduleRecord, PatientTokenRecord, PatientTokenStatus } from "@/lib/scheduling-types";
 import { todayDateString } from "@/lib/scheduling";
+import { useCallStore } from "@/store/callStore";
 
 type RoleCopy = {
   labels: {
@@ -346,6 +348,40 @@ function buildDepartmentBars(tokens: PatientTokenRecord[], limit = 5): BarDatum[
     .sort((left, right) => right[1] - left[1])
     .slice(0, limit)
     .map(([label, value]) => ({ label, value }));
+}
+
+function buildCallVolumeTrend(
+  language: keyof typeof LOCALE_MAP,
+  activeCalls: ActiveCall[],
+  callLogs: CallLogEntry[],
+  count: number
+): TrendDatum[] {
+  const days = getLastDays(language, count);
+  const totals = new Map<string, number>();
+
+  activeCalls.forEach((call) => {
+    const key = new Date(call.startedAt).toISOString().slice(0, 10);
+    totals.set(key, (totals.get(key) || 0) + 1);
+  });
+
+  callLogs.forEach((log) => {
+    const key = new Date(log.startedAt).toISOString().slice(0, 10);
+    totals.set(key, (totals.get(key) || 0) + 1);
+  });
+
+  return days.map((day) => ({
+    label: day.label,
+    primary: totals.get(day.key) || 0,
+  }));
+}
+
+function buildCallBreakdown(activeCalls: ActiveCall[], callLogs: CallLogEntry[]): BreakdownDatum[] {
+  return [
+    { label: "Active", value: activeCalls.length, tone: "mint" },
+    { label: "Completed", value: callLogs.filter((log) => log.finalStatus === "completed").length, tone: "teal" },
+    { label: "Missed", value: callLogs.filter((log) => log.finalStatus === "missed").length, tone: "amber" },
+    { label: "Cancelled", value: callLogs.filter((log) => log.finalStatus === "cancelled").length, tone: "rose" },
+  ];
 }
 
 function buildAdminRecentActivity(doctors: MockUser[], hospitals: MockUser[], copy: RoleCopy): AdminActivityRow[] {
@@ -669,6 +705,8 @@ function DashboardPageContent() {
   const { language } = useI18n();
   const copy = dashboardCopy[language] || dashboardCopy.en;
   const today = todayDateString();
+  const activeCalls = useCallStore((state) => state.activeCalls);
+  const callLogs = useCallStore((state) => state.callLogs);
 
   const [adminDoctors, setAdminDoctors] = React.useState<MockUser[]>([]);
   const [adminHospitals, setAdminHospitals] = React.useState<MockUser[]>([]);
@@ -1048,36 +1086,53 @@ function DashboardPageContent() {
 
   const approvedSelections = doctorSelections.filter((selection) => selection.status === "approved");
   const pendingSelections = doctorSelections.filter((selection) => selection.status === "pending");
-  const todayConsultations = doctorTokens.filter((token) => token.date === today);
-  const upcomingSchedules = doctorSchedules
-    .filter((schedule) => schedule.date >= today)
-    .sort((left, right) => `${left.date} ${left.startTime || ""}`.localeCompare(`${right.date} ${right.startTime || ""}`))
-    .slice(0, 6);
-  const recentAppointments = doctorTokens
+  const doctorActiveCalls = activeCalls.filter(
+    (call) =>
+      call.doctorId === currentUser.id ||
+      call.doctorName === currentUser.displayFullName ||
+      call.doctorName === currentUser.fullName
+  );
+  const doctorCallLogs = callLogs.filter(
+    (log) =>
+      log.doctorId === currentUser.id ||
+      log.doctorName === currentUser.displayFullName ||
+      log.doctorName === currentUser.fullName
+  );
+  const completedCalls = doctorCallLogs.filter((log) => log.finalStatus === "completed");
+  const hospitalRows = doctorSelections
     .slice()
-    .sort((left, right) => `${right.date} ${right.time}`.localeCompare(`${left.date} ${left.time}`))
+    .sort((left, right) => right.requestedAt.localeCompare(left.requestedAt))
+    .slice(0, 6);
+  const recentCallRows = [...doctorActiveCalls, ...doctorCallLogs]
+    .slice()
+    .sort((left, right) => {
+      const leftTime = "endedAt" in left ? left.endedAt : left.startedAt;
+      const rightTime = "endedAt" in right ? right.endedAt : right.startedAt;
+      return rightTime - leftTime;
+    })
     .slice(0, 6);
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={copy.doctor.activeHospitals} value={String(approvedSelections.length)} icon={<Building2 className="size-5" />} href="/dashboard/hospitals" />
         <MetricCard label={copy.doctor.pendingRequests} value={String(pendingSelections.length)} icon={<Clock3 className="size-5" />} href="/dashboard/hospitals" />
-        <MetricCard label={copy.doctor.todaysConsultations} value={String(todayConsultations.length)} icon={<CalendarClock className="size-5" />} href="/dashboard/doctor-schedule" />
+        <MetricCard label={copy.doctor.todaysConsultations} value={String(doctorActiveCalls.length)} icon={<Activity className="size-5" />} href="/dashboard/calls" />
+        <MetricCard label={copy.labels.consultations} value={String(completedCalls.length)} icon={<CheckCircle2 className="size-5" />} href="/dashboard/call-logs" />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
         <SectionCard eyebrow={copy.labels.analytics} title={copy.doctor.patientVisitTrends} subtitle={copy.doctor.patientVisitFootnote}>
           <TrendChart
-            data={buildDailyCountTrend(language, doctorTokens.map((token) => ({ date: token.date })), 7)}
-            primaryLabel={copy.labels.patient}
+            data={buildCallVolumeTrend(language, doctorActiveCalls, doctorCallLogs, 7)}
+            primaryLabel={copy.labels.tokens}
             noDataLabel={copy.labels.noData}
           />
         </SectionCard>
         <SectionCard eyebrow={copy.labels.analytics} title={copy.doctor.consultationAnalytics} subtitle={copy.doctor.consultationFootnote}>
           <DonutChart
-            data={buildTokenBreakdown(todayConsultations.length ? todayConsultations : doctorTokens)}
-            centerValue={String(todayConsultations.length)}
+            data={buildCallBreakdown(doctorActiveCalls, doctorCallLogs)}
+            centerValue={String(doctorActiveCalls.length + doctorCallLogs.length)}
             centerLabel={copy.labels.consultations}
             noDataLabel={copy.labels.noData}
           />
@@ -1087,45 +1142,16 @@ function DashboardPageContent() {
       <section className="grid gap-6 xl:grid-cols-2">
         <SectionCard eyebrow={copy.labels.activity} title={copy.doctor.upcomingSchedules} subtitle={copy.doctor.upcomingSchedulesFootnote}>
           <DataTable
-            rows={upcomingSchedules}
+            rows={hospitalRows}
             emptyLabel={copy.labels.noUpcoming}
             columns={[
               {
-                key: "date",
-                label: copy.labels.date,
+                key: "hospital",
+                label: copy.labels.hospital,
                 render: (row) => (
                   <div>
-                    <p className="font-medium text-[#0F172A]">{formatTableDate(row.date, language)}</p>
-                    <p className="mt-1 text-xs text-[#64748B]">{row.startTime || "--"} - {row.endTime || "--"}</p>
-                  </div>
-                ),
-              },
-              {
-                key: "department",
-                label: copy.labels.department,
-                render: (row) => localizeDepartmentName(row.department, row.displayDepartment),
-              },
-              {
-                key: "slots",
-                label: copy.labels.available,
-                align: "right",
-                render: (row) => row.slots.filter((slot) => !slot.isBooked).length,
-              },
-            ]}
-          />
-        </SectionCard>
-        <SectionCard eyebrow={copy.labels.activity} title={copy.doctor.recentAppointments} subtitle={copy.doctor.recentAppointmentsFootnote}>
-          <DataTable
-            rows={recentAppointments}
-            emptyLabel={copy.labels.noRecent}
-            columns={[
-              {
-                key: "patient",
-                label: copy.labels.patient,
-                render: (row) => (
-                  <div>
-                    <p className="font-medium text-[#0F172A]">{row.displayPatientName || row.patientName}</p>
-                    <p className="mt-1 text-xs text-[#64748B]">{localizeDepartmentName(row.department, row.displayDepartment)}</p>
+                    <p className="font-medium text-[#0F172A]">{row.hospitalName || copy.labels.hospital}</p>
+                    <p className="mt-1 text-xs text-[#64748B]">{formatTableDate(row.requestedAt, language)}</p>
                   </div>
                 ),
               },
@@ -1135,10 +1161,47 @@ function DashboardPageContent() {
                 render: (row) => <Badge variant={getStatusTone(row.status)}>{row.status}</Badge>,
               },
               {
+                key: "doctor",
+                label: copy.labels.doctor,
+                align: "right",
+                render: () => currentUser.displayFullName || currentUser.fullName,
+              },
+            ]}
+          />
+        </SectionCard>
+        <SectionCard eyebrow={copy.labels.activity} title={copy.doctor.recentAppointments} subtitle={copy.doctor.recentAppointmentsFootnote}>
+          <DataTable
+            rows={recentCallRows}
+            emptyLabel={copy.labels.noRecent}
+            columns={[
+              {
+                key: "hospital",
+                label: copy.labels.hospital,
+                render: (row) => (
+                  <div>
+                    <p className="font-medium text-[#0F172A]">{row.hospitalName}</p>
+                    <p className="mt-1 text-xs text-[#64748B]">{row.messageLabel}</p>
+                  </div>
+                ),
+              },
+              {
+                key: "status",
+                label: copy.labels.status,
+                render: (row) => (
+                  <Badge variant={getStatusTone("finalStatus" in row ? row.finalStatus : "CALLING")}>
+                    {"finalStatus" in row ? row.finalStatus : "active"}
+                  </Badge>
+                ),
+              },
+              {
                 key: "date",
                 label: copy.labels.date,
                 align: "right",
-                render: (row) => `${formatShortDate(row.date, language)} · ${row.time}`,
+                render: (row) =>
+                  formatTableDate(
+                    new Date(("endedAt" in row ? row.endedAt : row.startedAt)).toISOString().slice(0, 10),
+                    language
+                  ),
               },
             ]}
           />
@@ -1206,15 +1269,15 @@ const dashboardCopy: Record<string, RoleCopy> = {
     doctor: {
       activeHospitals: "Active Hospitals",
       pendingRequests: "Pending Requests",
-      todaysConsultations: "Today's Consultations",
-      patientVisitTrends: "Patient Visit Trends",
-      patientVisitFootnote: "Daily patient appointments over the last week.",
-      consultationAnalytics: "Consultation Analytics",
-      consultationFootnote: "Status mix for today’s and recent consultations.",
-      upcomingSchedules: "Upcoming Schedules",
-      upcomingSchedulesFootnote: "Next scheduled clinic windows and remaining capacity.",
-      recentAppointments: "Recent Appointments",
-      recentAppointmentsFootnote: "Most recent patient tokens handled by your schedule.",
+      todaysConsultations: "Active Calls",
+      patientVisitTrends: "Call Activity",
+      patientVisitFootnote: "Daily doctor call volume for the last week.",
+      consultationAnalytics: "Call Status Mix",
+      consultationFootnote: "Active, completed, missed, and cancelled calls.",
+      upcomingSchedules: "Hospital Connections",
+      upcomingSchedulesFootnote: "Approved and pending hospitals linked to your profile.",
+      recentAppointments: "Recent Calls",
+      recentAppointmentsFootnote: "Latest live and completed doctor call records.",
     },
   },
   hi: {

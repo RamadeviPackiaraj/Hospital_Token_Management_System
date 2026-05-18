@@ -15,7 +15,7 @@ import { selectDoctorMessages, selectDoctorTargets, useCallStore } from "@/store
 const callsPageCopy = {
   en: {
     doctorTitle: "Calls",
-    doctorDescription: "Send a simple operational call from doctor to hospital.",
+    doctorDescription: "Start and end hospital calls quickly.",
     messages: "Messages",
     active: "Active",
     completed: "Completed",
@@ -181,7 +181,7 @@ export default function CallsPage() {
       <section className="space-y-4">
         <PageHero
           title={copy.doctorTitle}
-          description="Run many operational alerts at the same time. Each message row has its own call on and call end controls, live status, and timer."
+          description={copy.doctorDescription}
           icon={<PhoneCall className="size-5" />}
           imageSrc="https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=900&q=80"
           imageAlt="Doctor operational calls"

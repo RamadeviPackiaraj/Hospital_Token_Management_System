@@ -17,7 +17,6 @@ import {
 import { useSearchParams } from "next/navigation";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { OperationalDetailsModal } from "@/components/calls/OperationalDetailsModal";
 import { Badge, Button, Card, FilterBar, Input, Table } from "@/components/ui";
 import {
   useDashboardContext,
@@ -994,9 +993,6 @@ export default function HospitalsPage() {
                   <p className="ui-body">{row.mobileNumber}</p>
                   <p className="ui-meta">{row.displayCity || row.city}, {row.displayState || row.state}</p>
                   <p className="ui-meta">{row.displayCountry || row.country}</p>
-                  <Button variant="ghost" size="sm" className="mt-2 px-0 text-[#0EA5A4]" onClick={() => setDetailsTarget(row)}>
-                    Operational details
-                  </Button>
                 </div>
               ),
             },
@@ -1082,14 +1078,6 @@ export default function HospitalsPage() {
         confirmVariant="danger"
         onConfirm={handleDeleteHospital}
         onCancel={() => setDeleteTarget(null)}
-      />
-      <OperationalDetailsModal
-        open={Boolean(detailsTarget)}
-        title={`${detailsTarget?.displayHospitalName || detailsTarget?.hospitalName || detailsTarget?.fullName || "Hospital"} Operations`}
-        onClose={() => setDetailsTarget(null)}
-        activeCalls={scopedHospitalDetailActiveCalls}
-        recentLogs={scopedHospitalDetailLogs}
-        timelineItems={scopedHospitalTimelineItems}
       />
     </div>
   );

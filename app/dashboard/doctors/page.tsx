@@ -4,7 +4,6 @@ import * as React from "react";
 import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
-import { OperationalDetailsModal } from "@/components/calls/OperationalDetailsModal";
 import { Badge, Button, Card, FilterBar, Table } from "@/components/ui";
 import {
   useDashboardContext,
@@ -23,7 +22,6 @@ import { apiRequest } from "@/lib/api";
 import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { deleteAdminDoctor, getAdminDoctors, updateAdminDoctorProfile } from "@/lib/dashboard-data";
 import { logger } from "@/lib/logger";
-import { useCallStore } from "@/store/callStore";
 
 type DoctorRow = Record<string, unknown> & MockUser;
 type AdminDoctorActionIntent = "reject" | "deactivate";
@@ -61,7 +59,6 @@ export default function DoctorsPage() {
   const [rejectIntent, setRejectIntent] = React.useState<AdminDoctorActionIntent>("reject");
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
-  const [detailsTarget, setDetailsTarget] = React.useState<MockUser | null>(null);
   const [hospitalRequests, setHospitalRequests] = React.useState<HospitalDoctorRequest[]>([]);
   const [hospitalSearch, setHospitalSearch] = React.useState("");
   const [hospitalStatusFilter, setHospitalStatusFilter] = React.useState("all");
@@ -70,8 +67,6 @@ export default function DoctorsPage() {
   const [hospitalError, setHospitalError] = React.useState("");
   const [actioningDoctorId, setActioningDoctorId] = React.useState<string | null>(null);
   const [adminActioningDoctorId, setAdminActioningDoctorId] = React.useState<string | null>(null);
-  const activeCalls = useCallStore((state) => state.activeCalls);
-  const callLogs = useCallStore((state) => state.callLogs);
 
   React.useEffect(() => {
     if (currentUser.role !== "admin") return;
@@ -161,39 +156,6 @@ export default function DoctorsPage() {
       if (sortOrder === "registered-asc") return (left.registrationDate || "").localeCompare(right.registrationDate || "");
       return (right.registrationDate || "").localeCompare(left.registrationDate || "");
     });
-
-  const scopedDoctorDetailActiveCalls = detailsTarget
-    ? activeCalls.filter(
-        (call) =>
-          call.doctorId === detailsTarget.id ||
-          call.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName)
-      )
-    : [];
-  const scopedDoctorDetailLogs = detailsTarget
-    ? callLogs
-        .filter(
-          (log) =>
-            log.doctorId === detailsTarget.id ||
-            log.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName)
-        )
-        .slice(0, 6)
-    : [];
-  const scopedDoctorTimelineItems = [
-    ...scopedDoctorDetailActiveCalls.map((call) => ({
-      id: `doctor-active-${call.id}`,
-      title: `${call.messageLabel} is active`,
-      description: `${call.hospitalName} is handling an active ${call.priority} operational call.`,
-      occurredAt: call.startedAt,
-      tone: "active" as const,
-    })),
-    ...scopedDoctorDetailLogs.map((log) => ({
-      id: `doctor-log-${log.id}`,
-      title: `${log.messageLabel} ${log.finalStatus}`,
-      description: `${log.hospitalName} - ended by ${log.endedBy}.`,
-      occurredAt: log.endedAt,
-      tone: "resolved" as const,
-    })),
-  ].sort((left, right) => right.occurredAt - left.occurredAt);
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
     setAdminActioningDoctorId(userId);
@@ -393,29 +355,6 @@ export default function DoctorsPage() {
       if (hospitalSortOrder === "requested-asc") return (left.createdAt || "").localeCompare(right.createdAt || "");
       return (right.createdAt || "").localeCompare(left.createdAt || "");
     });
-
-  const doctorDetailActiveCalls = detailsTarget
-    ? activeCalls.filter((call) => call.doctorId === detailsTarget.id || call.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName))
-    : [];
-  const doctorDetailLogs = detailsTarget
-    ? callLogs.filter((log) => log.doctorId === detailsTarget.id || log.doctorName === (detailsTarget.displayFullName || detailsTarget.fullName)).slice(0, 6)
-    : [];
-  const doctorTimelineItems = [
-    ...doctorDetailActiveCalls.map((call) => ({
-      id: `doctor-active-${call.id}`,
-      title: `${call.messageLabel} is active`,
-      description: `${call.hospitalName} is handling an active ${call.priority} operational call.`,
-      occurredAt: call.startedAt,
-      tone: "active" as const,
-    })),
-    ...doctorDetailLogs.map((log) => ({
-      id: `doctor-log-${log.id}`,
-      title: `${log.messageLabel} ${log.finalStatus}`,
-      description: `${log.hospitalName} · ended by ${log.endedBy}.`,
-      occurredAt: log.endedAt,
-      tone: "resolved" as const,
-    })),
-  ].sort((left, right) => right.occurredAt - left.occurredAt);
 
     return (
       <div className="space-y-6">
@@ -633,9 +572,6 @@ export default function DoctorsPage() {
                     <p className="ui-card-meta">{t("doctors.department")}: {formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment), t("common.notProvided"))}</p>
                     <p className="ui-card-meta">{t("doctors.specialization")}: {formatDoctorDetail(row.displaySpecialization || row.specialization, t("common.notProvided"))}</p>
                     <p className="ui-card-meta">{t("doctors.registrationId")}: {formatDoctorDetail(row.medicalRegistrationId, t("common.notProvided"))}</p>
-                    <Button variant="ghost" size="sm" className="mt-2 px-0 text-[#0EA5A4]" onClick={() => setDetailsTarget(row)}>
-                      Operational details
-                    </Button>
                   </div>
                 ),
               },
@@ -730,14 +666,6 @@ export default function DoctorsPage() {
         confirmVariant="danger"
         onConfirm={handleDeleteDoctor}
         onCancel={() => setDeleteTarget(null)}
-      />
-      <OperationalDetailsModal
-        open={Boolean(detailsTarget)}
-        title={`${detailsTarget?.displayFullName || detailsTarget?.fullName || "Doctor"} Operations`}
-        onClose={() => setDetailsTarget(null)}
-        activeCalls={scopedDoctorDetailActiveCalls}
-        recentLogs={scopedDoctorDetailLogs}
-        timelineItems={scopedDoctorTimelineItems}
       />
     </div>
   );

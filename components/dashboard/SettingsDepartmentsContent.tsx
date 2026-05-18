@@ -358,10 +358,12 @@ export function SettingsDepartmentsContent() {
         <Card className="p-4">
           <Table<AssignmentRow>
             columns={[
-              {
-                key: "doctorName",
-                header: t("doctors.doctor"),
-                render: (row) => (
+            {
+              key: "doctorName",
+              header: t("doctors.doctor"),
+              sortable: true,
+              sortValue: (row) => row.displayDoctorName || row.doctorName,
+              render: (row) => (
                   <div className="flex items-center gap-2 text-[#0F172A]">
                     <span className="flex size-8 items-center justify-center rounded-lg bg-[#ECFEFF] text-[#0EA5A4]">
                       <UserRoundCheck className="size-4" />
@@ -370,10 +372,12 @@ export function SettingsDepartmentsContent() {
                   </div>
                 ),
               },
-              {
-                key: "department",
-                header: t("schedule.department"),
-                render: (row) =>
+            {
+              key: "department",
+              header: t("schedule.department"),
+              sortable: true,
+              sortValue: (row) => row.displayDepartment || row.department,
+              render: (row) =>
                   editingAssignmentId === row.doctorId ? (
                     <Select
                       value={editingAssignmentDepartment}
@@ -547,6 +551,8 @@ export function SettingsDepartmentsContent() {
             {
               key: "name",
               header: t("departmentsFeature.departmentName"),
+              sortable: true,
+              sortValue: (row) => row.displayName || row.name,
               render: (row) =>
                 editingId === row.id ? (
                   <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} />

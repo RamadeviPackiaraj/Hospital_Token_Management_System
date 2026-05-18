@@ -12,7 +12,7 @@ import {
   VolumeOff,
 } from "lucide-react";
 import { generateAnnouncement, type AnnouncementLanguage, type GenerateAnnouncementResponse } from "@/lib/announcement-api";
-import { speakAnnouncementText } from "@/lib/browser-tts";
+import { cancelSpeechSynthesis, speakAnnouncementText, speakAnnouncementTextAsync } from "@/lib/browser-tts";
 import { useI18n } from "@/components/i18n";
 import { useTimer } from "@/components/tv-display";
 import { playAudio } from "@/lib/audioPlayer";
@@ -23,6 +23,8 @@ import type { CloudTtsLanguage } from "@/lib/tts-api";
 import type { PatientTokenRecord } from "@/lib/scheduling-types";
 
 const ANNOUNCEMENT_SETTINGS_KEY = "hospital_tv_announcement_settings";
+const ANNOUNCEMENT_REPEAT_COUNT = 2;
+const ANNOUNCEMENT_REPEAT_GAP_MS = 300;
 
 type AnnouncementSettings = {
   voiceType: "male" | "female";
@@ -267,6 +269,22 @@ function buildAnnouncementRequest(
   };
 }
 
+function buildAnnouncementSignature(
+  token: PatientTokenRecord,
+  language: CloudTtsLanguage,
+  voiceType: AnnouncementSettings["voiceType"]
+) {
+  return [
+    token.id,
+    token.tokenNumber,
+    token.displayPatientName || token.patientName,
+    token.displayDoctorName || token.doctorName,
+    token.displayDepartment || token.department,
+    language,
+    voiceType,
+  ].join("|");
+}
+
 function safeLoadSettings(): AnnouncementSettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
 
@@ -315,10 +333,11 @@ export default function TVDisplayPage() {
   const [showSettings, setShowSettings] = React.useState(false);
   const [currentAnnouncementResult, setCurrentAnnouncementResult] = React.useState<GenerateAnnouncementResponse | null>(null);
 
-  const previousAnnouncementKeyRef = React.useRef<string | null>(null);
   const settingsRef = React.useRef<AnnouncementSettings>(DEFAULT_SETTINGS);
   const activeAudioRef = React.useRef<HTMLAudioElement | null>(null);
   const activeAudioControllerRef = React.useRef<AbortController | null>(null);
+  const announcementRunIdRef = React.useRef(0);
+  const announcedTokenSignaturesRef = React.useRef<Map<string, string>>(new Map());
 
   React.useEffect(() => {
     settingsRef.current = settings;
@@ -386,6 +405,11 @@ export default function TVDisplayPage() {
     }
   }, []);
 
+  const stopAllAnnouncementPlayback = React.useCallback(() => {
+    stopActiveAudio();
+    cancelSpeechSynthesis();
+  }, [stopActiveAudio]);
+
   const playAnnouncementAudio = React.useCallback(
     async (audioUrl: string, immediate = false) => {
       const currentSettings = settingsRef.current;
@@ -426,6 +450,19 @@ export default function TVDisplayPage() {
         text,
         language: mapCloudLanguageToAppLanguage(settingsRef.current.language),
         rate: settingsRef.current.rate,
+        gender: settingsRef.current.voiceType,
+      });
+    },
+    []
+  );
+
+  const speakAnnouncementFallbackAsync = React.useCallback(
+    async (text: string) => {
+      return speakAnnouncementTextAsync({
+        text,
+        language: mapCloudLanguageToAppLanguage(settingsRef.current.language),
+        rate: settingsRef.current.rate,
+        gender: settingsRef.current.voiceType,
       });
     },
     []
@@ -433,9 +470,10 @@ export default function TVDisplayPage() {
 
   React.useEffect(() => {
     if (settings.muted) {
-      stopActiveAudio();
+      announcementRunIdRef.current += 1;
+      stopAllAnnouncementPlayback();
     }
-  }, [settings.muted, stopActiveAudio]);
+  }, [settings.muted, stopAllAnnouncementPlayback]);
 
   React.useEffect(() => {
     if (demoMode) {
@@ -511,9 +549,10 @@ export default function TVDisplayPage() {
 
   React.useEffect(() => {
     return () => {
-      stopActiveAudio();
+      announcementRunIdRef.current += 1;
+      stopAllAnnouncementPlayback();
     };
-  }, [stopActiveAudio]);
+  }, [stopAllAnnouncementPlayback]);
 
   const displayTokens = React.useMemo(() => {
     if (tokens.length === 0) {
@@ -523,15 +562,14 @@ export default function TVDisplayPage() {
     return usingMockData ? applySimulation(tokens, activeIndex) : tokens;
   }, [activeIndex, tokens, usingMockData]);
 
-  const currentToken = React.useMemo(
-    () => displayTokens.find((token) => token.status === "CALLING") || displayTokens[0] || null,
+  const activeCallingTokens = React.useMemo(
+    () => displayTokens.filter((token) => token.status === "CALLING"),
     [displayTokens]
   );
 
-  const nextToken = React.useMemo(
-    () =>
-      displayTokens.find((token) => token.status === "NOT_STARTED" && token.id !== currentToken?.id) || null,
-    [currentToken?.id, displayTokens]
+  const currentToken = React.useMemo(
+    () => activeCallingTokens[0] ?? null,
+    [activeCallingTokens]
   );
 
   React.useEffect(() => {
@@ -542,58 +580,110 @@ export default function TVDisplayPage() {
     setCurrentAnnouncementResult(null);
   }, [currentToken]);
 
-  const currentAnnouncement = React.useMemo(() => {
-    if (!currentToken) return null;
-    return buildAnnouncementRequest(currentToken, settings.language, settings.voiceType);
-  }, [currentToken, settings.language, settings.voiceType]);
-
   React.useEffect(() => {
-    if (!currentAnnouncement || currentToken?.status !== "CALLING") {
+    if (activeCallingTokens.length === 0) {
+      setCurrentAnnouncementResult(null);
       return;
     }
 
-    const announcementRequest = currentAnnouncement;
-    const announcementKey = `${currentToken.id}:${settings.language}:${settings.voiceType}`;
-    if (previousAnnouncementKeyRef.current === announcementKey) {
+    if (settings.muted) {
       return;
     }
 
-    previousAnnouncementKeyRef.current = announcementKey;
-    let cancelled = false;
+    const runId = announcementRunIdRef.current + 1;
+    announcementRunIdRef.current = runId;
 
-    async function loadAnnouncement() {
-      try {
-        const result = await generateAnnouncement(announcementRequest.payload);
-        if (cancelled) return;
-
-        setCurrentAnnouncementResult(result);
-
-        if (!settingsRef.current.muted) {
-          const played = result.audioUrl ? await playAnnouncementAudio(result.audioUrl) : false;
-          if (!played) {
-            speakAnnouncementFallback(result.translatedText);
-          }
-        }
-      } catch (error) {
-        if (cancelled) return;
-
-        logger.warn("Unable to generate TV announcement", {
-          source: "tv-display.announcement",
-          data: { error, payload: announcementRequest.payload },
-        });
-
-        const fallbackText =
-          `Token number ${announcementRequest.payload.tokenNumber}, please go to Dr. ${announcementRequest.payload.doctorName} in the ${announcementRequest.payload.department} department.`;
-        speakAnnouncementFallback(fallbackText);
+    const activeTokenIds = new Set(activeCallingTokens.map((token) => token.id));
+    for (const tokenId of announcedTokenSignaturesRef.current.keys()) {
+      if (!activeTokenIds.has(tokenId)) {
+        announcedTokenSignaturesRef.current.delete(tokenId);
       }
     }
 
-    void loadAnnouncement();
+    async function runAnnouncements() {
+      const tokensToAnnounce = activeCallingTokens.filter((token) => {
+        const signature = buildAnnouncementSignature(
+          token,
+          settingsRef.current.language,
+          settingsRef.current.voiceType
+        );
+
+        return announcedTokenSignaturesRef.current.get(token.id) !== signature;
+      });
+
+      for (const token of tokensToAnnounce) {
+        if (announcementRunIdRef.current !== runId) return;
+
+        const announcementRequest = buildAnnouncementRequest(
+          token,
+          settingsRef.current.language,
+          settingsRef.current.voiceType
+        );
+        const fallbackText = `Token number ${announcementRequest.payload.tokenNumber} Patient ${announcementRequest.payload.patientName}, please go to Dr. ${announcementRequest.payload.doctorName} in the ${announcementRequest.payload.department} department.`;
+        const signature = buildAnnouncementSignature(
+          token,
+          settingsRef.current.language,
+          settingsRef.current.voiceType
+        );
+
+        try {
+          const result = await generateAnnouncement(announcementRequest.payload);
+          if (announcementRunIdRef.current !== runId) return;
+
+          setCurrentAnnouncementResult(result);
+
+          if (!settingsRef.current.muted) {
+            for (let repeatIndex = 0; repeatIndex < ANNOUNCEMENT_REPEAT_COUNT; repeatIndex += 1) {
+              if (announcementRunIdRef.current !== runId) return;
+
+              const played = result.audioUrl ? await playAnnouncementAudio(result.audioUrl, true) : false;
+              if (!played) {
+                await speakAnnouncementFallbackAsync(result.translatedText);
+              }
+
+              if (repeatIndex < ANNOUNCEMENT_REPEAT_COUNT - 1 && announcementRunIdRef.current === runId) {
+                await wait(ANNOUNCEMENT_REPEAT_GAP_MS);
+              }
+            }
+          }
+
+          announcedTokenSignaturesRef.current.set(token.id, signature);
+        } catch (error) {
+          if (announcementRunIdRef.current !== runId) return;
+
+          logger.warn("Unable to generate TV announcement", {
+            source: "tv-display.announcement",
+            data: { error, payload: announcementRequest.payload },
+          });
+
+          if (!settingsRef.current.muted) {
+            for (let repeatIndex = 0; repeatIndex < ANNOUNCEMENT_REPEAT_COUNT; repeatIndex += 1) {
+              if (announcementRunIdRef.current !== runId) return;
+
+              await speakAnnouncementFallbackAsync(fallbackText);
+
+              if (repeatIndex < ANNOUNCEMENT_REPEAT_COUNT - 1 && announcementRunIdRef.current === runId) {
+                await wait(ANNOUNCEMENT_REPEAT_GAP_MS);
+              }
+            }
+          }
+
+          announcedTokenSignaturesRef.current.set(token.id, signature);
+        }
+      }
+    }
+
+    void runAnnouncements();
 
     return () => {
-      cancelled = true;
+      announcementRunIdRef.current += 1;
+      stopAllAnnouncementPlayback();
     };
-  }, [currentAnnouncement, currentToken, playAnnouncementAudio, settings.language, settings.voiceType]);
+  }, [activeCallingTokens, playAnnouncementAudio, settings.muted, speakAnnouncementFallbackAsync, stopAllAnnouncementPlayback]);
+
+  const visibleTokens = React.useMemo(() => {
+    return activeCallingTokens;
+  }, [activeCallingTokens]);
 
   const { formatted } = useTimer(currentToken?.id ?? null, currentToken?.status === "CALLING");
   const displayDate = React.useMemo(() => (now ? formatDisplayDate(now, language) : "-- --- ----"), [language, now]);
@@ -828,40 +918,54 @@ export default function TVDisplayPage() {
                     <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.contact")}</th>
                     <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.visitDate")}</th>
                     <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.scheduledTime")}</th>
-                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.upNext")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-[#E2E8F0]">
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.displayPatientName || currentToken?.patientName || t("tvDisplay.waitingForNextPatient")}
-                    </td>
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken ? `Dr. ${normalizeDoctorName(currentToken.displayDoctorName || currentToken.doctorName)}` : t("tvDisplay.notAvailable")}
-                    </td>
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.displayDepartment || currentToken?.department || t("tvDisplay.notAvailable")}
-                    </td>
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.contact ?? t("tvDisplay.notAvailable")}
-                    </td>
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {currentToken?.date ?? displayDate}
-                    </td>
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      <div className="flex items-baseline gap-2">
-                        <span>{parseTimeString(currentToken?.time, t).time}</span>
-                        {parseTimeString(currentToken?.time, t).period ? (
-                          <span className="text-[14px] font-semibold text-[#0EA5A4]">
-                            {parseTimeString(currentToken?.time, t).period}
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
-                      {nextToken ? `${formatDisplayTokenNumber(tokenLabel, nextToken.tokenNumber)} - ${nextToken.displayPatientName || nextToken.patientName}` : t("tvDisplay.queueWaiting")}
-                    </td>
-                  </tr>
+                  {visibleTokens.length > 0 ? (
+                    visibleTokens.map((token) => {
+                      const rowTime = parseTimeString(token?.time, t);
+                      const isCurrentAnnouncementToken = token.id === currentToken?.id;
+
+                      return (
+                        <tr
+                          key={token.id}
+                          className={`border-b border-[#E2E8F0] ${isCurrentAnnouncementToken ? "bg-[#F0FDFA]" : "bg-white"}`}
+                        >
+                          <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
+                            {token.displayPatientName || token.patientName || t("tvDisplay.waitingForNextPatient")}
+                          </td>
+                          <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
+                            {`Dr. ${normalizeDoctorName(token.displayDoctorName || token.doctorName)}`}
+                          </td>
+                          <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
+                            {token.displayDepartment || token.department || t("tvDisplay.notAvailable")}
+                          </td>
+                          <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
+                            {token.contact ?? t("tvDisplay.notAvailable")}
+                          </td>
+                          <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
+                            {token.date ?? displayDate}
+                          </td>
+                          <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
+                            <div className="flex items-baseline gap-2">
+                              <span>{rowTime.time}</span>
+                              {rowTime.period ? (
+                                <span className="text-[14px] font-semibold text-[#0EA5A4]">
+                                  {rowTime.period}
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr className="border-b border-[#E2E8F0]">
+                      <td colSpan={6} className="px-6 py-5 text-center text-[18px] font-normal text-[#64748B]">
+                        {t("tvDisplay.waitingForNextPatient")}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

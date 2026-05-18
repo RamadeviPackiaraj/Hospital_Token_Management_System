@@ -10,7 +10,7 @@ import type { ActiveCall, CallLogEntry } from "@/lib/calls";
 const callLogsPageCopy = {
   en: {
     title: "Call Logs",
-    description: "Review doctor to hospital call history in a simple readable format.",
+    description: "See recent call history.",
     entries: "Entries",
     completed: "Completed",
     missed: "Missed",
