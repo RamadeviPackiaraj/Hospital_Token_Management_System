@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { ArrowDownAZ, CalendarDays, ClipboardList, Filter, Search, TimerReset } from "lucide-react";
+import { CallDuration } from "@/components/calls/CallDuration";
 import { Button, Card, Input, Select, StatusBadge, Table } from "@/components/ui";
 import { DatePicker } from "@/components/utility";
+import { getDepartments, type DepartmentRecord } from "@/lib/dashboard-data";
+import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import {
-  CALL_STATUS_LABELS,
   formatCallDateTime,
   formatDuration,
   getDisplayCallStatusBadgeVariant,
@@ -35,10 +37,12 @@ const callLogsTableCopy = {
   en: {
     search: "Search",
     searchPlaceholder: "Search by doctor, department, hospital, or message",
+    department: "Department",
     status: "Status",
     sort: "Sort",
     date: "Date",
     clear: "Clear filters",
+    allDepartments: "All Departments",
     allStatuses: "All statuses",
     endedNewest: "Ended time: newest first",
     endedOldest: "Ended time: oldest first",
@@ -60,85 +64,91 @@ const callLogsTableCopy = {
     page: "Page",
   },
   ta: {
-    search: "தேடல்",
-    searchPlaceholder: "மருத்துவர், துறை, மருத்துவமனை அல்லது செய்தியால் தேடவும்",
-    status: "நிலை",
-    sort: "வரிசை",
-    date: "தேதி",
-    clear: "வடிகட்டலை அழி",
-    allStatuses: "அனைத்து நிலைகளும்",
-    endedNewest: "முடிவு நேரம்: புதியது முதல்",
-    endedOldest: "முடிவு நேரம்: பழையது முதல்",
-    startedNewest: "தொடங்கிய நேரம்: புதியது முதல்",
-    startedOldest: "தொடங்கிய நேரம்: பழையது முதல்",
-    doctorAsc: "மருத்துவர்: அ முதல் ஃ வரை",
-    doctorDesc: "மருத்துவர்: ஃ முதல் அ வரை",
-    hospital: "மருத்துவமனை",
-    message: "செய்தி",
-    started: "தொடங்கியது",
-    ended: "முடிந்தது",
-    duration: "நேரம்",
-    endedBy: "முடித்தவர்",
-    doctor: "மருத்துவர்",
-    active: "செயலில்",
-    noLogs: "அழைப்பு பதிவுகள் இல்லை.",
-    previous: "முந்தையது",
-    next: "அடுத்தது",
-    page: "பக்கம்",
+    search: "Search",
+    searchPlaceholder: "Search by doctor, department, hospital, or message",
+    department: "Department",
+    status: "Status",
+    sort: "Sort",
+    date: "Date",
+    clear: "Clear filters",
+    allDepartments: "All Departments",
+    allStatuses: "All statuses",
+    endedNewest: "Ended time: newest first",
+    endedOldest: "Ended time: oldest first",
+    startedNewest: "Started time: newest first",
+    startedOldest: "Started time: oldest first",
+    doctorAsc: "Doctor: A to Z",
+    doctorDesc: "Doctor: Z to A",
+    hospital: "Hospital",
+    message: "Message",
+    started: "Started",
+    ended: "Ended",
+    duration: "Duration",
+    endedBy: "Ended by",
+    doctor: "Doctor",
+    active: "Active",
+    noLogs: "No call logs found.",
+    previous: "Previous",
+    next: "Next",
+    page: "Page",
   },
   hi: {
-    search: "खोज",
-    searchPlaceholder: "डॉक्टर, विभाग, अस्पताल या संदेश से खोजें",
-    status: "स्थिति",
-    sort: "क्रम",
-    date: "तारीख",
-    clear: "फ़िल्टर साफ़ करें",
-    allStatuses: "सभी स्थितियाँ",
-    endedNewest: "समाप्त समय: नया पहले",
-    endedOldest: "समाप्त समय: पुराना पहले",
-    startedNewest: "शुरू समय: नया पहले",
-    startedOldest: "शुरू समय: पुराना पहले",
-    doctorAsc: "डॉक्टर: A से Z",
-    doctorDesc: "डॉक्टर: Z से A",
-    hospital: "अस्पताल",
-    message: "संदेश",
-    started: "शुरू हुआ",
-    ended: "समाप्त हुआ",
-    duration: "अवधि",
-    endedBy: "समाप्त किया",
-    doctor: "डॉक्टर",
-    active: "सक्रिय",
-    noLogs: "कोई कॉल लॉग नहीं मिला।",
-    previous: "पिछला",
-    next: "अगला",
-    page: "पृष्ठ",
+    search: "Search",
+    searchPlaceholder: "Search by doctor, department, hospital, or message",
+    department: "Department",
+    status: "Status",
+    sort: "Sort",
+    date: "Date",
+    clear: "Clear filters",
+    allDepartments: "All Departments",
+    allStatuses: "All statuses",
+    endedNewest: "Ended time: newest first",
+    endedOldest: "Ended time: oldest first",
+    startedNewest: "Started time: newest first",
+    startedOldest: "Started time: oldest first",
+    doctorAsc: "Doctor: A to Z",
+    doctorDesc: "Doctor: Z to A",
+    hospital: "Hospital",
+    message: "Message",
+    started: "Started",
+    ended: "Ended",
+    duration: "Duration",
+    endedBy: "Ended by",
+    doctor: "Doctor",
+    active: "Active",
+    noLogs: "No call logs found.",
+    previous: "Previous",
+    next: "Next",
+    page: "Page",
   },
   ml: {
-    search: "തിരയുക",
-    searchPlaceholder: "ഡോക്ടർ, വിഭാഗം, ആശുപത്രി, സന്ദേശം എന്നിവ ഉപയോഗിച്ച് തിരയുക",
-    status: "സ്ഥിതി",
-    sort: "ക്രമം",
-    date: "തീയതി",
-    clear: "ഫിൽറ്റർ നീക്കുക",
-    allStatuses: "എല്ലാ നിലകളും",
-    endedNewest: "അവസാനിച്ച സമയം: പുതിയത് ആദ്യം",
-    endedOldest: "അവസാനിച്ച സമയം: പഴയത് ആദ്യം",
-    startedNewest: "ആരംഭിച്ച സമയം: പുതിയത് ആദ്യം",
-    startedOldest: "ആരംഭിച്ച സമയം: പഴയത് ആദ്യം",
-    doctorAsc: "ഡോക്ടർ: A മുതൽ Z വരെ",
-    doctorDesc: "ഡോക്ടർ: Z മുതൽ A വരെ",
-    hospital: "ആശുപത്രി",
-    message: "സന്ദേശം",
-    started: "ആരംഭിച്ചത്",
-    ended: "അവസാനിച്ചത്",
-    duration: "ദൈർഘ്യം",
-    endedBy: "അവസാനിപ്പിച്ചത്",
-    doctor: "ഡോക്ടർ",
-    active: "സജീവം",
-    noLogs: "കോൾ രേഖകൾ കണ്ടെത്തിയില്ല.",
-    previous: "മുമ്പത്തെ",
-    next: "അടുത്തത്",
-    page: "പേജ്",
+    search: "Search",
+    searchPlaceholder: "Search by doctor, department, hospital, or message",
+    department: "Department",
+    status: "Status",
+    sort: "Sort",
+    date: "Date",
+    clear: "Clear filters",
+    allDepartments: "All Departments",
+    allStatuses: "All statuses",
+    endedNewest: "Ended time: newest first",
+    endedOldest: "Ended time: oldest first",
+    startedNewest: "Started time: newest first",
+    startedOldest: "Started time: oldest first",
+    doctorAsc: "Doctor: A to Z",
+    doctorDesc: "Doctor: Z to A",
+    hospital: "Hospital",
+    message: "Message",
+    started: "Started",
+    ended: "Ended",
+    duration: "Duration",
+    endedBy: "Ended by",
+    doctor: "Doctor",
+    active: "Active",
+    noLogs: "No call logs found.",
+    previous: "Previous",
+    next: "Next",
+    page: "Page",
   },
 } as const;
 
@@ -153,11 +163,31 @@ export function CallLogsTable({
 }) {
   const copy = callLogsTableCopy[language] || callLogsTableCopy.en;
   const [search, setSearch] = React.useState("");
+  const [department, setDepartment] = React.useState("all");
   const [status, setStatus] = React.useState("all");
   const [sort, setSort] = React.useState("ended-desc");
   const [dateInput, setDateInput] = React.useState("");
   const [mobilePage, setMobilePage] = React.useState(1);
+  const [departments, setDepartments] = React.useState<DepartmentRecord[]>([]);
   const mobilePageSize = 5;
+
+  React.useEffect(() => {
+    let active = true;
+
+    getDepartments()
+      .then((nextDepartments) => {
+        if (!active) return;
+        setDepartments(nextDepartments);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDepartments([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const rows = React.useMemo<CallLogTableRow[]>(() => {
     const activeRows = activeCalls.map((call) => ({
@@ -189,13 +219,26 @@ export function CallLogsTable({
     return [...activeRows, ...logRows];
   }, [activeCalls, logs]);
 
+  const departmentOptions = React.useMemo(() => {
+    return [
+      { label: copy.allDepartments, value: "all" },
+      ...departments
+        .map((departmentItem) => ({
+          label: localizeDepartmentName(departmentItem.name, departmentItem.displayName),
+          value: departmentItem.name,
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label)),
+    ];
+  }, [copy.allDepartments, departments]);
+
   const filteredLogs = React.useMemo(() => {
     const next = rows.filter((log) => {
+      const matchesDepartment = department === "all" || log.department === department;
       const matchesStatus = status === "all" || log.displayStatus === status;
       const haystack = [log.doctorName, log.department, log.hospitalName, log.messageLabel].join(" ").toLowerCase();
       const matchesSearch = !search.trim() || haystack.includes(search.toLowerCase());
       const matchesDate = !dateInput || formatDisplayDate(dateInput) === formatDisplayDate(new Date(log.startedAt).toISOString().slice(0, 10));
-      return matchesStatus && matchesSearch && matchesDate;
+      return matchesDepartment && matchesStatus && matchesSearch && matchesDate;
     });
 
     return next.sort((left, right) => {
@@ -208,8 +251,10 @@ export function CallLogsTable({
       if (sort === "ended-asc") return (left.endedAt ?? Number.MAX_SAFE_INTEGER) - (right.endedAt ?? Number.MAX_SAFE_INTEGER);
       return (right.endedAt ?? Number.MAX_SAFE_INTEGER) - (left.endedAt ?? Number.MAX_SAFE_INTEGER);
     });
-  }, [dateInput, rows, search, sort, status]);
+  }, [dateInput, department, rows, search, sort, status]);
+
   const mobileTotalPages = Math.max(1, Math.ceil(filteredLogs.length / mobilePageSize));
+
   const mobileItems = React.useMemo(() => {
     const startIndex = (mobilePage - 1) * mobilePageSize;
     return filteredLogs.slice(startIndex, startIndex + mobilePageSize);
@@ -217,7 +262,7 @@ export function CallLogsTable({
 
   React.useEffect(() => {
     setMobilePage(1);
-  }, [search, status, sort, dateInput]);
+  }, [search, department, status, sort, dateInput]);
 
   React.useEffect(() => {
     setMobilePage((current) => Math.min(current, mobileTotalPages));
@@ -226,13 +271,21 @@ export function CallLogsTable({
   return (
     <div className="space-y-4">
       <Card className="p-5 shadow-sm">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_220px_160px] xl:items-end">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)_220px_160px] xl:items-end">
           <label className="grid gap-2">
             <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">
               <Search className="size-3.5" />
               {copy.search}
             </span>
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={copy.searchPlaceholder} />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">
+              <Filter className="size-3.5" />
+              {copy.department}
+            </span>
+            <Select value={department} onChange={(event) => setDepartment(event.target.value)} options={departmentOptions} />
           </label>
 
           <label className="grid gap-2">
@@ -287,6 +340,7 @@ export function CallLogsTable({
               className="min-h-11 w-full rounded-xl"
               onClick={() => {
                 setSearch("");
+                setDepartment("all");
                 setStatus("all");
                 setSort("ended-desc");
                 setDateInput("");
@@ -313,12 +367,15 @@ export function CallLogsTable({
               sortable: true,
               className: "whitespace-nowrap",
               sortValue: (row) => row.doctorName,
-              render: (row) => (
-                <div className="whitespace-nowrap">
-                  <p className="text-sm font-medium text-[#0F172A]">{row.doctorName}</p>
-                  <p className="mt-1 text-xs text-[#64748B]">{row.department}</p>
-                </div>
-              ),
+              render: (row) => <span className="whitespace-nowrap text-sm font-medium text-[#0F172A]">{row.doctorName}</span>,
+            },
+            {
+              key: "department",
+              header: copy.department,
+              sortable: true,
+              className: "whitespace-nowrap",
+              sortValue: (row) => row.department,
+              render: (row) => <span className="whitespace-nowrap">{localizeDepartmentName(row.department)}</span>,
             },
             {
               key: "hospital",
@@ -358,7 +415,11 @@ export function CallLogsTable({
               sortable: true,
               className: "whitespace-nowrap",
               sortValue: (row) => row.durationMs,
-              render: (row) => <span className="whitespace-nowrap">{formatDuration(row.durationMs)}</span>,
+              render: (row) => (
+                <span className="whitespace-nowrap">
+                  {row.displayStatus === "active" ? <CallDuration startedAt={row.startedAt} /> : formatDuration(row.durationMs)}
+                </span>
+              ),
             },
             {
               key: "endedBy",
@@ -389,18 +450,23 @@ export function CallLogsTable({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-[#0F172A]">{log.doctorName}</p>
-                  <p className="mt-1 text-xs text-[#64748B]">{log.department}</p>
+                  <p className="mt-1 text-xs text-[#64748B]">{localizeDepartmentName(log.department)}</p>
                 </div>
                 <StatusBadge tone={getDisplayCallStatusBadgeVariant(log.displayStatus)}>
                   {localizeDisplayCallStatusLabel(log.displayStatus, language)}
                 </StatusBadge>
               </div>
               <div className="mt-4 grid gap-3">
+                <MobileDetail icon={<Filter className="size-4" />} label={copy.department} value={localizeDepartmentName(log.department)} />
                 <MobileDetail icon={<ClipboardList className="size-4" />} label={copy.hospital} value={log.hospitalName} />
                 <MobileDetail icon={<Search className="size-4" />} label={copy.message} value={localizeCallMessageLabel(log.messageLabel, language)} />
                 <MobileDetail icon={<CalendarDays className="size-4" />} label={copy.started} value={formatCallDateTime(log.startedAt)} />
                 <MobileDetail icon={<CalendarDays className="size-4" />} label={copy.ended} value={log.endedAt ? formatCallDateTime(log.endedAt) : "-"} />
-                <MobileDetail icon={<TimerReset className="size-4" />} label={copy.duration} value={formatDuration(log.durationMs)} />
+                <MobileDetail
+                  icon={<TimerReset className="size-4" />}
+                  label={copy.duration}
+                  value={log.displayStatus === "active" ? <CallDuration startedAt={log.startedAt} /> : formatDuration(log.durationMs)}
+                />
                 <MobileDetail icon={<Filter className="size-4" />} label={copy.endedBy} value={log.endedBy ? (log.endedBy === "doctor" ? copy.doctor : copy.hospital) : "-"} />
                 <MobileDetail
                   icon={<Filter className="size-4" />}
@@ -433,7 +499,7 @@ export function CallLogsTable({
   );
 }
 
-function MobileDetail({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function MobileDetail({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4">
       <div className="flex items-center gap-2 text-[#64748B]">
