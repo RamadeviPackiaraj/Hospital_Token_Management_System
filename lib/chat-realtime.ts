@@ -1,7 +1,7 @@
 "use client";
 
 import { io, type Socket } from "socket.io-client";
-import { API_BASE_URL, ApiRequestError, getAuthToken } from "@/lib/api";
+import { API_BASE_URL, ApiRequestError } from "@/lib/api";
 import type { ChatMessage, ChatMessageType, ChatSender } from "@/lib/chat";
 import { mapChatMessageFromApi } from "@/lib/chat";
 
@@ -103,8 +103,6 @@ function getSocketBaseUrl() {
 }
 
 function createSocket() {
-  const token = getAuthToken();
-
   return io(getSocketBaseUrl(), {
     autoConnect: false,
     reconnection: true,
@@ -114,7 +112,6 @@ function createSocket() {
     timeout: 10000,
     transports: ["websocket", "polling"],
     withCredentials: true,
-    auth: token ? { token: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -127,18 +124,12 @@ export function getChatSocket() {
     chatSocket = createSocket();
   }
 
-  const token = getAuthToken();
-  chatSocket.auth = token ? { token: `Bearer ${token}` } : {};
-
   return chatSocket;
 }
 
 export function connectChatSocket() {
   const socket = getChatSocket();
   if (!socket) return null;
-
-  const token = getAuthToken();
-  socket.auth = token ? { token: `Bearer ${token}` } : {};
 
   if (!socket.connected) {
     socket.connect();

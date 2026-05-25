@@ -20,14 +20,16 @@ import { GlobalLanguageSwitcher, useI18n } from "@/components/i18n";
 import { Card } from "@/components/ui";
 import {
   clearMockSession,
-  formatRoleLabel,
   getAccessControlMessage,
   getCurrentSessionUser,
   getMockSession,
+  logoutCurrentSession,
   refreshSessionUser,
+  formatRoleLabel,
   type MockSession,
   type MockUser
 } from "@/lib/auth-flow";
+import { AUTH_SESSION_EXPIRED_EVENT } from "@/lib/api";
 import type { SidebarItem } from "@/components/layout/Sidebar";
 
 type AppShellLanguage = "en" | "hi" | "ml" | "ta";
@@ -230,17 +232,24 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
     const nextUser = getCurrentSessionUser();
     setSession(nextSession);
     setCurrentUser(nextUser);
-    setReady(true);
-
-    if (!nextSession) return;
 
     try {
       const freshUser = await refreshSessionUser();
-      if (freshUser) {
-        setCurrentUser(freshUser);
-      }
+      setCurrentUser(freshUser);
+      setSession({
+        userId: freshUser.id,
+        role: freshUser.role,
+        mobileNumber: freshUser.mobileNumber,
+        mode: "signin",
+        name: freshUser.fullName,
+        email: freshUser.email,
+      });
     } catch {
-      // Ignore refresh failures; cached session is still usable.
+      clearMockSession();
+      setSession(null);
+      setCurrentUser(null);
+    } finally {
+      setReady(true);
     }
   }, []);
 
@@ -248,8 +257,22 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
     void refreshSession();
   }, [refreshSession]);
 
-  const signOut = React.useCallback(() => {
-    clearMockSession();
+  React.useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleSessionExpired = () => {
+      clearMockSession();
+      setSession(null);
+      setCurrentUser(null);
+      router.push("/signin");
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, [router]);
+
+  const signOut = React.useCallback(async () => {
+    await logoutCurrentSession();
     setSession(null);
     setCurrentUser(null);
     router.push("/signin");
@@ -292,7 +315,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
               <button
                 type="button"
                 className="focus-ring inline-flex h-11 items-center justify-center rounded-lg border border-[#0EA5A4] bg-[#0EA5A4] px-4 text-sm font-medium text-white"
-                onClick={signOut}
+                onClick={() => void signOut()}
               >
                 {t("dashboard.header.returnToSignIn")}
               </button>
@@ -415,7 +438,7 @@ export default function DashboardShellLayout({ children }: { children: React.Rea
             name: currentUser.fullName,
             role: t(`dashboard.roles.${currentUser.role}`) || formatRoleLabel(currentUser.role)
           },
-          onLogout: signOut
+          onLogout: () => void signOut()
         }}
       >
         {children}

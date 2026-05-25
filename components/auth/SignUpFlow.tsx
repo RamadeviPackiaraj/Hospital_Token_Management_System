@@ -46,25 +46,25 @@ function buildPayload(role: AuthRole, values: SignupFormValues): SignupPayload {
   } as const;
 
   if (role === "doctor") {
-    return {
-      ...common,
-      role: "doctor",
-      medicalRegistrationId: values.medicalRegistrationId,
-      specialization: values.specialization,
-      department: values.department,
-      gender: values.gender,
-      dob: values.dob,
-      bloodGroup: values.bloodGroup,
+      return {
+        ...common,
+        role: "doctor",
+        medicalRegistrationId: values.medicalRegistrationId,
+        specialization: values.specialization,
+        departmentId: values.departmentId,
+        gender: values.gender,
+        dob: values.dob,
+        bloodGroup: values.bloodGroup,
     };
   }
 
   if (role === "hospital") {
-    return {
-      ...common,
-      role: "hospital",
-      hospitalName: values.hospitalName,
-      department: values.department,
-    };
+      return {
+        ...common,
+        role: "hospital",
+        hospitalName: values.hospitalName,
+        departmentId: values.departmentId,
+      };
   }
 
   return {
@@ -115,7 +115,7 @@ export function SignUpFlow() {
   const cityOptions = cities.map((city) => ({ value: String(city.id), label: city.name }));
   const departmentOptions = departments.map((department) => ({
     label: localizeDepartmentName(department.name, department.displayName),
-    value: department.name,
+    value: department.id,
   }));
 
   const mobileNumberRegistration = register("mobileNumber", {
@@ -452,7 +452,7 @@ export function SignUpFlow() {
 
           {selectedRole === "doctor" || selectedRole === "hospital" ? (
             <Controller
-              name="department"
+              name="departmentId"
               control={control}
               render={({ field }) => (
                 <Select
@@ -460,8 +460,8 @@ export function SignUpFlow() {
                   value={field.value}
                   options={departmentOptions}
                   placeholder="Select department"
-                  error={errors.department?.message}
-                  success={isFieldValid("department")}
+                  error={errors.departmentId?.message}
+                  success={isFieldValid("departmentId")}
                   onBlur={field.onBlur}
                   onChange={(event) => {
                     field.onChange(event.target.value);

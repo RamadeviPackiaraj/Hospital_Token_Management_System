@@ -123,7 +123,7 @@ export const signupSchema = z
     medicalRegistrationId: z.string().trim().optional().default(""),
     specialization: z.string().trim().optional().default(""),
     hospitalName: z.string().trim().optional().default(""),
-    department: z.string().trim().optional().default(""),
+    departmentId: z.string().trim().optional().default(""),
     gender: z.string().trim().optional().default(""),
     dob: dateSchema({ allowPast: true, required: false }).optional().default(""),
     bloodGroup: z.string().trim().optional().default(""),
@@ -150,10 +150,10 @@ export const signupSchema = z
         });
       }
 
-      if (!values.department) {
+      if (!values.departmentId) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["department"],
+          path: ["departmentId"],
           message: REQUIRED_MESSAGE,
         });
       }
@@ -192,10 +192,10 @@ export const signupSchema = z
         });
       }
 
-      if (!values.department) {
+      if (!values.departmentId) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["department"],
+          path: ["departmentId"],
           message: REQUIRED_MESSAGE,
         });
       }
@@ -238,7 +238,7 @@ export const defaultSignupValues: SignupFormValues = {
   medicalRegistrationId: "",
   specialization: "",
   hospitalName: "",
-  department: "",
+  departmentId: "",
   gender: "",
   dob: "",
   bloodGroup: "",

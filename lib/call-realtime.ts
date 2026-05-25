@@ -1,7 +1,7 @@
 "use client";
 
 import { io, type Socket } from "socket.io-client";
-import { API_BASE_URL, ApiRequestError, getAuthToken } from "@/lib/api";
+import { API_BASE_URL, ApiRequestError } from "@/lib/api";
 import type { ActiveCall, CallLogEntry, OperationalMessageTemplate } from "@/lib/calls";
 
 export const CALL_SOCKET_EVENTS = Object.freeze({
@@ -57,8 +57,6 @@ export function getCallSocketPath() {
 }
 
 function createSocket() {
-  const token = getAuthToken();
-
   return io(getCallSocketBaseUrl(), {
     path: getCallSocketPath(),
     autoConnect: false,
@@ -69,7 +67,6 @@ function createSocket() {
     timeout: 10000,
     transports: ["websocket", "polling"],
     withCredentials: true,
-    auth: token ? { token: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -82,18 +79,12 @@ export function getCallSocket() {
     callSocket = createSocket();
   }
 
-  const token = getAuthToken();
-  callSocket.auth = token ? { token: `Bearer ${token}` } : {};
-
   return callSocket;
 }
 
 export function connectCallSocket() {
   const socket = getCallSocket();
   if (!socket) return null;
-
-  const token = getAuthToken();
-  socket.auth = token ? { token: `Bearer ${token}` } : {};
 
   if (!socket.connected) {
     socket.connect();

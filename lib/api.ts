@@ -4,26 +4,19 @@ import { getStoredLanguage } from "@/lib/i18n";
 export const API_BASE_URL =
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "");
 
-const AUTH_TOKEN_KEY = "hospital_token_auth_token";
-
-export function getAuthToken() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
-}
-
-export function setAuthToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (token) {
-    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-  } else {
-    window.localStorage.removeItem(AUTH_TOKEN_KEY);
-  }
-}
+export const AUTH_SESSION_EXPIRED_EVENT = "auth:session-expired";
 
 type ApiResponse<T> = {
   success?: boolean;
   message?: string;
   data?: T;
+  error?: {
+    code?: string;
+    details?: Array<{
+      field?: string;
+      message?: string;
+    }> | null;
+  } | null;
   errors?: Array<{
     field?: string;
     message?: string;
@@ -32,6 +25,7 @@ type ApiResponse<T> = {
 
 interface ApiRequestConfig {
   auth?: boolean;
+  retryOnAuthFailure?: boolean;
 }
 
 export class ApiRequestError<T = unknown> extends Error {
@@ -48,6 +42,9 @@ export class ApiRequestError<T = unknown> extends Error {
   }
 }
 
+let csrfTokenCache: string | null = null;
+let refreshPromise: Promise<boolean> | null = null;
+
 function extractPath(url?: string) {
   if (!url) return "";
   return url.replace(API_BASE_URL, "");
@@ -57,24 +54,13 @@ function isFormDataBody(body: BodyInit | null | undefined) {
   return typeof FormData !== "undefined" && body instanceof FormData;
 }
 
-function buildHeaders(options: RequestInit, config: ApiRequestConfig) {
-  const headers = new Headers(options.headers);
-  const authEnabled = config.auth !== false;
+function isSafeMethod(method: string) {
+  return ["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+}
 
-  if (options.body != null && !isFormDataBody(options.body) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  if (authEnabled) {
-    const token = getAuthToken();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  headers.set("x-language", getStoredLanguage());
-
-  return headers;
+function dispatchSessionExpired() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
 }
 
 async function parseResponseBody<T>(response: Response): Promise<ApiResponse<T> | T | null> {
@@ -92,6 +78,89 @@ async function parseResponseBody<T>(response: Response): Promise<ApiResponse<T> 
   return text ? (text as T) : null;
 }
 
+async function fetchCsrfToken() {
+  const response = await fetch(`${API_BASE_URL}/auth/csrf-token`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "x-language": getStoredLanguage(),
+    },
+  });
+
+  const parsed = (await parseResponseBody<{ csrfToken: string }>(response)) as ApiResponse<{ csrfToken: string }> | null;
+  const nextToken = parsed && typeof parsed === "object" && "data" in parsed ? parsed.data?.csrfToken : null;
+  csrfTokenCache = nextToken || null;
+  return csrfTokenCache;
+}
+
+async function ensureCsrfToken(method: string) {
+  if (isSafeMethod(method)) {
+    return null;
+  }
+
+  if (csrfTokenCache) {
+    return csrfTokenCache;
+  }
+
+  return fetchCsrfToken();
+}
+
+async function refreshSessionSilently() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        await ensureCsrfToken("POST");
+        const headers = new Headers();
+        if (csrfTokenCache) {
+          headers.set("x-csrf-token", csrfTokenCache);
+        }
+        headers.set("x-language", getStoredLanguage());
+
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers,
+        });
+
+        const parsed = await parseResponseBody(response);
+        if (!response.ok) {
+          csrfTokenCache = null;
+          return false;
+        }
+
+        if (parsed && typeof parsed === "object" && "data" in parsed) {
+          return true;
+        }
+
+        return true;
+      } catch {
+        csrfTokenCache = null;
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+}
+
+function buildHeaders(options: RequestInit, method: string) {
+  const headers = new Headers(options.headers);
+
+  if (options.body != null && !isFormDataBody(options.body) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  headers.set("x-language", getStoredLanguage());
+
+  if (!isSafeMethod(method) && csrfTokenCache) {
+    headers.set("x-csrf-token", csrfTokenCache);
+  }
+
+  return headers;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -99,7 +168,14 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const method = (options.method || "GET").toUpperCase();
   const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-  const requestHeaders = buildHeaders(options, config);
+  const authEnabled = config.auth !== false;
+  const retryOnAuthFailure = config.retryOnAuthFailure !== false;
+
+  if (!isSafeMethod(method)) {
+    await ensureCsrfToken(method);
+  }
+
+  const requestHeaders = buildHeaders(options, method);
 
   logger.info(`API Request: ${path || "/"}`, {
     source: "api.request",
@@ -115,12 +191,23 @@ export async function apiRequest<T>(
       ...options,
       method,
       headers: requestHeaders,
+      credentials: "include",
     });
     const parsed = await parseResponseBody<T>(response);
 
     if (!response.ok) {
+      if (response.status === 401 && authEnabled && retryOnAuthFailure && path !== "/auth/refresh") {
+        const refreshed = await refreshSessionSilently();
+        if (refreshed) {
+          return apiRequest<T>(path, options, { ...config, retryOnAuthFailure: false });
+        }
+
+        dispatchSessionExpired();
+      }
+
       const apiError = parsed && typeof parsed === "object" ? (parsed as ApiResponse<T>) : undefined;
       const message =
+        apiError?.error?.details?.[0]?.message ||
         apiError?.errors?.[0]?.message ||
         apiError?.message ||
         `Request failed with status ${response.status}`;
@@ -172,6 +259,10 @@ export async function apiRequest<T>(
 
     throw error;
   }
+}
+
+export function clearApiSessionState() {
+  csrfTokenCache = null;
 }
 
 export function buildQuery(params: Record<string, string | number | undefined | null>) {

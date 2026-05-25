@@ -18,7 +18,6 @@ const toastBaseStyle = {
   boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
 } as const;
 
-const AUTH_TOKEN_KEY = "hospital_token_auth_token";
 const REMOTE_LOG_QUEUE_KEY = "hospital_token_remote_log_queue";
 const REMOTE_LOG_API_URL =
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "") + "/logs";
@@ -147,20 +146,16 @@ function setRemoteLogQueue(queue: RemoteLogPayload[]) {
 }
 
 async function postRemoteLog(payload: RemoteLogPayload) {
-  const token = typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_TOKEN_KEY);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   const response = await fetch(REMOTE_LOG_API_URL, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
     keepalive: true,
+    credentials: "include",
   });
 
   if (!response.ok) {

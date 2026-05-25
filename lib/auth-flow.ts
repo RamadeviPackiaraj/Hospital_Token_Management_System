@@ -1,4 +1,4 @@
-import { apiRequest, setAuthToken } from "@/lib/api";
+import { apiRequest, clearApiSessionState } from "@/lib/api";
 
 export const AUTH_ROLES = ["doctor", "hospital", "admin"] as const;
 export const AUTH_MODES = ["signin", "signup"] as const;
@@ -66,7 +66,7 @@ export interface DoctorSignupPayload extends BaseSignupPayload {
   role: "doctor";
   medicalRegistrationId: string;
   specialization?: string;
-  department: string;
+  departmentId: string;
   gender: string;
   dob: string;
   bloodGroup: string;
@@ -75,7 +75,7 @@ export interface DoctorSignupPayload extends BaseSignupPayload {
 export interface HospitalSignupPayload extends BaseSignupPayload {
   role: "hospital";
   hospitalName: string;
-  department: string;
+  departmentId: string;
 }
 
 export interface AdminSignupPayload extends BaseSignupPayload {
@@ -101,7 +101,6 @@ export interface MockSession {
   mode: AuthMode;
   name: string;
   email: string;
-  token: string;
 }
 
 export interface VerifyOtpPayload {
@@ -135,8 +134,8 @@ export const roleThemes: Record<AuthRole, RoleTheme> = {
   },
 };
 
-const MOCK_SESSION_KEY = "hospital_token_auth_session";
-const MOCK_USER_KEY = "hospital_token_auth_user";
+const SESSION_KEY = "hospital_token_auth_session";
+const USER_KEY = "hospital_token_auth_user";
 const PENDING_AUTH_KEY = "hospital_token_pending_auth";
 
 export function isAuthRole(value: string | null | undefined): value is AuthRole {
@@ -147,18 +146,12 @@ export function isAuthMode(value: string | null | undefined): value is AuthMode 
   return !!value && AUTH_MODES.includes(value as AuthMode);
 }
 
-export function isUserApprovalStatus(value: string | null | undefined): value is UserApprovalStatus {
-  return !!value && USER_APPROVAL_STATUSES.includes(value as UserApprovalStatus);
-}
-
 export function formatRoleLabel(role: AuthRole) {
   return roleThemes[role].title;
 }
 
-export function formatApprovalStatus(status: UserApprovalStatus) {
-  if (status === "approved") return "Approved";
-  if (status === "rejected") return "Rejected";
-  return "Pending";
+export function getRoleTheme(role: AuthRole | null | undefined) {
+  return roleThemes[role ?? "doctor"];
 }
 
 export function getAccessControlMessage(status: UserApprovalStatus) {
@@ -173,14 +166,16 @@ export function getAccessControlMessage(status: UserApprovalStatus) {
   return "Your account is under review by admin";
 }
 
-export function getRoleTheme(role: AuthRole | null | undefined) {
-  return roleThemes[role ?? "doctor"];
+function getStorage() {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage;
 }
 
 function getStoredJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
+  const storage = getStorage();
+  if (!storage) return fallback;
 
-  const raw = window.localStorage.getItem(key);
+  const raw = storage.getItem(key);
   if (!raw) return fallback;
 
   try {
@@ -191,12 +186,15 @@ function getStoredJson<T>(key: string, fallback: T): T {
 }
 
 function setStoredJson<T>(key: string, value: T | null) {
-  if (typeof window === "undefined") return;
+  const storage = getStorage();
+  if (!storage) return;
+
   if (value === null) {
-    window.localStorage.removeItem(key);
+    storage.removeItem(key);
     return;
   }
-  window.localStorage.setItem(key, JSON.stringify(value));
+
+  storage.setItem(key, JSON.stringify(value));
 }
 
 function normalizeApprovalStatus(value: string | null | undefined): UserApprovalStatus {
@@ -220,6 +218,7 @@ function mapMeToMockUser(payload: {
     name: string;
     email: string;
     role: string;
+    actualRole?: string;
     approvalStatus?: string;
     loginStatus?: string;
     departmentName?: string | null;
@@ -241,11 +240,10 @@ function mapMeToMockUser(payload: {
   } | null;
 }): MockUser {
   const { user, profile } = payload;
-  const role = isAuthRole(user.role) ? user.role : "doctor";
+  const resolvedRole = user.role === "super_admin" ? "admin" : user.role;
+  const role = isAuthRole(resolvedRole) ? resolvedRole : "doctor";
   const locationParts = parseLocation(profile?.location);
-  const approvalStatus = normalizeApprovalStatus(
-    user.approvalStatus || user.loginStatus
-  );
+  const approvalStatus = normalizeApprovalStatus(user.approvalStatus || user.loginStatus);
 
   return {
     id: user.id,
@@ -305,7 +303,8 @@ export type AdminEntityItem = {
 };
 
 export function mapAdminEntityToMockUser(entity: AdminEntityItem): MockUser {
-  const role = isAuthRole(entity.role) ? entity.role : "doctor";
+  const resolvedRole = entity.role === "super_admin" ? "admin" : entity.role;
+  const role = isAuthRole(resolvedRole) ? resolvedRole : "doctor";
   const locationParts = parseLocation(entity.location);
   return {
     id: entity.userId || entity.id,
@@ -341,8 +340,35 @@ export function mapAdminEntityToMockUser(entity: AdminEntityItem): MockUser {
   };
 }
 
+function saveSession(session: MockSession | null) {
+  setStoredJson(SESSION_KEY, session);
+}
+
+function saveCurrentUser(user: MockUser | null) {
+  setStoredJson(USER_KEY, user);
+}
+
+function buildSessionFromUser(user: MockUser): MockSession {
+  return {
+    userId: user.id,
+    role: user.role,
+    mobileNumber: user.mobileNumber,
+    mode: "signin",
+    name: user.fullName,
+    email: user.email,
+  };
+}
+
+async function fetchCurrentUser() {
+  const me = await apiRequest<{ user: Record<string, unknown>; profile?: Record<string, unknown> }>("/users/me");
+  const currentUser = mapMeToMockUser(me as unknown as { user: any; profile?: any });
+  saveCurrentUser(currentUser);
+  saveSession(buildSessionFromUser(currentUser));
+  return currentUser;
+}
+
 export async function beginMockSignin(payload: SignInPayload): Promise<MockSession> {
-  const loginResponse = await apiRequest<{ token: string; role: string }>(
+  await apiRequest(
     "/auth/login",
     {
       method: "POST",
@@ -351,32 +377,9 @@ export async function beginMockSignin(payload: SignInPayload): Promise<MockSessi
     { auth: false }
   );
 
-  const token = loginResponse.token;
-  if (!token) {
-    throw new Error("Login token not received.");
-  }
-
-  setAuthToken(token);
-  const me = await apiRequest<{ user: Record<string, unknown>; profile?: Record<string, unknown> }>(
-    "/users/me"
-  );
-  const currentUser = mapMeToMockUser(me as unknown as { user: any; profile?: any });
-
-  const session: MockSession = {
-    userId: currentUser.id,
-    role: currentUser.role,
-    mobileNumber: currentUser.mobileNumber,
-    mode: "signin",
-    name: currentUser.fullName,
-    email: currentUser.email,
-    token,
-  };
-
-  saveMockSession(session);
-  saveCurrentUser(currentUser);
+  const currentUser = await fetchCurrentUser();
   clearPendingAuthChallenge();
-
-  return session;
+  return buildSessionFromUser(currentUser);
 }
 
 export async function beginMockSignup(payload: SignupPayload): Promise<PendingAuthChallenge> {
@@ -394,7 +397,7 @@ export async function beginMockSignup(payload: SignupPayload): Promise<PendingAu
       gender: payload.gender,
       dob: payload.dob,
       blood_group: payload.bloodGroup,
-      department: payload.department,
+      departmentId: payload.departmentId,
       specialization: payload.specialization || null,
       medicalRegistrationId: payload.medicalRegistrationId || null,
     });
@@ -409,7 +412,7 @@ export async function beginMockSignup(payload: SignupPayload): Promise<PendingAu
       name: payload.hospitalName || payload.fullName,
       phone: payload.mobileNumber,
       location,
-      departments: payload.department ? [payload.department] : [],
+      departmentId: payload.departmentId,
     });
   }
 
@@ -419,10 +422,14 @@ export async function beginMockSignup(payload: SignupPayload): Promise<PendingAu
     });
   }
 
-  await apiRequest("/auth/register", {
-    method: "POST",
-    body: JSON.stringify(basePayload),
-  }, { auth: false });
+  await apiRequest(
+    "/auth/register",
+    {
+      method: "POST",
+      body: JSON.stringify(basePayload),
+    },
+    { auth: false }
+  );
 
   const challenge: PendingAuthChallenge = {
     mode: "signup",
@@ -450,10 +457,6 @@ export async function resendMockOtp() {
     throw new Error("Resend is unavailable. Please restart the authentication flow.");
   }
 
-  if (challenge.mode !== "signup") {
-    throw new Error("OTP resend is only available during signup.");
-  }
-
   await apiRequest(
     "/auth/resend-register-otp",
     {
@@ -463,7 +466,6 @@ export async function resendMockOtp() {
     { auth: false }
   );
 
-  setStoredJson(PENDING_AUTH_KEY, challenge);
   return challenge;
 }
 
@@ -477,63 +479,56 @@ export async function verifyMockOtp(payload: VerifyOtpPayload): Promise<{
     throw new Error("No pending authentication request found.");
   }
 
-  if (challenge.mode !== "signup") {
-    throw new Error("OTP verification is only available during signup.");
-  }
-
-  await apiRequest("/auth/verify-register-otp", {
-    method: "POST",
-    body: JSON.stringify({ email: challenge.email, otp: payload.otp }),
-  }, { auth: false });
+  await apiRequest(
+    "/auth/verify-register-otp",
+    {
+      method: "POST",
+      body: JSON.stringify({ email: challenge.email, otp: payload.otp }),
+    },
+    { auth: false }
+  );
 
   clearPendingAuthChallenge();
   return { mode: "signup" };
 }
 
-export function saveMockSession(session: MockSession) {
-  setStoredJson(MOCK_SESSION_KEY, session);
-}
-
-function saveCurrentUser(user: MockUser) {
-  setStoredJson(MOCK_USER_KEY, user);
-}
-
 export function getMockSession() {
-  const session = getStoredJson<MockSession | null>(MOCK_SESSION_KEY, null);
-
+  const session = getStoredJson<MockSession | null>(SESSION_KEY, null);
   if (!session || !isAuthRole(session.role) || !isAuthMode(session.mode)) {
     return null;
   }
-
   return session;
 }
 
 export function getCurrentSessionUser() {
-  return getStoredJson<MockUser | null>(MOCK_USER_KEY, null);
+  return getStoredJson<MockUser | null>(USER_KEY, null);
 }
 
 export async function refreshSessionUser() {
-  const session = getMockSession();
-  if (!session) return null;
+  try {
+    return await fetchCurrentUser();
+  } catch {
+    clearMockSession();
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+}
 
-  const me = await apiRequest<{ user: Record<string, unknown>; profile?: Record<string, unknown> }>(
-    "/users/me"
-  );
-  const currentUser = mapMeToMockUser(me as unknown as { user: any; profile?: any });
-  saveCurrentUser(currentUser);
-  saveMockSession({
-    ...session,
-    userId: currentUser.id,
-    role: currentUser.role,
-    mobileNumber: currentUser.mobileNumber,
-    name: currentUser.fullName,
-    email: currentUser.email,
-  });
-  return currentUser;
+export async function logoutCurrentSession() {
+  try {
+    await apiRequest(
+      "/auth/logout",
+      {
+        method: "POST",
+      },
+      { retryOnAuthFailure: false }
+    );
+  } finally {
+    clearMockSession();
+  }
 }
 
 export function clearMockSession() {
-  setStoredJson(MOCK_SESSION_KEY, null);
-  setStoredJson(MOCK_USER_KEY, null);
-  setAuthToken(null);
+  saveSession(null);
+  saveCurrentUser(null);
+  clearApiSessionState();
 }
