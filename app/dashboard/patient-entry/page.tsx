@@ -70,7 +70,6 @@ export default function PatientEntryPage() {
   const { t, language } = useI18n();
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
   const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
-  const [departments, setDepartments] = React.useState<string[]>([]);
   const [departmentDisplayByValue, setDepartmentDisplayByValue] = React.useState<Record<string, string>>({});
   const [showForm, setShowForm] = React.useState(false);
   const [formMessage, setFormMessage] = React.useState("");
@@ -125,21 +124,23 @@ export default function PatientEntryPage() {
         if (!active) return;
         setSchedules(scheduleRecords);
         setTokens(tokenRecords);
-        setDepartments(bootstrap.departments || []);
         setDepartmentDisplayByValue(
-          Object.fromEntries(
-            (bootstrap.departments || []).map((department, index) => [
+          Object.fromEntries([
+            ...(bootstrap.departments || []).map((department, index) => [
               department,
               localizeDepartmentName(department, bootstrap.displayDepartments?.[index]),
-            ])
-          )
+            ]),
+            ...scheduleRecords.map((schedule) => [
+              schedule.department,
+              localizeDepartmentName(schedule.department, schedule.displayDepartment),
+            ]),
+          ])
         );
       })
       .catch((error) => {
         if (!active) return;
         setSchedules([]);
         setTokens([]);
-        setDepartments([]);
         setDepartmentDisplayByValue({});
         setFormMessage(error instanceof Error ? error.message : "Unable to load patient entry data.");
       });
@@ -150,6 +151,17 @@ export default function PatientEntryPage() {
   }, [visitDate]);
 
   const todaySchedules = schedules.filter((schedule) => schedule.date === visitDate);
+  const departments = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          todaySchedules
+            .map((schedule) => schedule.department?.trim())
+            .filter((department): department is string => Boolean(department))
+        )
+      ),
+    [todaySchedules]
+  );
   const todayAvailable = todaySchedules.reduce(
     (sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length,
     0
