@@ -499,7 +499,7 @@ export default function TVDisplayPage() {
           return;
         }
 
-        const sortedTokens = sortTokens(liveTokens).slice(0, 10);
+        const sortedTokens = sortTokens(liveTokens);
         const currentLiveIndex = Math.max(
           sortedTokens.findIndex((token) => token.status === "CALLING"),
           0
@@ -909,9 +909,10 @@ export default function TVDisplayPage() {
           </div>
           <div className="overflow-hidden rounded-[18px]">
             <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full table-auto border-collapse">
+              <table className="min-w-[1180px] w-full table-auto border-collapse">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
+                    <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">Token</th>
                     <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.patientName")}</th>
                     <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.doctor")}</th>
                     <th className="px-6 py-4 text-left text-[16px] font-semibold text-[#0F172A]">{t("tvDisplay.department")}</th>
@@ -931,6 +932,9 @@ export default function TVDisplayPage() {
                           key={token.id}
                           className={`border-b border-[#E2E8F0] ${isCurrentAnnouncementToken ? "bg-[#F0FDFA]" : "bg-white"}`}
                         >
+                          <td className="px-6 py-5 text-[18px] font-semibold text-[#0EA5A4]">
+                            {token.tokenNumber}
+                          </td>
                           <td className="px-6 py-5 text-[18px] font-normal text-[#0F172A]">
                             {token.displayPatientName || token.patientName || t("tvDisplay.waitingForNextPatient")}
                           </td>
@@ -961,7 +965,7 @@ export default function TVDisplayPage() {
                     })
                   ) : (
                     <tr className="border-b border-[#E2E8F0]">
-                      <td colSpan={6} className="px-6 py-5 text-center text-[18px] font-normal text-[#64748B]">
+                      <td colSpan={7} className="px-6 py-5 text-center text-[18px] font-normal text-[#64748B]">
                         {t("tvDisplay.waitingForNextPatient")}
                       </td>
                     </tr>
