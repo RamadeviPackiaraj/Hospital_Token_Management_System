@@ -21,6 +21,13 @@ const toastBaseStyle = {
 const REMOTE_LOG_QUEUE_KEY = "hospital_token_remote_log_queue";
 const REMOTE_LOG_API_URL =
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/+$/, "") + "/logs";
+const MAX_REMOTE_MESSAGE_LENGTH = 1000;
+const MAX_REMOTE_SOURCE_LENGTH = 120;
+const MAX_REMOTE_DATA_BYTES = 9000;
+const REMOTE_LOG_QUEUE_LIMIT = 50;
+const REMOTE_LOG_SILENT_SOURCES = new Set(["api.request", "api.response"]);
+const REMOTE_LOG_DEDUP_WINDOW_MS = 2000;
+const recentRemoteLogKeys = new Map<string, number>();
 
 interface RemoteLogPayload {
   type: LogLevel;
@@ -28,6 +35,16 @@ interface RemoteLogPayload {
   source?: string;
   origin: "frontend";
   data?: unknown;
+}
+
+class RemoteLogError extends Error {
+  status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "RemoteLogError";
+    this.status = status;
+  }
 }
 
 function showToast(type: LogLevel, message: string, destructive = false) {
@@ -110,6 +127,35 @@ function sanitizeLogData(data: unknown) {
   }
 }
 
+function byteLength(value: unknown) {
+  try {
+    return new Blob([JSON.stringify(value)]).size;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+function truncateText(value: string | undefined, maxLength: number) {
+  if (!value) return value;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function buildRemotePayload(type: LogLevel, message: string, options: LogOptions = {}): RemoteLogPayload {
+  const sanitizedData = sanitizeLogData(options.data);
+  const safeData =
+    sanitizedData !== undefined && byteLength(sanitizedData) > MAX_REMOTE_DATA_BYTES
+      ? { truncated: true, reason: "remote log data exceeded safe size" }
+      : sanitizedData;
+
+  return {
+    type,
+    message: truncateText(message, MAX_REMOTE_MESSAGE_LENGTH) || "Log message",
+    source: truncateText(options.source, MAX_REMOTE_SOURCE_LENGTH),
+    origin: "frontend",
+    data: safeData,
+  };
+}
+
 function getRemoteLogQueue(): RemoteLogPayload[] {
   if (typeof window === "undefined") {
     return [];
@@ -139,7 +185,7 @@ function setRemoteLogQueue(queue: RemoteLogPayload[]) {
       return;
     }
 
-    window.localStorage.setItem(REMOTE_LOG_QUEUE_KEY, JSON.stringify(queue.slice(-100)));
+    window.localStorage.setItem(REMOTE_LOG_QUEUE_KEY, JSON.stringify(queue.slice(-REMOTE_LOG_QUEUE_LIMIT)));
   } catch {
     // Ignore queue persistence failures.
   }
@@ -159,9 +205,11 @@ async function postRemoteLog(payload: RemoteLogPayload) {
   });
 
   if (!response.ok) {
-    throw new Error(`Remote log request failed with status ${response.status}`);
+    throw new RemoteLogError(`Remote log request failed with status ${response.status}`, response.status);
   }
 }
+
+let flushPromise: Promise<void> | null = null;
 
 async function flushRemoteLogQueue() {
   const queuedLogs = getRemoteLogQueue();
@@ -177,11 +225,25 @@ async function flushRemoteLogQueue() {
 
     try {
       await postRemoteLog(payload);
-    } catch {
+    } catch (error) {
+      if (error instanceof RemoteLogError && error.status === 422) {
+        continue;
+      }
+
       setRemoteLogQueue(pendingLogs.slice(index));
       return;
     }
   }
+}
+
+function flushRemoteLogQueueOnce() {
+  if (!flushPromise) {
+    flushPromise = flushRemoteLogQueue().finally(() => {
+      flushPromise = null;
+    });
+  }
+
+  return flushPromise;
 }
 
 export function flushQueuedRemoteLogs() {
@@ -193,7 +255,7 @@ export function flushQueuedRemoteLogs() {
     return;
   }
 
-  void flushRemoteLogQueue();
+  void flushRemoteLogQueueOnce();
 }
 
 function persistLog(type: LogLevel, message: string, options: LogOptions = {}) {
@@ -205,21 +267,37 @@ function persistLog(type: LogLevel, message: string, options: LogOptions = {}) {
     return;
   }
 
-  const payload: RemoteLogPayload = {
-    type,
-    message,
-    source: options.source,
-    origin: "frontend",
-    data: sanitizeLogData(options.data),
-  };
+  if (options.source && REMOTE_LOG_SILENT_SOURCES.has(options.source)) {
+    return;
+  }
 
-  void flushRemoteLogQueue()
+  const payload = buildRemotePayload(type, message, options);
+  const dedupeKey = `${payload.type}:${payload.source || ""}:${payload.message}`;
+  const lastSentAt = recentRemoteLogKeys.get(dedupeKey) || 0;
+  if (Date.now() - lastSentAt < REMOTE_LOG_DEDUP_WINDOW_MS) {
+    return;
+  }
+  recentRemoteLogKeys.set(dedupeKey, Date.now());
+  if (recentRemoteLogKeys.size > 100) {
+    const cutoff = Date.now() - REMOTE_LOG_DEDUP_WINDOW_MS;
+    for (const [key, timestamp] of recentRemoteLogKeys.entries()) {
+      if (timestamp < cutoff) {
+        recentRemoteLogKeys.delete(key);
+      }
+    }
+  }
+
+  void flushRemoteLogQueueOnce()
     .catch(() => {
       // Ignore queue flush errors and continue with the current log attempt.
     })
     .finally(() => {
-      void postRemoteLog(payload).catch(() => {
-        setRemoteLogQueue([...getRemoteLogQueue(), payload]);
+      void postRemoteLog(payload).catch((error) => {
+        if (error instanceof RemoteLogError && error.status === 422) {
+          return;
+        }
+
+        setRemoteLogQueue([...getRemoteLogQueue(), payload].slice(-REMOTE_LOG_QUEUE_LIMIT));
       });
     });
 }
