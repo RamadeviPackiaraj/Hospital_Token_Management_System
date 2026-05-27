@@ -1,6 +1,8 @@
 "use client";
 
 import { apiRequest } from "@/lib/api";
+import { buildQuery } from "@/lib/api";
+import { buildServerSort, type PaginatedResponse, type ServerListParams } from "@/lib/pagination";
 import type { ActiveCall, CallLogEntry, HospitalCallTarget, OperationalMessageTemplate } from "@/lib/calls";
 
 export interface CallBootstrapData {
@@ -55,6 +57,22 @@ export function getActiveCalls() {
 
 export function getCallLogs() {
   return apiRequest<CallLogEntry[]>("/calls/logs");
+}
+
+export function getCallLogsPage(params: ServerListParams = {}) {
+  return apiRequest<PaginatedResponse<CallLogEntry>>(
+    `/calls/logs${buildQuery({
+      page: params.page,
+      limit: params.limit,
+      department: params.department,
+      search: params.search,
+      date: params.date,
+      finalStatus: params.finalStatus,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+      sort: buildServerSort(params.sortBy, params.sortOrder),
+    })}`
+  );
 }
 
 export function createCall(payload: {

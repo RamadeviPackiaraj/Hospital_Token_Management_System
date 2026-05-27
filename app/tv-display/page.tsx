@@ -85,54 +85,6 @@ function getCloudLanguageLabel(language: CloudTtsLanguage, t: (key: string, opti
   return getLanguageLabel(option.languageKey, t);
 }
 
-const MOCK_TOKENS: PatientTokenRecord[] = [
-  {
-    id: "tv-token-1",
-    tokenNumber: 1,
-    patientName: "Asha Patel",
-    dob: "1988-03-14",
-    bloodGroup: "B+",
-    aadhaar: "",
-    contact: "9999999991",
-    department: "Cardiology",
-    doctorName: "Rohan Mehta",
-    date: "2026-04-17",
-    time: "09:00 AM",
-    status: "CALLING",
-    createdAt: "2026-04-17T09:00:00.000Z",
-  },
-  {
-    id: "tv-token-2",
-    tokenNumber: 2,
-    patientName: "Priya Nair",
-    dob: "1994-07-22",
-    bloodGroup: "A+",
-    aadhaar: "",
-    contact: "9999999992",
-    department: "Orthopedics",
-    doctorName: "Anil Kumar",
-    date: "2026-04-17",
-    time: "09:15 AM",
-    status: "NOT_STARTED",
-    createdAt: "2026-04-17T09:15:00.000Z",
-  },
-  {
-    id: "tv-token-3",
-    tokenNumber: 3,
-    patientName: "Vikram Singh",
-    dob: "1979-11-08",
-    bloodGroup: "O+",
-    aadhaar: "",
-    contact: "9999999993",
-    department: "Neurology",
-    doctorName: "Meera Joseph",
-    date: "2026-04-17",
-    time: "09:30 AM",
-    status: "NOT_STARTED",
-    createdAt: "2026-04-17T09:30:00.000Z",
-  },
-];
-
 function getTodayDateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -143,23 +95,6 @@ function getTodayDateKey(date: Date) {
 
 function sortTokens(tokens: PatientTokenRecord[]) {
   return [...tokens].sort((left, right) => left.tokenNumber - right.tokenNumber);
-}
-
-function applySimulation(tokens: PatientTokenRecord[], activeIndex: number) {
-  return tokens.map((token, index) => {
-    let status: PatientTokenRecord["status"] = "NOT_STARTED";
-
-    if (index < activeIndex) {
-      status = "COMPLETED";
-    } else if (index === activeIndex) {
-      status = "CALLING";
-    }
-
-    return {
-      ...token,
-      status,
-    };
-  });
 }
 
 function formatDisplayDate(date: Date, language: AppLanguage) {
@@ -324,9 +259,6 @@ export default function TVDisplayPage() {
   const { language, t } = useI18n();
   const [now, setNow] = React.useState<Date | null>(null);
   const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  const [usingMockData, setUsingMockData] = React.useState(false);
-  const [demoMode, setDemoMode] = React.useState(false);
   const [liveStatus, setLiveStatus] = React.useState<LiveStatus>("loading");
   const [settings, setSettings] = React.useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -366,12 +298,6 @@ export default function TVDisplayPage() {
       };
     });
   }, [language]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    setDemoMode(params.get("demo") === "1");
-  }, []);
 
   React.useEffect(() => {
     const timer = window.setInterval(() => {
@@ -476,14 +402,6 @@ export default function TVDisplayPage() {
   }, [settings.muted, stopAllAnnouncementPlayback]);
 
   React.useEffect(() => {
-    if (demoMode) {
-      setTokens(sortTokens(MOCK_TOKENS));
-      setActiveIndex(0);
-      setUsingMockData(true);
-      setLiveStatus("ready");
-      return;
-    }
-
     let isMounted = true;
 
     async function loadTokens() {
@@ -493,21 +411,12 @@ export default function TVDisplayPage() {
 
         if (liveTokens.length === 0) {
           setTokens([]);
-          setActiveIndex(0);
-          setUsingMockData(false);
           setLiveStatus("empty");
           return;
         }
 
         const sortedTokens = sortTokens(liveTokens);
-        const currentLiveIndex = Math.max(
-          sortedTokens.findIndex((token) => token.status === "CALLING"),
-          0
-        );
-
         setTokens(sortedTokens);
-        setActiveIndex(currentLiveIndex);
-        setUsingMockData(false);
         setLiveStatus("ready");
       } catch (error) {
         if (!isMounted) return;
@@ -516,8 +425,6 @@ export default function TVDisplayPage() {
           data: { error },
         });
         setTokens([]);
-        setActiveIndex(0);
-        setUsingMockData(false);
         setLiveStatus("error");
       }
     }
@@ -531,21 +438,7 @@ export default function TVDisplayPage() {
       isMounted = false;
       window.clearInterval(poller);
     };
-  }, [demoMode]);
-
-  React.useEffect(() => {
-    if (!usingMockData || tokens.length === 0) {
-      return;
-    }
-
-    const rotationTimer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % tokens.length);
-    }, 8000);
-
-    return () => {
-      window.clearInterval(rotationTimer);
-    };
-  }, [tokens, usingMockData]);
+  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -559,8 +452,8 @@ export default function TVDisplayPage() {
       return [];
     }
 
-    return usingMockData ? applySimulation(tokens, activeIndex) : tokens;
-  }, [activeIndex, tokens, usingMockData]);
+    return tokens;
+  }, [tokens]);
 
   const activeCallingTokens = React.useMemo(
     () => displayTokens.filter((token) => token.status === "CALLING"),

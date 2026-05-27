@@ -13,7 +13,6 @@ import {
   CreateEntryCard,
   PatientEntryForm,
   TokenList,
-  LinearProgressDisplay,
   TokenEditModal,
 } from "@/components/patient-entry";
 import {
@@ -22,7 +21,7 @@ import {
 } from "@/lib/scheduling";
 import {
   assignPatientToken,
-  deletePatientToken,
+  deletePatientToken, 
   getDoctorSchedules,
   getPatientTokens,
   getScheduleBootstrap,
@@ -166,8 +165,6 @@ export default function PatientEntryPage() {
     (sum, schedule) => sum + schedule.slots.filter((slot) => !slot.isBooked).length,
     0
   );
-
-  const activeToken = tokens.find((token) => token.status === "CALLING") || null;
 
   async function onSubmit(values: PatientEntryFormValues) {
     try {
@@ -344,13 +341,6 @@ export default function PatientEntryPage() {
           { label: t("patientEntry.generated"), value: String(tokens.length) },
           { label: t("patientEntry.openSlots"), value: String(todayAvailable) },
         ]}
-        supplementaryContent={
-          <LinearProgressDisplay
-            currentToken={activeToken?.tokenNumber || null}
-            status={activeToken?.status || null}
-            compact
-          />
-        }
       />
 
       <CreateEntryCard

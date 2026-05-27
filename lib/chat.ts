@@ -26,7 +26,7 @@ export interface ChatParticipant {
   name: string;
   role: Exclude<AuthRole, "admin">;
   subtitle: string;
-  status: "pending" | "approved" | "rejected" | "mock";
+  status: "pending" | "approved" | "rejected";
 }
 
 export const QUICK_MESSAGES: Record<Exclude<AuthRole, "admin">, string[]> = {
@@ -56,31 +56,6 @@ export const QUICK_MESSAGES: Record<Exclude<AuthRole, "admin">, string[]> = {
     "Please confirm",
   ],
 };
-
-const FALLBACK_PARTICIPANTS: Record<Exclude<AuthRole, "admin">, ChatParticipant[]> = {
-  doctor: [
-    {
-      id: "hospital-mock-city-care",
-      name: "City Care Hospital",
-      role: "hospital",
-      subtitle: "Mock hospital conversation",
-      status: "mock",
-    },
-  ],
-  hospital: [
-    {
-      id: "doctor-mock-ananya",
-      name: "Dr. Ananya Rao",
-      role: "doctor",
-      subtitle: "Mock doctor conversation",
-      status: "mock",
-    },
-  ],
-};
-
-export function getFallbackParticipants(role: Exclude<AuthRole, "admin">) {
-  return FALLBACK_PARTICIPANTS[role];
-}
 
 export function normalizeChatIdentity(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, "-");

@@ -28,6 +28,16 @@ export interface TableProps<T extends Record<string, unknown>> {
     key: string;
     direction: "asc" | "desc";
   };
+  manualPagination?: boolean;
+  currentPage?: number;
+  totalPages?: number;
+  totalRecords?: number;
+  onPageChange?: (page: number) => void;
+  sortState?: {
+    key: string;
+    direction: "asc" | "desc";
+  } | null;
+  onSortChange?: (sort: { key: string; direction: "asc" | "desc" } | null) => void;
 }
 
 const SKELETON_ROWS = 5;
@@ -60,22 +70,36 @@ export function Table<T extends Record<string, unknown>>({
   rowKey,
   className,
   stickyHeader = false,
-  initialSort
+  initialSort,
+  manualPagination = false,
+  currentPage: controlledCurrentPage,
+  totalPages: controlledTotalPages,
+  totalRecords: controlledTotalRecords,
+  onPageChange,
+  sortState: controlledSortState,
+  onSortChange,
 }: TableProps<T>) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [sortState, setSortState] = React.useState<{ key: string; direction: "asc" | "desc" } | null>(initialSort || null);
-  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const resolvedCurrentPage = manualPagination ? controlledCurrentPage || 1 : currentPage;
+  const resolvedSortState = controlledSortState === undefined ? sortState : controlledSortState;
+  const totalPages = manualPagination
+    ? Math.max(1, controlledTotalPages || 1)
+    : Math.max(1, Math.ceil(data.length / pageSize));
 
   React.useEffect(() => {
+    if (manualPagination) {
+      return;
+    }
     setCurrentPage((page) => Math.min(page, totalPages));
-  }, [totalPages]);
+  }, [manualPagination, totalPages]);
 
   const sortedData = React.useMemo(() => {
-    if (!sortState) {
+    if (manualPagination || !resolvedSortState) {
       return data;
     }
 
-    const column = columns.find((item) => String(item.key) === sortState.key);
+    const column = columns.find((item) => String(item.key) === resolvedSortState.key);
     if (!column) {
       return data;
     }
@@ -89,35 +113,46 @@ export function Table<T extends Record<string, unknown>>({
       if (rightValue == null) return -1;
 
       if (typeof leftValue === "number" && typeof rightValue === "number") {
-        return sortState.direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
+        return resolvedSortState.direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
       }
 
       const leftText = String(leftValue).toLowerCase();
       const rightText = String(rightValue).toLowerCase();
-      return sortState.direction === "asc" ? leftText.localeCompare(rightText) : rightText.localeCompare(leftText);
+      return resolvedSortState.direction === "asc" ? leftText.localeCompare(rightText) : rightText.localeCompare(leftText);
     });
 
     return sorted;
-  }, [columns, data, sortState]);
+  }, [columns, data, manualPagination, resolvedSortState]);
 
   const paginatedData = React.useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return sortedData.slice(startIndex, startIndex + pageSize);
-  }, [currentPage, sortedData, pageSize]);
+    if (manualPagination) {
+      return sortedData;
+    }
 
-  const showPagination = !loading && sortedData.length > pageSize;
+    const startIndex = (resolvedCurrentPage - 1) * pageSize;
+    return sortedData.slice(startIndex, startIndex + pageSize);
+  }, [manualPagination, pageSize, resolvedCurrentPage, sortedData]);
+
+  const totalRecords = manualPagination ? controlledTotalRecords || data.length : sortedData.length;
+  const showPagination = !loading && (manualPagination ? totalPages > 1 : sortedData.length > pageSize);
   const showEmptyState = !loading && sortedData.length === 0;
 
   function toggleSort(column: TableColumn<T>) {
     if (!column.sortable) return;
+    const key = String(column.key);
+    const nextSort: { key: string; direction: "asc" | "desc" } =
+      !resolvedSortState || resolvedSortState.key !== key
+        ? { key, direction: "asc" }
+        : { key, direction: resolvedSortState.direction === "asc" ? "desc" : "asc" };
+
+    if (manualPagination) {
+      onPageChange?.(1);
+      onSortChange?.(nextSort);
+      return;
+    }
+
     setCurrentPage(1);
-    setSortState((current) => {
-      const key = String(column.key);
-      if (!current || current.key !== key) {
-        return { key, direction: "asc" };
-      }
-      return { key, direction: current.direction === "asc" ? "desc" : "asc" };
-    });
+    setSortState(nextSort);
   }
 
   return (
@@ -143,8 +178,8 @@ export function Table<T extends Record<string, unknown>>({
                         onClick={() => toggleSort(column)}
                       >
                         <span>{column.header}</span>
-                        {sortState?.key === String(column.key) ? (
-                          sortState.direction === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
+                        {resolvedSortState?.key === String(column.key) ? (
+                          resolvedSortState.direction === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
                         ) : (
                           <ArrowUpDown className="size-3.5 opacity-60" />
                         )}
@@ -202,26 +237,34 @@ export function Table<T extends Record<string, unknown>>({
       {showPagination ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="ui-body-secondary">
-            Showing {(currentPage - 1) * pageSize + 1}-
-            {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length}
+            Showing {totalRecords === 0 ? 0 : (resolvedCurrentPage - 1) * pageSize + 1}-
+            {Math.min(resolvedCurrentPage * pageSize, totalRecords)} of {totalRecords}
           </p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
+              onClick={() =>
+                manualPagination
+                  ? onPageChange?.(Math.max(1, resolvedCurrentPage - 1))
+                  : setCurrentPage((page) => Math.max(1, page - 1))
+              }
+              disabled={resolvedCurrentPage === 1}
             >
               Previous
             </Button>
             <span className="min-w-20 text-center ui-body-secondary">
-              {currentPage} / {totalPages}
+              {resolvedCurrentPage} / {totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() =>
+                manualPagination
+                  ? onPageChange?.(Math.min(totalPages, resolvedCurrentPage + 1))
+                  : setCurrentPage((page) => Math.min(totalPages, page + 1))
+              }
+              disabled={resolvedCurrentPage === totalPages}
             >
               Next
             </Button>

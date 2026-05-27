@@ -1,4 +1,5 @@
 import { apiRequest, buildQuery } from "@/lib/api";
+import { buildServerSort, type PaginatedResponse, type ServerListParams } from "@/lib/pagination";
 import {
   mapAdminEntityToMockUser,
   type AdminEntityItem,
@@ -293,17 +294,53 @@ export async function getDoctorNameById(doctorId: string) {
 }
 
 export async function getAdminHospitals() {
-  const response = await apiRequest<{ items: any[] }>(
-    `/admin/hospitals${buildQuery({ limit: 100 })}`
-  );
+  const response = await apiRequest<{ items: any[] }>(`/admin/hospitals${buildQuery({ limit: 100 })}`);
   return (response.items || []).map(mapAdminEntityToMockUser);
 }
 
 export async function getAdminDoctors() {
-  const response = await apiRequest<{ items: any[] }>(
-    `/admin/doctors${buildQuery({ limit: 100 })}`
-  );
+  const response = await apiRequest<{ items: any[] }>(`/admin/doctors${buildQuery({ limit: 100 })}`);
   return (response.items || []).map(mapAdminEntityToMockUser);
+}
+
+export async function getAdminDoctorsPage(params: ServerListParams = {}): Promise<PaginatedResponse<MockUser>> {
+  const response = await apiRequest<PaginatedResponse<AdminEntityItem>>(
+    `/admin/doctors${buildQuery({
+      page: params.page,
+      limit: params.limit,
+      status: params.status,
+      search: params.search,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+      sort: buildServerSort(params.sortBy, params.sortOrder),
+    })}`
+  );
+
+  return {
+    items: (response.items || []).map(mapAdminEntityToMockUser),
+    pagination: response.pagination,
+  };
+}
+
+export async function getAdminHospitalsPage(
+  params: ServerListParams = {}
+): Promise<PaginatedResponse<MockUser>> {
+  const response = await apiRequest<PaginatedResponse<AdminEntityItem>>(
+    `/admin/hospitals${buildQuery({
+      page: params.page,
+      limit: params.limit,
+      status: params.status,
+      search: params.search,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+      sort: buildServerSort(params.sortBy, params.sortOrder),
+    })}`
+  );
+
+  return {
+    items: (response.items || []).map(mapAdminEntityToMockUser),
+    pagination: response.pagination,
+  };
 }
 
 function setIfNotBlank(payload: Record<string, unknown>, key: string, value: string | undefined) {

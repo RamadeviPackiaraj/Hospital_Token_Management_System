@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Search, ShieldCheck, UserRoundCheck, X } from "lucide-react";
 import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import { Avatar } from "@/components/data-display/Avatar";
@@ -20,7 +21,8 @@ import {
 } from "@/lib/auth-flow";
 import { apiRequest } from "@/lib/api";
 import { localizeDepartmentName } from "@/lib/dynamic-localization";
-import { deleteAdminDoctor, getAdminDoctors, updateAdminDoctorProfile } from "@/lib/dashboard-data";
+import { deleteAdminDoctor, getAdminDoctorsPage, updateAdminDoctorProfile } from "@/lib/dashboard-data";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { logger } from "@/lib/logger";
 
 type DoctorRow = Record<string, unknown> & MockUser;
@@ -54,7 +56,7 @@ export default function DoctorsPage() {
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("pending");
   const [sortOrder, setSortOrder] = React.useState("registered-desc");
-  const [users, setUsers] = React.useState<MockUser[]>([]);
+  const [adminPage, setAdminPage] = React.useState(1);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
   const [rejectIntent, setRejectIntent] = React.useState<AdminDoctorActionIntent>("reject");
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
@@ -67,14 +69,51 @@ export default function DoctorsPage() {
   const [hospitalError, setHospitalError] = React.useState("");
   const [actioningDoctorId, setActioningDoctorId] = React.useState<string | null>(null);
   const [adminActioningDoctorId, setAdminActioningDoctorId] = React.useState<string | null>(null);
+  const debouncedAdminSearch = useDebouncedValue(search, 350);
+  const queryClient = useQueryClient();
+  const adminPageSize = 20;
 
-  React.useEffect(() => {
-    if (currentUser.role !== "admin") return;
+  const adminSort = React.useMemo(() => {
+    switch (sortOrder) {
+      case "name-asc":
+        return { sortBy: "name", sortOrder: "asc" as const };
+      case "name-desc":
+        return { sortBy: "name", sortOrder: "desc" as const };
+      case "status-asc":
+        return { sortBy: "loginStatus", sortOrder: "asc" as const };
+      case "status-desc":
+        return { sortBy: "loginStatus", sortOrder: "desc" as const };
+      case "registered-asc":
+        return { sortBy: "createdAt", sortOrder: "asc" as const };
+      case "registered-desc":
+      default:
+        return { sortBy: "createdAt", sortOrder: "desc" as const };
+    }
+  }, [sortOrder]);
 
-    getAdminDoctors()
-      .then((data) => setUsers(data))
-      .catch(() => setUsers([]));
-  }, [currentUser.role]);
+  const adminDoctorsQuery = useQuery({
+    queryKey: [
+      "admin-doctors",
+      adminPage,
+      adminPageSize,
+      statusFilter,
+      debouncedAdminSearch,
+      adminSort.sortBy,
+      adminSort.sortOrder,
+      currentUser.role,
+    ],
+    queryFn: () =>
+      getAdminDoctorsPage({
+        page: adminPage,
+        limit: adminPageSize,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        search: debouncedAdminSearch || undefined,
+        sortBy: adminSort.sortBy,
+        sortOrder: adminSort.sortOrder,
+      }),
+    enabled: currentUser.role === "admin",
+    placeholderData: keepPreviousData,
+  });
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -86,6 +125,10 @@ export default function DoctorsPage() {
         : "pending"
     );
   }, []);
+
+  React.useEffect(() => {
+    setAdminPage(1);
+  }, [debouncedAdminSearch, statusFilter, sortOrder]);
 
   React.useEffect(() => {
     if (currentUser.role !== "hospital") return;
@@ -137,25 +180,7 @@ export default function DoctorsPage() {
     }
   }
 
-  const doctorRows: DoctorRow[] = users
-    .filter((user) => user.role === "doctor")
-    .filter((user) => {
-      const matchesSearch =
-        user.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "all" || user.approvalStatus === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    })
-    .map((user) => ({ ...user }))
-    .sort((left, right) => {
-      if (sortOrder === "name-asc") return (left.displayFullName || left.fullName).localeCompare(right.displayFullName || right.fullName);
-      if (sortOrder === "name-desc") return (right.displayFullName || right.fullName).localeCompare(left.displayFullName || left.fullName);
-      if (sortOrder === "status-asc") return left.approvalStatus.localeCompare(right.approvalStatus);
-      if (sortOrder === "status-desc") return right.approvalStatus.localeCompare(left.approvalStatus);
-      if (sortOrder === "registered-asc") return (left.registrationDate || "").localeCompare(right.registrationDate || "");
-      return (right.registrationDate || "").localeCompare(left.registrationDate || "");
-    });
+  const doctorRows: DoctorRow[] = (adminDoctorsQuery.data?.items || []).map((user) => ({ ...user }));
 
   async function updateStatus(userId: string, status: UserApprovalStatus) {
     setAdminActioningDoctorId(userId);
@@ -165,8 +190,7 @@ export default function DoctorsPage() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      const updated = await getAdminDoctors();
-      setUsers(updated);
+      await queryClient.invalidateQueries({ queryKey: ["admin-doctors"] });
       await refreshSession();
       logger.success(status === "approved" ? t("doctors.approveSuccess") : t("doctors.rejectSuccess"), {
         source: "doctors.admin",
@@ -290,8 +314,7 @@ export default function DoctorsPage() {
         }
 
         await updateAdminDoctorProfile(user);
-        const updated = await getAdminDoctors();
-        setUsers(updated);
+        await queryClient.invalidateQueries({ queryKey: ["admin-doctors"] });
         setEditTarget(null);
         await refreshSession();
         logger.success("Doctor updated.", {
@@ -318,8 +341,7 @@ export default function DoctorsPage() {
     void (async () => {
       try {
         await deleteAdminDoctor(deleteTarget.id);
-        const updated = await getAdminDoctors();
-        setUsers(updated);
+        await queryClient.invalidateQueries({ queryKey: ["admin-doctors"] });
         logger.warn("Doctor deleted.", {
           source: "doctors.admin",
           data: { userId: deleteTarget.id },
@@ -512,9 +534,9 @@ export default function DoctorsPage() {
         imageSrc="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=900&q=80"
         imageAlt={t("doctors.imageAltAdmin")}
         stats={[
-          { label: t("common.statuses.pending"), value: String(users.filter((user) => user.role === "doctor" && user.approvalStatus === "pending").length) },
-          { label: t("common.statuses.approved"), value: String(users.filter((user) => user.role === "doctor" && user.approvalStatus === "approved").length) },
-          { label: t("common.statuses.rejected"), value: String(users.filter((user) => user.role === "doctor" && user.approvalStatus === "rejected").length) },
+          { label: t("common.statuses.pending"), value: statusFilter === "pending" ? String(adminDoctorsQuery.data?.pagination.totalRecords || 0) : "-" },
+          { label: t("common.statuses.approved"), value: statusFilter === "approved" ? String(adminDoctorsQuery.data?.pagination.totalRecords || 0) : "-" },
+          { label: t("common.statuses.rejected"), value: statusFilter === "rejected" ? String(adminDoctorsQuery.data?.pagination.totalRecords || 0) : "-" },
         ]}
       />
 
@@ -627,8 +649,14 @@ export default function DoctorsPage() {
             },
           ]}
           data={doctorRows}
-          pageSize={6}
+          pageSize={adminPageSize}
           stickyHeader
+          loading={adminDoctorsQuery.isLoading || adminDoctorsQuery.isFetching}
+          manualPagination
+          currentPage={adminDoctorsQuery.data?.pagination.page || adminPage}
+          totalPages={adminDoctorsQuery.data?.pagination.totalPages || 1}
+          totalRecords={adminDoctorsQuery.data?.pagination.totalRecords || 0}
+          onPageChange={setAdminPage}
           emptyMessage={t("doctors.noDoctorsFiltered")}
         />
       </Card>

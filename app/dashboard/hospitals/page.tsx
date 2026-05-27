@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   CircleCheckBig,
@@ -34,15 +35,16 @@ import {
 import { apiRequest, buildQuery } from "@/lib/api";
 import {
   deleteAdminHospital,
+  getAdminHospitalsPage,
   getSelectionsForDoctor,
   getDoctorSubscriptionSummary,
+  type DoctorSubscriptionSummary,
+  type HospitalSelection,
   removeHospitalSelection,
   submitHospitalSelections,
-  type HospitalSelection,
-  getAdminHospitals,
   updateAdminHospitalProfile,
-  type DoctorSubscriptionSummary,
 } from "@/lib/dashboard-data";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { logger } from "@/lib/logger";
 import { useCallStore } from "@/store/callStore";
 
@@ -269,7 +271,7 @@ export default function HospitalsPage() {
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("pending");
   const [sortOrder, setSortOrder] = React.useState("registered-desc");
-  const [users, setUsers] = React.useState<MockUser[]>([]);
+  const [adminPage, setAdminPage] = React.useState(1);
   const [rejectTarget, setRejectTarget] = React.useState<MockUser | null>(null);
   const [editTarget, setEditTarget] = React.useState<MockUser | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<MockUser | null>(null);
@@ -286,14 +288,51 @@ export default function HospitalsPage() {
   const [actioningHospitalId, setActioningHospitalId] = React.useState<string | null>(null);
   const activeCalls = useCallStore((state) => state.activeCalls);
   const callLogs = useCallStore((state) => state.callLogs);
+  const debouncedAdminSearch = useDebouncedValue(search, 350);
+  const queryClient = useQueryClient();
+  const adminPageSize = 20;
 
-  React.useEffect(() => {
-    if (currentUser.role !== "admin") return;
+  const adminSort = React.useMemo(() => {
+    switch (sortOrder) {
+      case "name-asc":
+        return { sortBy: "name", sortOrder: "asc" as const };
+      case "name-desc":
+        return { sortBy: "name", sortOrder: "desc" as const };
+      case "status-asc":
+        return { sortBy: "loginStatus", sortOrder: "asc" as const };
+      case "status-desc":
+        return { sortBy: "loginStatus", sortOrder: "desc" as const };
+      case "registered-asc":
+        return { sortBy: "createdAt", sortOrder: "asc" as const };
+      case "registered-desc":
+      default:
+        return { sortBy: "createdAt", sortOrder: "desc" as const };
+    }
+  }, [sortOrder]);
 
-    getAdminHospitals()
-      .then((data) => setUsers(data))
-      .catch(() => setUsers([]));
-  }, [currentUser.role]);
+  const adminHospitalsQuery = useQuery({
+    queryKey: [
+      "admin-hospitals",
+      adminPage,
+      adminPageSize,
+      statusFilter,
+      debouncedAdminSearch,
+      adminSort.sortBy,
+      adminSort.sortOrder,
+      currentUser.role,
+    ],
+    queryFn: () =>
+      getAdminHospitalsPage({
+        page: adminPage,
+        limit: adminPageSize,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        search: debouncedAdminSearch || undefined,
+        sortBy: adminSort.sortBy,
+        sortOrder: adminSort.sortOrder,
+      }),
+    enabled: currentUser.role === "admin",
+    placeholderData: keepPreviousData,
+  });
 
   React.useEffect(() => {
     const nextStatus = searchParams.get("status");
@@ -303,6 +342,10 @@ export default function HospitalsPage() {
         : "pending"
     );
   }, [searchParams]);
+
+  React.useEffect(() => {
+    setAdminPage(1);
+  }, [debouncedAdminSearch, statusFilter, sortOrder]);
 
   React.useEffect(() => {
     if (currentUser.role !== "doctor") return;
@@ -341,27 +384,7 @@ export default function HospitalsPage() {
     };
   }, [currentUser.id, currentUser.role]);
 
-  const hospitalRows: HospitalRow[] = users
-    .filter((user) => user.role === "hospital")
-    .filter((user) => {
-      const matchesSearch =
-        (user.displayHospitalName || user.hospitalName || user.fullName).toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "all" || user.approvalStatus === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    })
-    .map((user) => ({ ...user }))
-    .sort((left, right) => {
-      const leftName = left.displayHospitalName || left.hospitalName || left.fullName;
-      const rightName = right.displayHospitalName || right.hospitalName || right.fullName;
-      if (sortOrder === "name-asc") return leftName.localeCompare(rightName);
-      if (sortOrder === "name-desc") return rightName.localeCompare(leftName);
-      if (sortOrder === "status-asc") return left.approvalStatus.localeCompare(right.approvalStatus);
-      if (sortOrder === "status-desc") return right.approvalStatus.localeCompare(left.approvalStatus);
-      if (sortOrder === "registered-asc") return (left.registrationDate || "").localeCompare(right.registrationDate || "");
-      return (right.registrationDate || "").localeCompare(left.registrationDate || "");
-    });
+  const hospitalRows: HospitalRow[] = (adminHospitalsQuery.data?.items || []).map((user) => ({ ...user }));
 
   const scopedHospitalDetailActiveCalls = detailsTarget
     ? activeCalls.filter(
@@ -405,41 +428,20 @@ export default function HospitalsPage() {
       await apiRequest(`/admin/hospitals/${userId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
-    });
-
-  const hospitalDetailActiveCalls = detailsTarget
-    ? activeCalls.filter((call) => call.hospitalId === detailsTarget.id || call.hospitalName === (detailsTarget.displayHospitalName || detailsTarget.hospitalName || detailsTarget.fullName))
-    : [];
-  const hospitalDetailLogs = detailsTarget
-    ? callLogs.filter((log) => log.hospitalId === detailsTarget.id || log.hospitalName === (detailsTarget.displayHospitalName || detailsTarget.hospitalName || detailsTarget.fullName)).slice(0, 6)
-    : [];
-  const hospitalTimelineItems = [
-    ...hospitalDetailActiveCalls.map((call) => ({
-      id: `hospital-active-${call.id}`,
-      title: `${call.doctorName} raised ${call.messageLabel}`,
-      description: `${call.department} department is waiting on hospital response.`,
-      occurredAt: call.startedAt,
-      tone: "active" as const,
-    })),
-    ...hospitalDetailLogs.map((log) => ({
-      id: `hospital-log-${log.id}`,
-      title: `${log.messageLabel} ${log.finalStatus}`,
-      description: `${log.doctorName} · ended by ${log.endedBy}.`,
-      occurredAt: log.endedAt,
-      tone: "resolved" as const,
-    })),
-  ].sort((left, right) => right.occurredAt - left.occurredAt);
-      const updated = await getAdminHospitals();
-      setUsers(updated);
+      });
+      await queryClient.invalidateQueries({ queryKey: ["admin-hospitals"] });
       await refreshSession();
       logger.success(
-        status === "approved" ? `${t("hospitals.hospital")} ${t("common.statuses.approved").toLowerCase()}.` : `${t("hospitals.hospital")} ${t("common.statuses.rejected").toLowerCase()}.`,
+        status === "approved"
+          ? `${t("hospitals.hospital")} ${t("common.statuses.approved").toLowerCase()}.`
+          : `${t("hospitals.hospital")} ${t("common.statuses.rejected").toLowerCase()}.`,
         {
-        source: "hospitals.admin",
-        data: { userId, status },
-        toast: true,
-        destructive: status === "rejected",
-      });
+          source: "hospitals.admin",
+          data: { userId, status },
+          toast: true,
+          destructive: status === "rejected",
+        }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to update hospital status.";
       logger.error("Unable to update the hospital status.", {
@@ -471,8 +473,7 @@ export default function HospitalsPage() {
         }
 
         await updateAdminHospitalProfile(normalizedUser);
-        const updated = await getAdminHospitals();
-        setUsers(updated);
+        await queryClient.invalidateQueries({ queryKey: ["admin-hospitals"] });
         setEditTarget(null);
         await refreshSession();
         logger.success("Hospital updated.", {
@@ -499,8 +500,7 @@ export default function HospitalsPage() {
     void (async () => {
       try {
         await deleteAdminHospital(deleteTarget.id);
-        const updated = await getAdminHospitals();
-        setUsers(updated);
+        await queryClient.invalidateQueries({ queryKey: ["admin-hospitals"] });
         logger.warn("Hospital deleted.", {
           source: "hospitals.admin",
           data: { userId: deleteTarget.id },
@@ -934,9 +934,9 @@ export default function HospitalsPage() {
         imageSrc="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=900&q=80"
         imageAlt={t("hospitals.adminImageAlt")}
         stats={[
-          { label: t("common.statuses.pending"), value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "pending").length) },
-          { label: t("common.statuses.approved"), value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "approved").length) },
-          { label: t("common.statuses.rejected"), value: String(users.filter((user) => user.role === "hospital" && user.approvalStatus === "rejected").length) },
+          { label: t("common.statuses.pending"), value: statusFilter === "pending" ? String(adminHospitalsQuery.data?.pagination.totalRecords || 0) : "-" },
+          { label: t("common.statuses.approved"), value: statusFilter === "approved" ? String(adminHospitalsQuery.data?.pagination.totalRecords || 0) : "-" },
+          { label: t("common.statuses.rejected"), value: statusFilter === "rejected" ? String(adminHospitalsQuery.data?.pagination.totalRecords || 0) : "-" },
         ]}
       />
 
@@ -1046,8 +1046,14 @@ export default function HospitalsPage() {
             },
           ]}
           data={hospitalRows}
-          pageSize={6}
+          pageSize={adminPageSize}
           stickyHeader
+          loading={adminHospitalsQuery.isLoading || adminHospitalsQuery.isFetching}
+          manualPagination
+          currentPage={adminHospitalsQuery.data?.pagination.page || adminPage}
+          totalPages={adminHospitalsQuery.data?.pagination.totalPages || 1}
+          totalRecords={adminHospitalsQuery.data?.pagination.totalRecords || 0}
+          onPageChange={setAdminPage}
           emptyMessage={t("hospitals.noHospitalsFiltered")}
         />
       </Card>

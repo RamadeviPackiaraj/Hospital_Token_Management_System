@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthRoleProvider } from "@/components/auth/AuthRoleContext";
 import { I18nProvider } from "@/components/i18n";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ConditionalLogViewer, LoggerRuntimeBridge } from "@/components/utility";
 import { Toaster } from "react-hot-toast";
 import "react-datepicker/dist/react-datepicker.css";
@@ -23,49 +24,51 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-[#F8FAFC] text-[#0F172A]" style={{ ["--font-inter" as string]: '"Segoe UI"' }}>
         <I18nProvider>
-          <AuthRoleProvider>
-            <LoggerRuntimeBridge />
-            {children}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 3200,
-                style: {
-                  border: "1px solid #E2E8F0",
-                  background: "#FFFFFF",
-                  color: "#0F172A",
-                  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  borderRadius: "12px",
-                  padding: "12px 14px",
-                },
-                success: {
-                  iconTheme: {
-                    primary: "#16A34A",
-                    secondary: "#FFFFFF",
-                  },
+          <QueryProvider>
+            <AuthRoleProvider>
+              <LoggerRuntimeBridge />
+              {children}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3200,
                   style: {
-                    border: "1px solid #BBF7D0",
-                    background: "#F0FDF4",
-                    color: "#166534",
+                    border: "1px solid #E2E8F0",
+                    background: "#FFFFFF",
+                    color: "#0F172A",
+                    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    borderRadius: "12px",
+                    padding: "12px 14px",
                   },
-                },
-                error: {
-                  iconTheme: {
-                    primary: "#DC2626",
-                    secondary: "#FFFFFF",
+                  success: {
+                    iconTheme: {
+                      primary: "#16A34A",
+                      secondary: "#FFFFFF",
+                    },
+                    style: {
+                      border: "1px solid #BBF7D0",
+                      background: "#F0FDF4",
+                      color: "#166534",
+                    },
                   },
-                  style: {
-                    border: "1px solid #FECACA",
-                    background: "#FEF2F2",
-                    color: "#991B1B",
+                  error: {
+                    iconTheme: {
+                      primary: "#DC2626",
+                      secondary: "#FFFFFF",
+                    },
+                    style: {
+                      border: "1px solid #FECACA",
+                      background: "#FEF2F2",
+                      color: "#991B1B",
+                    },
                   },
-                },
-              }}
-            />
-            <ConditionalLogViewer enabled={enableFrontendLogs} />
-          </AuthRoleProvider>
+                }}
+              />
+              <ConditionalLogViewer enabled={enableFrontendLogs} />
+            </AuthRoleProvider>
+          </QueryProvider>
         </I18nProvider>
       </body>
     </html>
