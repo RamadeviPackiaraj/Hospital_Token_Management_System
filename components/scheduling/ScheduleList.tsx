@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Lock, Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/data-display/Avatar";
 import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling/Card";
@@ -32,7 +32,24 @@ export function ScheduleList({
   const { t } = useI18n();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [search, setSearch] = React.useState("");
+  const [openLockedScheduleId, setOpenLockedScheduleId] = React.useState<string | null>(null);
+  const lockedStatusRef = React.useRef<HTMLDivElement | null>(null);
   const normalizedSearch = search.trim().toLowerCase();
+
+  React.useEffect(() => {
+    if (!openLockedScheduleId) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!lockedStatusRef.current?.contains(event.target as Node)) {
+        setOpenLockedScheduleId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [openLockedScheduleId]);
 
   const filteredSchedules = React.useMemo(() => {
     if (!normalizedSearch) {
@@ -123,6 +140,8 @@ export function ScheduleList({
             schedule.endTime ?? schedule.slots[schedule.slots.length - 1]?.time ?? "--";
           const doctorName = schedule.displayDoctorName || schedule.doctorName;
           const department = localizeDepartmentName(schedule.department, schedule.displayDepartment);
+          const canManageSchedule = schedule.slots.every((slot) => !slot.isBooked);
+          const isLockedMessageOpen = openLockedScheduleId === schedule.id;
 
           return (
             <div
@@ -160,29 +179,59 @@ export function ScheduleList({
                   {counts.available}
                 </div>
               </div>
-              <div className="min-w-0">
+              <div className="relative min-w-0" ref={isLockedMessageOpen ? lockedStatusRef : undefined}>
                 <p className="ui-meta md:hidden">{t("schedule.actions")}</p>
-                <div className="mt-1 flex items-center gap-2 whitespace-nowrap">
-                  <Button
-                    size="sm"
-                    variant={editingScheduleId === schedule.id ? "secondary" : "primary"}
-                    className="h-9 rounded-md"
-                    leftIcon={<Pencil className="size-4" />}
-                    onClick={() => onEdit?.(schedule)}
-                  >
-                    {t("common.actions.edit")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="dangerOutline"
-                    className="h-9 rounded-md"
-                    leftIcon={<Trash2 className="size-4" />}
-                    loading={deletingScheduleId === schedule.id}
-                    onClick={() => void onDelete?.(schedule)}
-                  >
-                    {t("common.actions.delete")}
-                  </Button>
-                </div>
+                {canManageSchedule ? (
+                  <div className="mt-1 flex items-center gap-2 whitespace-nowrap">
+                    <Button
+                      size="sm"
+                      variant={editingScheduleId === schedule.id ? "secondary" : "primary"}
+                      className="h-9 rounded-md"
+                      leftIcon={<Pencil className="size-4" />}
+                      onClick={() => onEdit?.(schedule)}
+                    >
+                      {t("common.actions.edit")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="dangerOutline"
+                      className="h-9 rounded-md"
+                      leftIcon={<Trash2 className="size-4" />}
+                      loading={deletingScheduleId === schedule.id}
+                      onClick={() => void onDelete?.(schedule)}
+                    >
+                      {t("common.actions.delete")}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-md border border-[#D5DBE3] bg-[#F8FAFC] px-3 py-2 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F1F5F9]"
+                      onClick={() =>
+                        setOpenLockedScheduleId((current) =>
+                          current === schedule.id ? null : schedule.id
+                        )
+                      }
+                      aria-expanded={isLockedMessageOpen}
+                      aria-label="Show locked status details"
+                    >
+                      <Lock className="size-3.5" />
+                      <span>Locked</span>
+                    </button>
+
+                    {isLockedMessageOpen ? (
+                      <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-md border border-[#CBD5E1] bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+                        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-[#475569]">
+                          Locked Status
+                        </p>
+                        <p className="mt-2 text-sm leading-5 text-[#334155]">
+                          Locked after token creation
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
           );

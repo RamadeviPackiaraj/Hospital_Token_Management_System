@@ -538,6 +538,10 @@ export default function DoctorSchedulePage() {
   }
 
   function handleEditSchedule(schedule: DoctorScheduleRecord) {
+    if (schedule.slots.some((slot) => slot.isBooked)) {
+      return;
+    }
+
     const startTime = schedule.startTime ?? schedule.slots[0]?.time ?? "";
     const lastSlotTime = schedule.slots[schedule.slots.length - 1]?.time ?? "";
     const endTime = schedule.endTime ?? addMinutesToTime(lastSlotTime, schedule.consultationTime);
@@ -563,6 +567,10 @@ export default function DoctorSchedulePage() {
   }
 
   async function handleDeleteSchedule(schedule: DoctorScheduleRecord) {
+    if (schedule.slots.some((slot) => slot.isBooked)) {
+      return;
+    }
+
     setDeletingScheduleId(schedule.id);
 
     try {
