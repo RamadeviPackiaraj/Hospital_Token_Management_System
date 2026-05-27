@@ -6,6 +6,7 @@ import { Avatar } from "@/components/data-display/Avatar";
 import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling/Card";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/utility";
 import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import type { DoctorScheduleRecord } from "@/lib/scheduling-types";
@@ -30,7 +31,35 @@ export function ScheduleList({
 }: ScheduleListProps) {
   const { t } = useI18n();
   const [currentPage, setCurrentPage] = React.useState(1);
-  const totalPages = Math.max(1, Math.ceil(schedules.length / pageSize));
+  const [search, setSearch] = React.useState("");
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredSchedules = React.useMemo(() => {
+    if (!normalizedSearch) {
+      return schedules;
+    }
+
+    return schedules.filter((schedule) => {
+      const doctorName = schedule.displayDoctorName || schedule.doctorName;
+      const department = localizeDepartmentName(schedule.department, schedule.displayDepartment);
+      const haystack = [
+        doctorName,
+        schedule.doctorName,
+        schedule.displayDoctorName,
+        schedule.department,
+        schedule.displayDepartment,
+        department,
+        schedule.date,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [normalizedSearch, schedules]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSchedules.length / pageSize));
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -38,12 +67,12 @@ export function ScheduleList({
 
   const paginatedSchedules = React.useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
-    return schedules.slice(startIndex, startIndex + pageSize);
-  }, [currentPage, pageSize, schedules]);
+    return filteredSchedules.slice(startIndex, startIndex + pageSize);
+  }, [currentPage, filteredSchedules, pageSize]);
 
-  const startRecord = schedules.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endRecord = Math.min(currentPage * pageSize, schedules.length);
-  const showPagination = schedules.length > pageSize;
+  const startRecord = filteredSchedules.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endRecord = Math.min(currentPage * pageSize, filteredSchedules.length);
+  const showPagination = filteredSchedules.length > pageSize;
 
   return (
     <Card>
@@ -60,13 +89,23 @@ export function ScheduleList({
       <div className="my-4 ui-card-divider" />
 
       <div className="grid gap-4">
-        {schedules.length === 0 ? (
+        <div className="max-w-xl">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by doctor, department, or date"
+          />
+        </div>
+
+        {filteredSchedules.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-            <p className="ui-body-secondary">{t("schedule.noSchedules")}</p>
+            <p className="ui-body-secondary">
+              {normalizedSearch ? `No schedules found for "${search.trim()}".` : t("schedule.noSchedules")}
+            </p>
           </div>
         ) : null}
 
-        {schedules.length > 0 ? (
+        {filteredSchedules.length > 0 ? (
           <div className="hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 md:grid md:grid-cols-[minmax(0,1.7fr)_minmax(120px,0.8fr)_minmax(160px,1fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(220px,1.1fr)] md:gap-4">
             <p className="ui-table-header">{t("schedule.doctor")}</p>
             <p className="ui-table-header">{t("schedule.date")}</p>
@@ -155,7 +194,7 @@ export function ScheduleList({
               {t("schedule.showingRecords", {
                 start: startRecord,
                 end: endRecord,
-                total: schedules.length,
+                total: filteredSchedules.length,
               })}
             </p>
             <Pagination

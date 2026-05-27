@@ -50,6 +50,17 @@ function formatDoctorDetail(value: string | undefined, fallback = "Not provided"
   return value && value.trim() ? value : fallback;
 }
 
+function buildDoctorSummary(row: MockUser) {
+  return [
+    localizeDepartmentName(row.department, row.displayDepartment),
+    row.displaySpecialization || row.specialization,
+    row.medicalRegistrationId,
+  ]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default function DoctorsPage() {
   const { currentUser, refreshSession } = useDashboardContext();
   const { t } = useI18n();
@@ -71,7 +82,7 @@ export default function DoctorsPage() {
   const [adminActioningDoctorId, setAdminActioningDoctorId] = React.useState<string | null>(null);
   const debouncedAdminSearch = useDebouncedValue(search, 350);
   const queryClient = useQueryClient();
-  const adminPageSize = 20;
+  const adminPageSize = 6;
 
   const adminSort = React.useMemo(() => {
     switch (sortOrder) {
@@ -452,7 +463,7 @@ export default function DoctorsPage() {
                 render: (row) => (
                   <div className="space-y-1">
                     <p className="ui-card-body">{formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment))}</p>
-                    <p className="ui-card-meta">
+                    <p className="ui-card-meta whitespace-nowrap">
                       {t("doctors.requestedOn", {
                         date: row.createdAt
                           ? formatDisplayDate(row.createdAt).replace(/ \d{2}:\d{2} (AM|PM)$/, "")
@@ -578,7 +589,6 @@ export default function DoctorsPage() {
                   <div>
                     <p className="ui-card-title">{row.displayFullName || row.fullName}</p>
                     <p className="mt-1 ui-card-meta">{row.email}</p>
-                    <p className="mt-1 ui-card-meta">{t("doctors.doctorAccount")}</p>
                   </div>
                 </div>
               ),
@@ -586,29 +596,32 @@ export default function DoctorsPage() {
             {
               key: "details",
               header: t("doctors.details"),
-                sortable: true,
-                sortValue: (row) => row.department || "",
-                render: (row) => (
+              sortable: true,
+              sortValue: (row) => row.department || "",
+              render: (row) => {
+                const summary = buildDoctorSummary(row);
+
+                return (
                   <div className="space-y-1">
                     <p className="ui-card-body">{row.mobileNumber}</p>
-                    <p className="ui-card-meta">{t("doctors.department")}: {formatDoctorDetail(localizeDepartmentName(row.department, row.displayDepartment), t("common.notProvided"))}</p>
-                    <p className="ui-card-meta">{t("doctors.specialization")}: {formatDoctorDetail(row.displaySpecialization || row.specialization, t("common.notProvided"))}</p>
-                    <p className="ui-card-meta">{t("doctors.registrationId")}: {formatDoctorDetail(row.medicalRegistrationId, t("common.notProvided"))}</p>
+                    <p className="ui-card-meta">{formatDoctorDetail(summary, t("common.notProvided"))}</p>
                   </div>
-                ),
+                );
               },
+            },
             {
               key: "registrationDate",
               header: t("doctors.registered"),
-                sortable: true,
-                sortValue: (row) => row.registrationDate || "",
-                render: (row) => (
-                  <div className="space-y-1">
-                    <p className="ui-card-body">{formatDisplayDate(row.registrationDate || "")}</p>
-                    <p className="ui-card-meta">{t("common.requestedRecently")}</p>
-                  </div>
-                ),
-              },
+              className: "min-w-[190px]",
+              headerClassName: "min-w-[190px]",
+              sortable: true,
+              sortValue: (row) => row.registrationDate || "",
+              render: (row) => (
+                <div className="space-y-1">
+                  <p className="ui-card-body whitespace-nowrap">{formatDisplayDate(row.registrationDate || "")}</p>
+                </div>
+              ),
+            },
             {
               key: "approvalStatus",
               header: t("common.actions.status"),

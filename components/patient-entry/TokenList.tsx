@@ -1,14 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpDown, CalendarDays, ChevronLeft, ChevronRight, Filter, Ticket } from "lucide-react";
+import { ArrowUpDown, CalendarDays, Filter, Ticket } from "lucide-react";
 import { useI18n } from "@/components/i18n";
 import { Card } from "@/components/scheduling";
 import { Button, Input, Select } from "@/components/ui";
 import { SectionTitle, BodySecondary } from "@/components/ui/Typography";
+import { Pagination } from "@/components/utility";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { type PatientTokenRecord, type PatientTokenStatus } from "@/lib/scheduling-types";
-import { cn } from "@/lib/utils";
 import { TokenCard } from "./TokenCard";
 
 interface TokenListProps {
@@ -35,6 +36,7 @@ export function TokenList({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [pageSize, setPageSize] = React.useState("9");
   const [currentPage, setCurrentPage] = React.useState(1);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
 
   const departmentOptions = React.useMemo(() => {
     const labelsByValue = new Map<string, string>();
@@ -92,7 +94,7 @@ export function TokenList({
   );
 
   const filteredTokens = React.useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedQuery = debouncedSearchQuery.trim().toLowerCase();
 
     return tokens.filter((token) => {
       const matchesDepartment =
@@ -108,14 +110,20 @@ export function TokenList({
           token.department,
           token.displayDepartment,
           String(token.tokenNumber),
+          `token ${token.tokenNumber}`,
           token.contact,
+          token.aadhaar,
+          token.bloodGroup,
+          token.dob,
+          token.date,
+          token.time,
         ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(normalizedQuery));
 
       return matchesDepartment && matchesStatus && matchesSearch;
     });
-  }, [searchQuery, selectedDepartment, selectedStatus, tokens]);
+  }, [debouncedSearchQuery, selectedDepartment, selectedStatus, tokens]);
 
   const sortedTokens = React.useMemo(() => {
     const sortable = [...filteredTokens];
@@ -153,14 +161,10 @@ export function TokenList({
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = sortedTokens.length === 0 ? 0 : (safeCurrentPage - 1) * numericPageSize;
   const paginatedTokens = sortedTokens.slice(startIndex, startIndex + numericPageSize);
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, index) => index + 1
-  ).slice(Math.max(0, safeCurrentPage - 3), Math.max(5, safeCurrentPage + 2));
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDepartment, selectedStatus, sortBy, pageSize]);
+  }, [debouncedSearchQuery, selectedDepartment, selectedStatus, sortBy, pageSize]);
 
   React.useEffect(() => {
     if (currentPage > totalPages) {
@@ -287,48 +291,12 @@ export function TokenList({
 
             {totalPages > 1 ? (
               <div className="flex flex-col gap-3 rounded-[14px] border border-[#D7EAF0] bg-[#FCFEFF] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <BodySecondary>{`Page ${safeCurrentPage} of ${totalPages}`}</BodySecondary>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={safeCurrentPage === 1}
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                    className="rounded-[10px] border border-[#CFEAED] bg-white"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Button>
-
-                  {pageNumbers.map((pageNumber) => (
-                    <button
-                      key={pageNumber}
-                      type="button"
-                      onClick={() => setCurrentPage(pageNumber)}
-                      className={cn(
-                        "inline-flex h-9 min-w-9 items-center justify-center rounded-[10px] border px-3 text-sm font-medium transition",
-                        pageNumber === safeCurrentPage
-                          ? "border-[#0EA5A4] bg-[#0EA5A4] text-white"
-                          : "border-[#CFEAED] bg-white text-[#0F172A] hover:border-[#0EA5A4] hover:text-[#0EA5A4]"
-                      )}
-                    >
-                      {pageNumber}
-                    </button>
-                  ))}
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={safeCurrentPage === totalPages}
-                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                    className="rounded-[10px] border border-[#CFEAED] bg-white"
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                <BodySecondary>{`Showing ${startIndex + 1}-${Math.min(startIndex + numericPageSize, sortedTokens.length)} of ${sortedTokens.length} tokens`}</BodySecondary>
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
               </div>
             ) : null}
           </div>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/utility";
 import { cn } from "@/lib/utils";
 
 export interface TableColumn<T> {
@@ -235,40 +236,23 @@ export function Table<T extends Record<string, unknown>>({
       </div>
 
       {showPagination ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-[14px] border border-[#D7EAF0] bg-[#FCFEFF] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="ui-body-secondary">
             Showing {totalRecords === 0 ? 0 : (resolvedCurrentPage - 1) * pageSize + 1}-
-            {Math.min(resolvedCurrentPage * pageSize, totalRecords)} of {totalRecords}
+            {Math.min(resolvedCurrentPage * pageSize, totalRecords)} of {totalRecords} records
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                manualPagination
-                  ? onPageChange?.(Math.max(1, resolvedCurrentPage - 1))
-                  : setCurrentPage((page) => Math.max(1, page - 1))
+          <Pagination
+            currentPage={resolvedCurrentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => {
+              if (manualPagination) {
+                onPageChange?.(page);
+                return;
               }
-              disabled={resolvedCurrentPage === 1}
-            >
-              Previous
-            </Button>
-            <span className="min-w-20 text-center ui-body-secondary">
-              {resolvedCurrentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                manualPagination
-                  ? onPageChange?.(Math.min(totalPages, resolvedCurrentPage + 1))
-                  : setCurrentPage((page) => Math.min(totalPages, page + 1))
-              }
-              disabled={resolvedCurrentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
+
+              setCurrentPage(page);
+            }}
+          />
         </div>
       ) : null}
     </div>

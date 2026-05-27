@@ -290,7 +290,7 @@ export default function HospitalsPage() {
   const callLogs = useCallStore((state) => state.callLogs);
   const debouncedAdminSearch = useDebouncedValue(search, 350);
   const queryClient = useQueryClient();
-  const adminPageSize = 20;
+  const adminPageSize = 6;
 
   const adminSort = React.useMemo(() => {
     switch (sortOrder) {
@@ -978,7 +978,6 @@ export default function HospitalsPage() {
                   <div>
                     <p className="ui-section-title">{row.displayHospitalName || row.hospitalName || row.fullName}</p>
                     <p className="mt-1 ui-meta">{row.email}</p>
-                    <p className="mt-1 ui-meta">{t("hospitals.hospitalAccount")}</p>
                   </div>
                 </div>
               ),
@@ -1004,7 +1003,6 @@ export default function HospitalsPage() {
               render: (row) => (
                 <div className="space-y-1">
                   <p className="ui-body">{formatDisplayDate(row.registrationDate || "")}</p>
-                  <p className="ui-meta">{t("common.requestedRecently")}</p>
                 </div>
               ),
             },

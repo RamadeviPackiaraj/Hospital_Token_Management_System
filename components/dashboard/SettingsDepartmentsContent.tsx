@@ -52,6 +52,8 @@ export function SettingsDepartmentsContent() {
   const [approvedDoctors, setApprovedDoctors] = React.useState<Array<{ id: string; fullName: string }>>([]);
   const [doctorId, setDoctorId] = React.useState("");
   const [selectedDepartment, setSelectedDepartment] = React.useState("");
+  const [departmentSearch, setDepartmentSearch] = React.useState("");
+  const [assignmentSearch, setAssignmentSearch] = React.useState("");
   const [assignments, setAssignments] = React.useState<HospitalDoctorDepartmentAssignment[]>([]);
   const [editingAssignmentId, setEditingAssignmentId] = React.useState<string | null>(null);
   const [editingAssignmentDepartment, setEditingAssignmentDepartment] = React.useState("");
@@ -294,6 +296,52 @@ export function SettingsDepartmentsContent() {
 
   const departmentRows: DepartmentRow[] = departments.map((department) => ({ ...department }));
   const assignmentRows: AssignmentRow[] = assignments.map((assignment) => ({ ...assignment }));
+  const normalizedDepartmentSearch = departmentSearch.trim().toLowerCase();
+  const normalizedAssignmentSearch = assignmentSearch.trim().toLowerCase();
+
+  const filteredDepartmentRows = React.useMemo(
+    () =>
+      departmentRows.filter((department) => {
+        if (!normalizedDepartmentSearch) {
+          return true;
+        }
+
+        const haystack = [
+          department.name,
+          department.displayName,
+          localizeDepartmentName(department.name, department.displayName),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(normalizedDepartmentSearch);
+      }),
+    [departmentRows, normalizedDepartmentSearch]
+  );
+
+  const filteredAssignmentRows = React.useMemo(
+    () =>
+      assignmentRows.filter((assignment) => {
+        if (!normalizedAssignmentSearch) {
+          return true;
+        }
+
+        const haystack = [
+          assignment.doctorName,
+          assignment.displayDoctorName,
+          assignment.department,
+          assignment.displayDepartment,
+          localizeDepartmentName(assignment.department, assignment.displayDepartment),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(normalizedAssignmentSearch);
+      }),
+    [assignmentRows, normalizedAssignmentSearch]
+  );
 
   if (currentUser.role === "hospital") {
     return (
@@ -356,6 +404,15 @@ export function SettingsDepartmentsContent() {
         </Card>
 
         <Card className="p-4">
+          <div className="mb-4">
+            <label className="grid gap-2">
+              <Input
+                value={assignmentSearch}
+                onChange={(event) => setAssignmentSearch(event.target.value)}
+                placeholder="Search by doctor or department"
+              />
+            </label>
+          </div>
           <Table<AssignmentRow>
             columns={[
             {
@@ -451,9 +508,13 @@ export function SettingsDepartmentsContent() {
                   ),
               },
             ]}
-            data={assignmentRows}
+            data={filteredAssignmentRows}
             pageSize={6}
-            emptyMessage={t("departmentsFeature.noAssignments")}
+            emptyMessage={
+              normalizedAssignmentSearch
+                ? `No assignments found for "${assignmentSearch.trim()}".`
+                : t("departmentsFeature.noAssignments")
+            }
           />
         </Card>
 
@@ -482,12 +543,28 @@ export function SettingsDepartmentsContent() {
     return (
       <Card className="p-4">
         <h2 className="text-base font-medium text-[#0F172A]">{t("departmentsFeature.departmentList")}</h2>
+        <div className="mt-4">
+          <label className="grid gap-2">
+            <Input
+              value={departmentSearch}
+              onChange={(event) => setDepartmentSearch(event.target.value)}
+              placeholder="Search departments"
+            />
+          </label>
+        </div>
         <div className="mt-4 space-y-3">
-          {departments.map((department) => (
+          {filteredDepartmentRows.map((department) => (
             <div key={department.id} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
               <p className="text-sm font-medium text-[#0F172A]">{localizeDepartmentName(department.name, department.displayName)}</p>
             </div>
           ))}
+          {filteredDepartmentRows.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#D7EAF0] bg-[#FCFEFF] p-4 text-sm text-[#64748B]">
+              {normalizedDepartmentSearch
+                ? `No departments found for "${departmentSearch.trim()}".`
+                : t("departmentsFeature.noDepartments")}
+            </div>
+          ) : null}
         </div>
       </Card>
     );
@@ -545,6 +622,15 @@ export function SettingsDepartmentsContent() {
             <FolderCog className="size-4" />
           </span>
           {t("departmentsFeature.directory")}
+        </div>
+        <div className="mb-4">
+          <label className="grid gap-2">
+            <Input
+              value={departmentSearch}
+              onChange={(event) => setDepartmentSearch(event.target.value)}
+              placeholder="Search departments"
+            />
+          </label>
         </div>
         <Table<DepartmentRow>
           columns={[
@@ -610,9 +696,13 @@ export function SettingsDepartmentsContent() {
                 ),
             },
           ]}
-          data={departmentRows}
+          data={filteredDepartmentRows}
           pageSize={6}
-          emptyMessage={t("departmentsFeature.noDepartments")}
+          emptyMessage={
+            normalizedDepartmentSearch
+              ? `No departments found for "${departmentSearch.trim()}".`
+              : t("departmentsFeature.noDepartments")
+          }
         />
       </Card>
 

@@ -6,6 +6,7 @@ import { CalendarDays, Clock3 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { PageHero, useDashboardContext } from "@/components/dashboard";
 import { Card as UiCard } from "@/components/ui";
+import { ConfirmationDialog } from "@/components/overlay/ConfirmationDialog";
 import {
   CreateCard,
   CreateSchedule,
@@ -54,6 +55,7 @@ export default function DoctorSchedulePage() {
   const [submitMessage, setSubmitMessage] = React.useState("");
   const [editingScheduleId, setEditingScheduleId] = React.useState<string | null>(null);
   const [deletingScheduleId, setDeletingScheduleId] = React.useState<string | null>(null);
+  const [schedulePendingDelete, setSchedulePendingDelete] = React.useState<DoctorScheduleRecord | null>(null);
 
   const methods = useForm<DoctorScheduleFormValues>({
     resolver: zodResolver(doctorScheduleSchema),
@@ -691,7 +693,29 @@ export default function DoctorSchedulePage() {
         editingScheduleId={editingScheduleId}
         deletingScheduleId={deletingScheduleId}
         onEdit={handleEditSchedule}
-        onDelete={handleDeleteSchedule}
+        onDelete={(schedule) => setSchedulePendingDelete(schedule)}
+      />
+      <ConfirmationDialog
+        open={Boolean(schedulePendingDelete)}
+        title="Delete schedule"
+        description={
+          schedulePendingDelete
+            ? `Are you sure you want to delete ${schedulePendingDelete.displayDoctorName || schedulePendingDelete.doctorName}'s schedule for ${formatScheduleDate(schedulePendingDelete.date)}? This action cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        onCancel={() => setSchedulePendingDelete(null)}
+        onConfirm={() => {
+          if (!schedulePendingDelete) {
+            return;
+          }
+
+          void handleDeleteSchedule(schedulePendingDelete).finally(() => {
+            setSchedulePendingDelete(null);
+          });
+        }}
       />
     </div>
   );

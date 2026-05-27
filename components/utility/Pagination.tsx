@@ -1,6 +1,8 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 export interface PaginationProps {
   currentPage: number;
@@ -13,41 +15,51 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
     return null;
   }
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1).slice(
-    Math.max(currentPage - 2, 0),
-    Math.max(currentPage - 2, 0) + 5
-  );
+  const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  const endPage = Math.min(totalPages, startPage + 4);
+  const pages = Array.from({ length: endPage - startPage + 1 }, (_, index) => startPage + index);
 
   return (
     <nav
-      className="flex flex-wrap items-center justify-between gap-3"
+      className="flex flex-wrap items-center gap-3"
       aria-label="Pagination navigation"
     >
       <Button
-        variant="secondary"
+        variant="outline"
+        size="md"
+        className="h-12 rounded-[14px] border-[#23B5B5] px-6 text-[#23B5B5] hover:bg-[#F0FDFA]"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
+        leftIcon={<ChevronLeft className="size-4" />}
       >
         Previous
       </Button>
       <div className="flex flex-wrap items-center gap-2">
         {pages.map((page) => (
-          <Button
+          <button
             key={page}
-            variant={page === currentPage ? "primary" : "secondary"}
-            className="min-w-11 px-3"
+            type="button"
+            className={cn(
+              "inline-flex h-12 min-w-12 items-center justify-center rounded-[14px] border px-4 text-base font-semibold transition-colors",
+              page === currentPage
+                ? "border-[#23B5B5] bg-[#23B5B5] text-white"
+                : "border-[#23B5B5] bg-white text-[#23B5B5] hover:bg-[#F0FDFA]"
+            )}
             onClick={() => onPageChange(page)}
             aria-label={`Go to page ${page}`}
             aria-current={page === currentPage ? "page" : undefined}
           >
             {page}
-          </Button>
+          </button>
         ))}
       </div>
       <Button
-        variant="secondary"
+        variant="outline"
+        size="md"
+        className="h-12 rounded-[14px] border-[#23B5B5] px-6 text-[#23B5B5] hover:bg-[#F0FDFA]"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
+        rightIcon={<ChevronRight className="size-4" />}
       >
         Next
       </Button>
