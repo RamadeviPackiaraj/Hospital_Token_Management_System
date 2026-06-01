@@ -20,7 +20,8 @@ interface TokenCardProps {
 
 function getCardStyles(status: PatientTokenStatus) {
   switch (status) {
-    case "CALLING":
+    case "CALLED":
+    case "IN_PROGRESS":
       return {
         card: "border-[#22C55E] bg-[linear-gradient(180deg,#F0FDF4_0%,#FFFFFF_100%)]",
         line: "bg-[#22C55E]",
@@ -36,6 +37,8 @@ function getCardStyles(status: PatientTokenStatus) {
         glow: "bg-[#DCFCE7]",
       };
     case "COMPLETED":
+    case "NO_SHOW":
+    case "CANCELLED":
       return {
         card: "border-[#EF4444] bg-[linear-gradient(180deg,#FEF2F2_0%,#FFFFFF_100%)]",
         line: "bg-[#EF4444]",
@@ -50,7 +53,7 @@ function getCardStyles(status: PatientTokenStatus) {
         divider: "border-[#FECACA]",
         glow: "bg-[#FEE2E2]",
       };
-    case "NOT_STARTED":
+    case "WAITING":
     default:
       return {
         card: "border-[#0EA5A4] bg-[linear-gradient(180deg,#F0FDFA_0%,#FFFFFF_100%)]",
@@ -83,11 +86,13 @@ export function TokenCard({
   const department = localizeDepartmentName(token.department, token.displayDepartment);
   const editTokenLabel = `${t("patientEntry.editToken")} ${token.tokenNumber}`;
   const deleteTokenLabel = `${t("common.actions.delete")} ${t("patientEntry.token").toLowerCase()} ${token.tokenNumber}`;
+  const isActive = token.status === "CALLED" || token.status === "IN_PROGRESS";
+  const canEditOrDelete = token.status === "WAITING";
   const actionButtonClass = cn(
     "inline-flex h-8 w-8 items-center justify-center rounded-md border bg-white/90 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60",
-    token.status === "COMPLETED"
+    token.status === "COMPLETED" || token.status === "NO_SHOW" || token.status === "CANCELLED"
       ? "border-[#FCA5A5] text-[#DC2626] hover:bg-[#FEF2F2]"
-      : token.status === "CALLING"
+      : isActive
         ? "border-[#86EFAC] text-[#15803D] hover:bg-[#F0FDF4]"
         : "border-[#99F6E4] text-[#0EA5A4] hover:bg-[#F0FDFA]"
   );
@@ -122,32 +127,40 @@ export function TokenCard({
                   status={styles.badgeTone}
                   className={cn("rounded-lg border px-2.5 py-1 text-[11px] font-semibold", styles.badgeClass)}
                 >
-                  {token.status === "CALLING"
+                  {isActive
                     ? t("patientEntry.calling")
                     : token.status === "COMPLETED"
                       ? t("patientEntry.completed")
-                      : t("patientEntry.pending")}
+                      : token.status === "NO_SHOW"
+                        ? "No show"
+                        : token.status === "CANCELLED"
+                          ? "Cancelled"
+                          : t("patientEntry.pending")}
                 </Badge>
-                <button
-                  type="button"
-                  onClick={() => void onEdit(token.id)}
-                  disabled={isUpdating}
-                  aria-label={editTokenLabel}
-                  title={editTokenLabel}
-                  className={actionButtonClass}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onDelete(token.id)}
-                  disabled={isUpdating}
-                  aria-label={deleteTokenLabel}
-                  title={deleteTokenLabel}
-                  className={actionButtonClass}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {canEditOrDelete ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void onEdit(token.id)}
+                      disabled={isUpdating}
+                      aria-label={editTokenLabel}
+                      title={editTokenLabel}
+                      className={actionButtonClass}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onDelete(token.id)}
+                      disabled={isUpdating}
+                      aria-label={deleteTokenLabel}
+                      title={deleteTokenLabel}
+                      className={actionButtonClass}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                ) : null}
               </div>
             </div>
 
@@ -183,10 +196,10 @@ export function TokenCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {token.status === "NOT_STARTED" ? (
+          {token.status === "WAITING" ? (
             <Button
               size="sm"
-              onClick={() => void onStatusChange(token.id, "CALLING")}
+              onClick={() => void onStatusChange(token.id, "CALLED")}
               loading={isUpdating}
               className={cn("flex-1 rounded-[10px] border", styles.buttonClass)}
             >
@@ -194,7 +207,7 @@ export function TokenCard({
             </Button>
           ) : null}
 
-          {token.status === "CALLING" ? (
+          {isActive ? (
             <>
               <Button
                 size="sm"
@@ -208,24 +221,24 @@ export function TokenCard({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => void onStatusChange(token.id, "NOT_STARTED")}
+                onClick={() => void onStatusChange(token.id, "NO_SHOW")}
                 loading={isUpdating}
                 className={cn("flex-1 rounded-[10px] border bg-[#FFFFFF]", styles.buttonClass)}
               >
-                {t("patientEntry.reset")}
+                No Show
               </Button>
             </>
           ) : null}
 
-          {token.status === "COMPLETED" ? (
+          {token.status === "WAITING" ? (
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => void onStatusChange(token.id, "NOT_STARTED")}
+              onClick={() => void onStatusChange(token.id, "CANCELLED")}
               loading={isUpdating}
               className={cn("flex-1 rounded-[10px] border bg-[#FFFFFF]", styles.buttonClass)}
             >
-              {t("patientEntry.reset")}
+              Cancel
             </Button>
           ) : null}
         </div>

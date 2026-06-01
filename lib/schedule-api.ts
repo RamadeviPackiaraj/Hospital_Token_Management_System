@@ -138,11 +138,19 @@ export interface UpdatePatientTokenPayload {
 }
 
 function normalizePatientTokenStatus(status?: string): PatientTokenStatus {
-  if (status === "CALLING" || status === "COMPLETED") {
+  if (
+    status === "WAITING" ||
+    status === "CALLED" ||
+    status === "IN_PROGRESS" ||
+    status === "COMPLETED" ||
+    status === "NO_SHOW" ||
+    status === "CANCELLED"
+  ) {
     return status;
   }
 
-  return "NOT_STARTED";
+  if (status === "CALLING" || status === "inprogress") return "CALLED";
+  return "WAITING";
 }
 
 function mapSchedule(record: BackendScheduleRecord): DoctorScheduleRecord {

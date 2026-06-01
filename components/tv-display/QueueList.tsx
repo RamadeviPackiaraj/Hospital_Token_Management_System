@@ -11,13 +11,14 @@ function formatTokenNumber(tokenNumber: number) {
 }
 
 function getStatusLabel(status: PatientTokenRecord["status"]) {
-  if (status === "CALLING") return "Calling";
+  if (status === "CALLED") return "Calling";
+  if (status === "IN_PROGRESS") return "In Progress";
   if (status === "COMPLETED") return "Completed";
   return "Waiting";
 }
 
 function getStatusClasses(status: PatientTokenRecord["status"]) {
-  if (status === "CALLING") {
+  if (status === "CALLED" || status === "IN_PROGRESS") {
     return "border-teal-200 bg-teal-50 text-teal-700";
   }
 
@@ -29,7 +30,7 @@ function getStatusClasses(status: PatientTokenRecord["status"]) {
 }
 
 function getStatusIcon(status: PatientTokenRecord["status"]) {
-  if (status === "CALLING") return BellRing;
+  if (status === "CALLED" || status === "IN_PROGRESS") return BellRing;
   if (status === "COMPLETED") return CheckCircle2;
   return Hourglass;
 }
@@ -61,7 +62,7 @@ export function QueueList({ tokens }: QueueListProps) {
 
       <div className="mt-6 flex flex-col gap-4">
         {tokens.map((token, index) => {
-          const isCalling = token.status === "CALLING";
+          const isCalling = token.status === "CALLED" || token.status === "IN_PROGRESS";
           const StatusIcon = getStatusIcon(token.status);
 
           return (
