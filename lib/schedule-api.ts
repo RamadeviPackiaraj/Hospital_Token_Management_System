@@ -69,6 +69,7 @@ interface BackendPatientTokenRecord {
   time: string;
   status?: string;
   createdAt?: string;
+  updatedAt?: string;
   createdAtDisplay?: string;
 }
 
@@ -189,6 +190,7 @@ function mapToken(record: BackendPatientTokenRecord): PatientTokenRecord {
     time: record.time,
     status: normalizePatientTokenStatus(record.status),
     createdAt: record.createdAtDisplay || record.createdAt || "",
+    updatedAt: record.updatedAt || record.createdAt || "",
   };
 }
 

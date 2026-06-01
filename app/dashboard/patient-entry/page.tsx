@@ -28,9 +28,7 @@ import {
   updatePatientToken,
   updatePatientTokenStatus,
 } from "@/lib/schedule-api";
-import { generateAnnouncement, type AnnouncementLanguage } from "@/lib/announcement-api";
-import { playAudio } from "@/lib/audioPlayer";
-import { speakAnnouncementText } from "@/lib/browser-tts";
+import { cancelSpeechSynthesis } from "@/lib/browser-tts";
 import { localizeDepartmentName } from "@/lib/dynamic-localization";
 import { logger } from "@/lib/logger";
 import type { DoctorScheduleRecord, PatientTokenRecord } from "@/lib/scheduling-types";
@@ -40,33 +38,9 @@ import {
   type PatientEntryFormValues,
 } from "@/utils/schedulingSchemas";
 
-const TV_ANNOUNCEMENT_SETTINGS_KEY = "hospital_tv_announcement_settings";
-
-function mapUiLanguageToAnnouncementLanguage(language: string): AnnouncementLanguage {
-  if (language === "ta") return "ta";
-  if (language === "hi") return "hi";
-  if (language === "ml") return "ml";
-  return "en";
-}
-
-function getStoredAnnouncementGender() {
-  if (typeof window === "undefined") {
-    return "male" as const;
-  }
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(TV_ANNOUNCEMENT_SETTINGS_KEY) || "{}") as {
-      voiceType?: "male" | "female";
-    };
-    return parsed.voiceType === "female" ? "female" : "male";
-  } catch {
-    return "male" as const;
-  }
-}
-
 export default function PatientEntryPage() {
   const { currentUser } = useDashboardContext();
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [schedules, setSchedules] = React.useState<DoctorScheduleRecord[]>([]);
   const [tokens, setTokens] = React.useState<PatientTokenRecord[]>([]);
   const [departmentDisplayByValue, setDepartmentDisplayByValue] = React.useState<Record<string, string>>({});
@@ -209,36 +183,21 @@ export default function PatientEntryPage() {
     setUpdatingTokenId(tokenId);
 
     try {
-      const updatedToken = await updatePatientTokenStatus({ tokenId, status });
-      setTokens((current) =>
-        current.map((token) => (token.id === updatedToken.id ? updatedToken : token))
-      );
-      if (status === "CALLING") {
-        const announcement = await generateAnnouncement({
-          tokenNumber: updatedToken.tokenNumber,
-          patientName: updatedToken.displayPatientName || updatedToken.patientName,
-          doctorName: updatedToken.displayDoctorName || updatedToken.doctorName,
-          department: updatedToken.displayDepartment || updatedToken.department,
-          language: mapUiLanguageToAnnouncementLanguage(language),
-          gender: getStoredAnnouncementGender(),
-        });
-
+      if (status === "COMPLETED") {
         stopAnnouncementAudio();
-        const played = announcement.audioUrl
-          ? await playAudio(announcement.audioUrl, {
-              onAudioCreated: (audio) => {
-                activeAnnouncementAudioRef.current = audio;
-              },
-            })
-          : false;
-
-        if (!played) {
-          speakAnnouncementText({
-            text: announcement.translatedText,
-            language,
-          });
-        }
+        cancelSpeechSynthesis();
       }
+
+      const updatedToken = await updatePatientTokenStatus({ tokenId, status });
+      if (status === "CALLING") {
+        const latestTokens = await getPatientTokens({ date: visitDate });
+        setTokens(latestTokens);
+      } else {
+        setTokens((current) =>
+          current.map((token) => (token.id === updatedToken.id ? updatedToken : token))
+        );
+      }
+
       logger.success("Token status updated", {
         source: "patient-entry",
         data: { tokenId, status },
@@ -246,6 +205,20 @@ export default function PatientEntryPage() {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update status";
+      if (status === "CALLING") {
+        const latestTokens = await getPatientTokens({ date: visitDate });
+        setTokens(latestTokens);
+      }
+
+      if (status === "CALLING" && message.includes("currently being called")) {
+        logger.warn(message, {
+          source: "patient-entry",
+          data: { tokenId, status, error: message },
+          toast: true,
+        });
+        return;
+      }
+
       logger.error("Failed to update status", {
         source: "patient-entry",
         data: { tokenId, status, error: message },

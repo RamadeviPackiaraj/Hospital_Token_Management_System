@@ -45,6 +45,7 @@ export interface PatientTokenRecord {
   time: string;
   status: PatientTokenStatus;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export const consultationTimeOptions = [

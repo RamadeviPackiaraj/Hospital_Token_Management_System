@@ -25,6 +25,7 @@ import type { PatientTokenRecord } from "@/lib/scheduling-types";
 const ANNOUNCEMENT_SETTINGS_KEY = "hospital_tv_announcement_settings";
 const ANNOUNCEMENT_REPEAT_COUNT = 2;
 const ANNOUNCEMENT_REPEAT_GAP_MS = 300;
+const TOKEN_REFRESH_INTERVAL_MS = 1000;
 
 type AnnouncementSettings = {
   voiceType: "male" | "female";
@@ -95,6 +96,11 @@ function getTodayDateKey(date: Date) {
 
 function sortTokens(tokens: PatientTokenRecord[]) {
   return [...tokens].sort((left, right) => left.tokenNumber - right.tokenNumber);
+}
+
+function getTokenCallTime(token: PatientTokenRecord) {
+  const timestamp = new Date(token.updatedAt || token.createdAt || 0).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function formatDisplayDate(date: Date, language: AppLanguage) {
@@ -270,6 +276,8 @@ export default function TVDisplayPage() {
   const activeAudioControllerRef = React.useRef<AbortController | null>(null);
   const announcementRunIdRef = React.useRef(0);
   const announcedTokenSignaturesRef = React.useRef<Map<string, string>>(new Map());
+  const announcementProcessingRef = React.useRef(false);
+  const activeCallingTokensRef = React.useRef<PatientTokenRecord[]>([]);
 
   React.useEffect(() => {
     settingsRef.current = settings;
@@ -432,7 +440,7 @@ export default function TVDisplayPage() {
     void loadTokens();
     const poller = window.setInterval(() => {
       void loadTokens();
-    }, 30000);
+    }, TOKEN_REFRESH_INTERVAL_MS);
 
     return () => {
       isMounted = false;
@@ -456,7 +464,10 @@ export default function TVDisplayPage() {
   }, [tokens]);
 
   const activeCallingTokens = React.useMemo(
-    () => displayTokens.filter((token) => token.status === "CALLING"),
+    () =>
+      displayTokens
+        .filter((token) => token.status === "CALLING")
+        .sort((left, right) => getTokenCallTime(left) - getTokenCallTime(right)),
     [displayTokens]
   );
 
@@ -464,6 +475,17 @@ export default function TVDisplayPage() {
     () => activeCallingTokens[0] ?? null,
     [activeCallingTokens]
   );
+
+  React.useEffect(() => {
+    activeCallingTokensRef.current = activeCallingTokens;
+
+    const activeTokenIds = new Set(activeCallingTokens.map((token) => token.id));
+    for (const tokenId of announcedTokenSignaturesRef.current.keys()) {
+      if (!activeTokenIds.has(tokenId)) {
+        announcedTokenSignaturesRef.current.delete(tokenId);
+      }
+    }
+  }, [activeCallingTokens]);
 
   React.useEffect(() => {
     if (currentToken?.status === "CALLING") {
@@ -479,100 +501,94 @@ export default function TVDisplayPage() {
       return;
     }
 
-    if (settings.muted) {
+    if (settings.muted || announcementProcessingRef.current) {
       return;
     }
 
-    const runId = announcementRunIdRef.current + 1;
-    announcementRunIdRef.current = runId;
-
-    const activeTokenIds = new Set(activeCallingTokens.map((token) => token.id));
-    for (const tokenId of announcedTokenSignaturesRef.current.keys()) {
-      if (!activeTokenIds.has(tokenId)) {
-        announcedTokenSignaturesRef.current.delete(tokenId);
-      }
-    }
+    const runId = announcementRunIdRef.current;
+    announcementProcessingRef.current = true;
 
     async function runAnnouncements() {
-      const tokensToAnnounce = activeCallingTokens.filter((token) => {
-        const signature = buildAnnouncementSignature(
-          token,
-          settingsRef.current.language,
-          settingsRef.current.voiceType
-        );
+      try {
+        while (announcementRunIdRef.current === runId && !settingsRef.current.muted) {
+          const nextToken = activeCallingTokensRef.current.find((token) => {
+            const signature = buildAnnouncementSignature(
+              token,
+              settingsRef.current.language,
+              settingsRef.current.voiceType
+            );
 
-        return announcedTokenSignaturesRef.current.get(token.id) !== signature;
-      });
-
-      for (const token of tokensToAnnounce) {
-        if (announcementRunIdRef.current !== runId) return;
-
-        const announcementRequest = buildAnnouncementRequest(
-          token,
-          settingsRef.current.language,
-          settingsRef.current.voiceType
-        );
-        const fallbackText = `Token number ${announcementRequest.payload.tokenNumber} Patient ${announcementRequest.payload.patientName}, please go to Dr. ${announcementRequest.payload.doctorName} in the ${announcementRequest.payload.department} department.`;
-        const signature = buildAnnouncementSignature(
-          token,
-          settingsRef.current.language,
-          settingsRef.current.voiceType
-        );
-
-        try {
-          const result = await generateAnnouncement(announcementRequest.payload);
-          if (announcementRunIdRef.current !== runId) return;
-
-          setCurrentAnnouncementResult(result);
-
-          if (!settingsRef.current.muted) {
-            for (let repeatIndex = 0; repeatIndex < ANNOUNCEMENT_REPEAT_COUNT; repeatIndex += 1) {
-              if (announcementRunIdRef.current !== runId) return;
-
-              const played = result.audioUrl ? await playAnnouncementAudio(result.audioUrl, true) : false;
-              if (!played) {
-                await speakAnnouncementFallbackAsync(result.translatedText);
-              }
-
-              if (repeatIndex < ANNOUNCEMENT_REPEAT_COUNT - 1 && announcementRunIdRef.current === runId) {
-                await wait(ANNOUNCEMENT_REPEAT_GAP_MS);
-              }
-            }
-          }
-
-          announcedTokenSignaturesRef.current.set(token.id, signature);
-        } catch (error) {
-          if (announcementRunIdRef.current !== runId) return;
-
-          logger.warn("Unable to generate TV announcement", {
-            source: "tv-display.announcement",
-            data: { error, payload: announcementRequest.payload },
+            return announcedTokenSignaturesRef.current.get(token.id) !== signature;
           });
 
-          if (!settingsRef.current.muted) {
-            for (let repeatIndex = 0; repeatIndex < ANNOUNCEMENT_REPEAT_COUNT; repeatIndex += 1) {
-              if (announcementRunIdRef.current !== runId) return;
-
-              await speakAnnouncementFallbackAsync(fallbackText);
-
-              if (repeatIndex < ANNOUNCEMENT_REPEAT_COUNT - 1 && announcementRunIdRef.current === runId) {
-                await wait(ANNOUNCEMENT_REPEAT_GAP_MS);
-              }
-            }
+          if (!nextToken) {
+            return;
           }
 
-          announcedTokenSignaturesRef.current.set(token.id, signature);
+          const announcementRequest = buildAnnouncementRequest(
+            nextToken,
+            settingsRef.current.language,
+            settingsRef.current.voiceType
+          );
+          const fallbackText = `Token number ${announcementRequest.payload.tokenNumber} Patient ${announcementRequest.payload.patientName}, please go to Dr. ${announcementRequest.payload.doctorName} in the ${announcementRequest.payload.department} department.`;
+          const signature = buildAnnouncementSignature(
+            nextToken,
+            settingsRef.current.language,
+            settingsRef.current.voiceType
+          );
+
+          try {
+            const result = await generateAnnouncement(announcementRequest.payload);
+            if (announcementRunIdRef.current !== runId) return;
+
+            setCurrentAnnouncementResult(result);
+
+            if (!settingsRef.current.muted) {
+              for (let repeatIndex = 0; repeatIndex < ANNOUNCEMENT_REPEAT_COUNT; repeatIndex += 1) {
+                if (announcementRunIdRef.current !== runId) return;
+
+                const played = result.audioUrl ? await playAnnouncementAudio(result.audioUrl, true) : false;
+                if (!played) {
+                  await speakAnnouncementFallbackAsync(result.translatedText);
+                }
+
+                if (repeatIndex < ANNOUNCEMENT_REPEAT_COUNT - 1 && announcementRunIdRef.current === runId) {
+                  await wait(ANNOUNCEMENT_REPEAT_GAP_MS);
+                }
+              }
+            }
+
+            announcedTokenSignaturesRef.current.set(nextToken.id, signature);
+          } catch (error) {
+            if (announcementRunIdRef.current !== runId) return;
+
+            logger.warn("Unable to generate TV announcement", {
+              source: "tv-display.announcement",
+              data: { error, payload: announcementRequest.payload },
+            });
+
+            if (!settingsRef.current.muted) {
+              for (let repeatIndex = 0; repeatIndex < ANNOUNCEMENT_REPEAT_COUNT; repeatIndex += 1) {
+                if (announcementRunIdRef.current !== runId) return;
+
+                await speakAnnouncementFallbackAsync(fallbackText);
+
+                if (repeatIndex < ANNOUNCEMENT_REPEAT_COUNT - 1 && announcementRunIdRef.current === runId) {
+                  await wait(ANNOUNCEMENT_REPEAT_GAP_MS);
+                }
+              }
+            }
+
+            announcedTokenSignaturesRef.current.set(nextToken.id, signature);
+          }
         }
+      } finally {
+        announcementProcessingRef.current = false;
       }
     }
 
     void runAnnouncements();
-
-    return () => {
-      announcementRunIdRef.current += 1;
-      stopAllAnnouncementPlayback();
-    };
-  }, [activeCallingTokens, playAnnouncementAudio, settings.muted, speakAnnouncementFallbackAsync, stopAllAnnouncementPlayback]);
+  }, [activeCallingTokens, playAnnouncementAudio, settings.muted, settings.language, settings.voiceType, speakAnnouncementFallbackAsync]);
 
   const visibleTokens = React.useMemo(() => {
     return activeCallingTokens;
