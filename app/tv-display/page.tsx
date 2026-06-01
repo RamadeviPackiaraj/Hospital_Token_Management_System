@@ -466,7 +466,7 @@ export default function TVDisplayPage() {
   const activeCallingTokens = React.useMemo(
     () =>
       displayTokens
-        .filter((token) => token.status === "CALLED" || token.status === "IN_PROGRESS")
+        .filter((token) => token.status === "CALLING")
         .sort((left, right) => getTokenCallTime(left) - getTokenCallTime(right)),
     [displayTokens]
   );
@@ -488,7 +488,7 @@ export default function TVDisplayPage() {
   }, [activeCallingTokens]);
 
   React.useEffect(() => {
-    if (currentToken?.status === "CALLED" || currentToken?.status === "IN_PROGRESS") {
+    if (currentToken?.status === "CALLING") {
       return;
     }
 
@@ -594,10 +594,7 @@ export default function TVDisplayPage() {
     return activeCallingTokens;
   }, [activeCallingTokens]);
 
-  const { formatted } = useTimer(
-    currentToken?.id ?? null,
-    currentToken?.status === "CALLED" || currentToken?.status === "IN_PROGRESS"
-  );
+  const { formatted } = useTimer(currentToken?.id ?? null, currentToken?.status === "CALLING");
   const displayDate = React.useMemo(() => (now ? formatDisplayDate(now, language) : "-- --- ----"), [language, now]);
   const displayClock = React.useMemo(
     () => (now ? formatDisplayTime(now, language) : { time: "--:--:--", period: "" }),

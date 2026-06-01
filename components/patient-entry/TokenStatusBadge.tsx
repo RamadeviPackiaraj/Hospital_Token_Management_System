@@ -11,32 +11,20 @@ const statusConfig: Record<
   PatientTokenStatus,
   {
     label: string;
-    tone: "neutral" | "warning" | "success" | "error";
+    tone: "neutral" | "warning" | "success";
   }
 > = {
-  WAITING: {
-    label: "Waiting",
+  NOT_STARTED: {
+    label: "Not Started",
     tone: "neutral",
   },
-  CALLED: {
-    label: "Called",
-    tone: "warning",
-  },
-  IN_PROGRESS: {
+  CALLING: {
     label: "In Progress",
     tone: "warning",
   },
   COMPLETED: {
     label: "Completed",
     tone: "success",
-  },
-  NO_SHOW: {
-    label: "No show",
-    tone: "error",
-  },
-  CANCELLED: {
-    label: "Cancelled",
-    tone: "error",
   },
 };
 

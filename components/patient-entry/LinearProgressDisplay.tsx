@@ -12,7 +12,7 @@ interface LinearProgressDisplayProps {
 }
 
 function getStatusStyles(status: PatientTokenStatus | null) {
-  if (status === "CALLED" || status === "IN_PROGRESS") {
+  if (status === "CALLING") {
     return {
       panel: "border-[#BBF7D0] bg-[#F0FDF4]",
       ring: "border-[#22C55E]",

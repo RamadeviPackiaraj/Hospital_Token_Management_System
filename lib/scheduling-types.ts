@@ -26,7 +26,7 @@ export interface DoctorScheduleRecord {
   slots: DoctorScheduleSlot[];
 }
 
-export type PatientTokenStatus = "WAITING" | "CALLED" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW" | "CANCELLED";
+export type PatientTokenStatus = "NOT_STARTED" | "CALLING" | "COMPLETED";
 
 export interface PatientTokenRecord {
   id: string;

@@ -64,12 +64,9 @@ export function TokenList({
   const statusOptions = React.useMemo(
     () => [
       { label: "All Statuses", value: "all" },
-      { label: t("patientEntry.pending"), value: "WAITING" },
-      { label: t("patientEntry.calling"), value: "CALLED" },
-      { label: "In progress", value: "IN_PROGRESS" },
+      { label: t("patientEntry.pending"), value: "NOT_STARTED" },
+      { label: t("patientEntry.calling"), value: "CALLING" },
       { label: t("patientEntry.completed"), value: "COMPLETED" },
-      { label: "No show", value: "NO_SHOW" },
-      { label: "Cancelled", value: "CANCELLED" },
     ],
     [t]
   );

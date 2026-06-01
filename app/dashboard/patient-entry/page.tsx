@@ -183,13 +183,13 @@ export default function PatientEntryPage() {
     setUpdatingTokenId(tokenId);
 
     try {
-      if (status === "COMPLETED" || status === "NO_SHOW" || status === "CANCELLED") {
+      if (status === "COMPLETED") {
         stopAnnouncementAudio();
         cancelSpeechSynthesis();
       }
 
       const updatedToken = await updatePatientTokenStatus({ tokenId, status });
-      if (status === "CALLED") {
+      if (status === "CALLING") {
         const latestTokens = await getPatientTokens({ date: visitDate });
         setTokens(latestTokens);
       } else {
@@ -205,12 +205,12 @@ export default function PatientEntryPage() {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update status";
-      if (status === "CALLED") {
+      if (status === "CALLING") {
         const latestTokens = await getPatientTokens({ date: visitDate });
         setTokens(latestTokens);
       }
 
-      if (status === "CALLED" && message.includes("Complete the current token before calling the next patient.")) {
+      if (status === "CALLING" && message.includes("Complete the current token before calling the next patient.")) {
         logger.warn(message, {
           source: "patient-entry",
           data: { tokenId, status, error: message },

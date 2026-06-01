@@ -223,14 +223,14 @@ function getLastDays(language: keyof typeof LOCALE_MAP, count: number) {
 
 function getStatusTone(status: string) {
   if (status === "approved" || status === "COMPLETED") return "success" as const;
-  if (status === "pending" || status === "CALLED" || status === "IN_PROGRESS") return "warning" as const;
+  if (status === "pending" || status === "CALLING") return "warning" as const;
   if (status === "rejected") return "error" as const;
   return "info" as const;
 }
 
 function getTokenStatusLabel(status: PatientTokenStatus, copy: RoleCopy) {
   if (status === "COMPLETED") return copy.labels.consultations;
-  if (status === "CALLED" || status === "IN_PROGRESS") return copy.labels.booked;
+  if (status === "CALLING") return copy.labels.booked;
   return copy.labels.available;
 }
 
@@ -330,8 +330,8 @@ function buildApprovalBreakdown(doctors: MockUser[], hospitals: MockUser[]): Bre
 
 function buildTokenBreakdown(tokens: PatientTokenRecord[]): BreakdownDatum[] {
   return [
-    { label: "Waiting", value: tokens.filter((token) => token.status === "WAITING").length, tone: "mint" },
-    { label: "Active", value: tokens.filter((token) => token.status === "CALLED" || token.status === "IN_PROGRESS").length, tone: "amber" },
+    { label: "Not Started", value: tokens.filter((token) => token.status === "NOT_STARTED").length, tone: "mint" },
+    { label: "Calling", value: tokens.filter((token) => token.status === "CALLING").length, tone: "amber" },
     { label: "Completed", value: tokens.filter((token) => token.status === "COMPLETED").length, tone: "teal" },
   ];
 }
@@ -1188,7 +1188,7 @@ function DashboardPageContent() {
                 key: "status",
                 label: copy.labels.status,
                 render: (row) => (
-                  <Badge variant={getStatusTone("finalStatus" in row ? row.finalStatus : "CALLED")}>
+                  <Badge variant={getStatusTone("finalStatus" in row ? row.finalStatus : "CALLING")}>
                     {"finalStatus" in row ? row.finalStatus : "active"}
                   </Badge>
                 ),

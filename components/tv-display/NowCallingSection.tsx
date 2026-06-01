@@ -41,8 +41,8 @@ function getDepartmentIcon(department?: string | null) {
 }
 
 export function NowCallingSection({ token, nextToken, isUpdating }: NowCallingSectionProps) {
-  const isActive = token?.status === "CALLED" || token?.status === "IN_PROGRESS";
-  const { formatted } = useTimer(token?.id ?? null, isActive);
+  const { formatted } = useTimer(token?.id ?? null, token?.status === "CALLING");
+  const isActive = token?.status === "CALLING";
   const DepartmentIcon = getDepartmentIcon(token?.department);
   const NextDepartmentIcon = getDepartmentIcon(nextToken?.department);
 

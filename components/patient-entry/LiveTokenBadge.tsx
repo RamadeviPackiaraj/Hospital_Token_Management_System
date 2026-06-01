@@ -19,8 +19,7 @@ interface LiveTokenBadgeProps {
  */
 function getTokenBadgeStyles(status: PatientTokenStatus) {
   switch (status) {
-    case "CALLED":
-    case "IN_PROGRESS":
+    case "CALLING":
       return {
         circle: "bg-[#0EA5A4] text-white",
         animated: true,
@@ -30,7 +29,7 @@ function getTokenBadgeStyles(status: PatientTokenStatus) {
         circle: "bg-[#0EA5A4] text-white opacity-80",
         animated: false,
       };
-    case "WAITING":
+    case "NOT_STARTED":
     default:
       return {
         circle: "bg-[#C7D2E0] text-white",
@@ -45,7 +44,7 @@ export function LiveTokenBadge({ tokenNumber, status }: LiveTokenBadgeProps) {
   return (
     <div className="flex justify-center py-2">
       <div className="relative">
-        {/* Animated ping ring - only for active status */}
+        {/* Animated ping ring - only for CALLING status */}
         {styles.animated && (
           <div
             className="absolute inset-0 inline-flex h-16 w-16 animate-ping rounded-full bg-[#0EA5A4] opacity-30"
